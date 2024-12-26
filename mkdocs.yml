@@ -1,0 +1,38 @@
+site_name: cloudcoil
+site_author: Sambhav Kothari
+site_description: Cloud-native made easy with Python
+
+repo_name: cloudcoil/cloudcoil
+repo_url: https://github.com/cloudcoil/cloudcoil
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.tabs
+  language: en
+
+nav:
+  - Home: index.md
+  - API Reference: api.md
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.extra
+  - pymdownx.superfences
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          rendering:
+            show_root_heading: false
+            show_root_full_path: false
+            show_root_toc_entry: false
+            show_source: false
+            heading_level: 4
+            show_signature_annotations: true

@@ -1,0 +1,50 @@
+[project]
+name = "cloudcoil"
+version = "0.0.0"
+description = "Cloud native made easy with Python"
+authors = [
+    {name = "Sambhav Kothari", email = "sambhavs.email@gmail.com"}
+]
+license = {text = "Apache-2.0"}
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "pydantic>2.0",
+    "httpx"
+]
+
+[build-system]
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "B",    # flake8-bugbear
+    "N",    # pep8-naming
+    "I",    # isort
+]
+ignore = ["E203", "B008", "N818", "E501", "B904"]
+
+[tool.pytest.ini_options]
+addopts = "-ra -q --cov=cloudcoil --cov-report=xml"
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.5.3",
+    "mkdocstrings>=0.24.0",
+    "mkdocstrings-python>=1.7.5",
+    "mkdocs-autorefs>=0.5.0",
+    "pytest>=8.3.4",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.8.4",
+    "mkdocs-autorefs",
+]
