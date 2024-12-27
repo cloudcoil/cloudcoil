@@ -1,0 +1,41 @@
+---
+    name: PyPI publish
+    
+    on:
+      release:
+        types: [released]
+    
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        permissions:
+            # IMPORTANT: this permission is mandatory for Trusted Publishing
+            id-token: write
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v3
+    
+          - name: Setup Python
+            uses: actions/setup-python@v4
+            with:
+              python-version: "3.9"
+    
+          - name: Install uv
+            uses: astral-sh/setup-uv@v4
+            with:
+              python-version: "3.9"
+              enable-cache: true
+              cache-dependency-glob: "**/uv.lock"
+    
+          - name: Install dependencies
+            run: uv sync --all-extras --dev
+    
+          - name: Bump version number
+            run: |
+              sed -i "s/version = \".*\"/version = \"${{ github.event.release.tag_name }}\"/" pyproject.toml
+    
+          - name: Build package
+            run: uv build
+    
+          - name: Publish package distributions to PyPI
+            uses: pypa/gh-action-pypi-publish@release/v1
