@@ -7,7 +7,8 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import BaseModel, Resource
+from cloudcoil._pydantic import BaseModel
+from cloudcoil.client import Resource
 
 from ..apimachinery import utils, v1
 from ..core import v1 as v1_1
@@ -660,7 +661,7 @@ class StatefulSetSpec(BaseModel):
         Optional[StatefulSetPersistentVolumeClaimRetentionPolicy],
         Field(
             alias="persistentVolumeClaimRetentionPolicy",
-            description="persistentVolumeClaimRetentionPolicy describes the lifecycle of persistent volume claims created from volumeClaimTemplates. By default, all persistent volume claims are created as needed and retained until manually deleted. This policy allows the lifecycle to be altered, for example by deleting persistent volume claims when their stateful set is deleted, or when their pod is scaled down.",
+            description="persistentVolumeClaimRetentionPolicy describes the lifecycle of persistent volume claims created from volumeClaimTemplates. By default, all persistent volume claims are created as needed and retained until manually deleted. This policy allows the lifecycle to be altered, for example by deleting persistent volume claims when their stateful set is deleted, or when their pod is scaled down. This requires the StatefulSetAutoDeletePVC feature gate to be enabled, which is beta.",
         ),
     ] = None
     pod_management_policy: Annotated[

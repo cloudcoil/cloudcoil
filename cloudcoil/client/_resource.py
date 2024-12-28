@@ -37,3 +37,23 @@ class Resource(RootModel):
     async def async_get(cls, name: str, namespace: str | None = None) -> Self:
         client_set = context.active_client_set
         return await client_set.client_for(cls, sync=False).get(name, namespace)
+
+    def create(self, namespace: str | None = None) -> Self:
+        client_set = context.active_client_set
+        return client_set.client_for(self.__class__, sync=True).create(self, namespace=namespace)
+
+    async def async_create(self, namespace: str | None = None) -> Self:
+        client_set = context.active_client_set
+        return await client_set.client_for(self.__class__, sync=False).create(
+            self, namespace=namespace
+        )
+
+    @classmethod
+    def delete(cls, name: str, namespace: str | None = None) -> Self:
+        client_set = context.active_client_set
+        return client_set.client_for(cls, sync=True).delete(name, namespace)
+
+    @classmethod
+    async def async_delete(cls, name: str, namespace: str | None = None) -> Self:
+        client_set = context.active_client_set
+        return await client_set.client_for(cls, sync=False).delete(name, namespace)

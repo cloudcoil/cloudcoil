@@ -11,7 +11,7 @@ lint:
 .PHONY: fix-lint
 fix-lint:
 	uv run ruff format cloudcoil tests
-	uv run ruff check --fix cloudcoil tests
+	uv run ruff check --fix --unsafe-fixes cloudcoil tests
 
 .PHONY: docs-serve
 docs-serve:
@@ -43,7 +43,7 @@ gen-models:
 		--use-default-kwarg \
 		--custom-template-dir templates \
 		--extra-template-data extra_data.json \
-		--additional-imports cloudcoil.client.BaseModel \
+		--additional-imports cloudcoil._pydantic.BaseModel \
 		--use-default
 	rm -rf cloudcoil/models/__init__.py
 	touch cloudcoil/models/__init__.py

@@ -7,7 +7,8 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import BaseModel, Resource
+from cloudcoil._pydantic import BaseModel
+from cloudcoil.client import Resource
 
 from ..apimachinery import v1 as v1_1
 from ..core import v1
@@ -278,7 +279,7 @@ class JobSpec(BaseModel):
         Optional[str],
         Field(
             alias="managedBy",
-            description='ManagedBy field indicates the controller that manages a Job. The k8s Job controller reconciles jobs which don\'t have this field at all or the field value is the reserved string `kubernetes.io/job-controller`, but skips reconciling Jobs with a custom value for this field. The value must be a valid domain-prefixed path (e.g. acme.io/foo) - all characters before the first "/" must be a valid subdomain as defined by RFC 1123. All characters trailing the first "/" must be valid HTTP Path characters as defined by RFC 3986. The value cannot exceed 63 characters. This field is immutable.\n\nThis field is beta-level. The job controller accepts setting the field when the feature gate JobManagedBy is enabled (enabled by default).',
+            description='ManagedBy field indicates the controller that manages a Job. The k8s Job controller reconciles jobs which don\'t have this field at all or the field value is the reserved string `kubernetes.io/job-controller`, but skips reconciling Jobs with a custom value for this field. The value must be a valid domain-prefixed path (e.g. acme.io/foo) - all characters before the first "/" must be a valid subdomain as defined by RFC 1123. All characters trailing the first "/" must be valid HTTP Path characters as defined by RFC 3986. The value cannot exceed 63 characters. This field is immutable.\n\nThis field is alpha-level. The job controller accepts setting the field when the feature gate JobManagedBy is enabled (disabled by default).',
         ),
     ] = None
     manual_selector: Annotated[

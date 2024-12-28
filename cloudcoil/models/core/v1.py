@@ -7,7 +7,8 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import BaseModel, Resource
+from cloudcoil._pydantic import BaseModel
+from cloudcoil.client import Resource
 
 from ..apimachinery import utils, v1
 
@@ -970,13 +971,8 @@ class PhotonPersistentDiskVolumeSource(BaseModel):
 
 
 class PodDNSConfigOption(BaseModel):
-    name: Annotated[
-        Optional[str],
-        Field(description="Name is this DNS resolver option's name. Required."),
-    ] = None
-    value: Annotated[
-        Optional[str], Field(description="Value is this DNS resolver option's value.")
-    ] = None
+    name: Annotated[Optional[str], Field(description="Required.")] = None
+    value: Optional[str] = None
 
 
 class PodIP(BaseModel):
@@ -1233,13 +1229,13 @@ class ResourceStatus(BaseModel):
     name: Annotated[
         str,
         Field(
-            description='Name of the resource. Must be unique within the pod and in case of non-DRA resource, match one of the resources from the pod spec. For DRA resources, the value must be "claim:<claim_name>/<request>". When this status is reported about a container, the "claim_name" and "request" must match one of the claims of this container.'
+            description="Name of the resource. Must be unique within the pod and match one of the resources from the pod spec."
         ),
     ]
     resources: Annotated[
         Optional[List[ResourceHealth]],
         Field(
-            description="List of unique resources health. Each element in the list contains an unique resource ID and its health. At a minimum, for the lifetime of a Pod, resource ID must uniquely identify the resource allocated to the Pod on the Node. If other Pod on the same Node reports the status with the same resource ID, it must be the same resource they share. See ResourceID type definition for a specific format it has in various use cases."
+            description="List of unique Resources health. Each element in the list contains an unique resource ID and resource health. At a minimum, ResourceID must uniquely identify the Resource allocated to the Pod on the Node for the lifetime of a Pod. See ResourceID type for it's definition."
         ),
     ] = None
 
@@ -2554,23 +2550,9 @@ class LoadBalancerStatus(BaseModel):
 
 
 class NamespaceCondition(BaseModel):
-    last_transition_time: Annotated[
-        Optional[v1.Time],
-        Field(
-            alias="lastTransitionTime",
-            description="Last time the condition transitioned from one status to another.",
-        ),
-    ] = None
-    message: Annotated[
-        Optional[str],
-        Field(description="Human-readable message indicating details about last transition."),
-    ] = None
-    reason: Annotated[
-        Optional[str],
-        Field(
-            description="Unique, one-word, CamelCase reason for the condition's last transition."
-        ),
-    ] = None
+    last_transition_time: Annotated[Optional[v1.Time], Field(alias="lastTransitionTime")] = None
+    message: Optional[str] = None
+    reason: Optional[str] = None
     status: Annotated[
         str, Field(description="Status of the condition, one of True, False, Unknown.")
     ]
@@ -2645,7 +2627,7 @@ class NodeStatus(BaseModel):
     addresses: Annotated[
         Optional[List[NodeAddress]],
         Field(
-            description="List of addresses reachable to the node. Queried from cloud provider, if available. More info: https://kubernetes.io/docs/reference/node/node-status/#addresses Note: This field is declared as mergeable, but the merge key is not sufficiently unique, which can cause data corruption when it is merged. Callers should instead use a full-replacement patch. See https://pr.k8s.io/79391 for an example. Consumers should assume that addresses can change during the lifetime of a Node. However, there are some exceptions where this may not be possible, such as Pods that inherit a Node's address in its own status or consumers of the downward API (status.hostIP)."
+            description="List of addresses reachable to the node. Queried from cloud provider, if available. More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses Note: This field is declared as mergeable, but the merge key is not sufficiently unique, which can cause data corruption when it is merged. Callers should instead use a full-replacement patch. See https://pr.k8s.io/79391 for an example. Consumers should assume that addresses can change during the lifetime of a Node. However, there are some exceptions where this may not be possible, such as Pods that inherit a Node's address in its own status or consumers of the downward API (status.hostIP)."
         ),
     ] = None
     allocatable: Annotated[
@@ -2663,7 +2645,7 @@ class NodeStatus(BaseModel):
     conditions: Annotated[
         Optional[List[NodeCondition]],
         Field(
-            description="Conditions is an array of current observed node conditions. More info: https://kubernetes.io/docs/reference/node/node-status/#condition"
+            description="Conditions is an array of current observed node conditions. More info: https://kubernetes.io/docs/concepts/nodes/node/#condition"
         ),
     ] = None
     config: Annotated[
@@ -2693,7 +2675,7 @@ class NodeStatus(BaseModel):
         Optional[NodeSystemInfo],
         Field(
             alias="nodeInfo",
-            description="Set of ids/uuids to uniquely identify the node. More info: https://kubernetes.io/docs/reference/node/node-status/#info",
+            description="Set of ids/uuids to uniquely identify the node. More info: https://kubernetes.io/docs/concepts/nodes/node/#info",
         ),
     ] = None
     phase: Annotated[
@@ -2749,18 +2731,8 @@ class PersistentVolumeClaimCondition(BaseModel):
             description='reason is a unique, this should be a short, machine understandable string that gives the reason for condition\'s last transition. If it reports "Resizing" that means the underlying persistent volume is being resized.'
         ),
     ] = None
-    status: Annotated[
-        str,
-        Field(
-            description="Status is the status of the condition. Can be True, False, Unknown. More info: https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#:~:text=state%20of%20pvc-,conditions.status,-(string)%2C%20required"
-        ),
-    ]
-    type: Annotated[
-        str,
-        Field(
-            description="Type is the type of the condition. More info: https://kubernetes.io/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/#:~:text=set%20to%20%27ResizeStarted%27.-,PersistentVolumeClaimCondition,-contains%20details%20about"
-        ),
-    ]
+    status: str
+    type: str
 
 
 class PersistentVolumeClaimStatus(BaseModel):
@@ -2941,13 +2913,6 @@ class PodSecurityContext(BaseModel):
         Field(
             alias="runAsUser",
             description="The UID to run the entrypoint of the container process. Defaults to user specified in image metadata if unspecified. May also be set in SecurityContext.  If set in both SecurityContext and PodSecurityContext, the value specified in SecurityContext takes precedence for that container. Note that this field cannot be set when spec.os.name is windows.",
-        ),
-    ] = None
-    se_linux_change_policy: Annotated[
-        Optional[str],
-        Field(
-            alias="seLinuxChangePolicy",
-            description='seLinuxChangePolicy defines how the container\'s SELinux label is applied to all volumes used by the Pod. It has no effect on nodes that do not support SELinux or to volumes does not support SELinux. Valid values are "MountOption" and "Recursive".\n\n"Recursive" means relabeling of all files on all Pod volumes by the container runtime. This may be slow for large volumes, but allows mixing privileged and unprivileged Pods sharing the same volume on the same node.\n\n"MountOption" mounts all eligible Pod volumes with `-o context` mount option. This requires all Pods that share the same volume to use the same SELinux label. It is not possible to share the same volume among privileged and unprivileged Pods. Eligible volumes are in-tree FibreChannel and iSCSI volumes, and all CSI volumes whose CSI driver announces SELinux support by setting spec.seLinuxMount: true in their CSIDriver instance. Other volumes are always re-labelled recursively. "MountOption" value is allowed only when SELinuxMount feature gate is enabled.\n\nIf not specified and SELinuxMount feature gate is enabled, "MountOption" is used. If not specified and SELinuxMount feature gate is disabled, "MountOption" is used for ReadWriteOncePod volumes and "Recursive" for all other volumes.\n\nThis field affects only Pods that have SELinux label set, either in PodSecurityContext or in SecurityContext of all containers.\n\nAll Pods that use the same volume should use the same seLinuxChangePolicy, otherwise some pods can get stuck in ContainerCreating state. Note that this field cannot be set when spec.os.name is windows.',
         ),
     ] = None
     se_linux_options: Annotated[
@@ -3491,7 +3456,7 @@ class ServiceSpec(BaseModel):
         Optional[str],
         Field(
             alias="trafficDistribution",
-            description='TrafficDistribution offers a way to express preferences for how traffic is distributed to Service endpoints. Implementations can use this field as a hint, but are not required to guarantee strict adherence. If the field is not set, the implementation will apply its default routing strategy. If set to "PreferClose", implementations should prioritize endpoints that are topologically close (e.g., same zone). This is a beta field and requires enabling ServiceTrafficDistribution feature.',
+            description='TrafficDistribution offers a way to express preferences for how traffic is distributed to Service endpoints. Implementations can use this field as a hint, but are not required to guarantee strict adherence. If the field is not set, the implementation will apply its default routing strategy. If set to "PreferClose", implementations should prioritize endpoints that are topologically close (e.g., same zone). This is an alpha field and requires enabling ServiceTrafficDistribution feature.',
         ),
     ] = None
     type: Annotated[
@@ -4078,25 +4043,26 @@ class EventList(Resource):
 
 class LifecycleHandler(BaseModel):
     exec: Annotated[
-        Optional[ExecAction],
-        Field(description="Exec specifies a command to execute in the container."),
+        Optional[ExecAction], Field(description="Exec specifies the action to take.")
     ] = None
     http_get: Annotated[
         Optional[HTTPGetAction],
         Field(
             alias="httpGet",
-            description="HTTPGet specifies an HTTP GET request to perform.",
+            description="HTTPGet specifies the http request to perform.",
         ),
     ] = None
     sleep: Annotated[
         Optional[SleepAction],
-        Field(description="Sleep represents a duration that the container should sleep."),
+        Field(
+            description="Sleep represents the duration that the container should sleep before being terminated."
+        ),
     ] = None
     tcp_socket: Annotated[
         Optional[TCPSocketAction],
         Field(
             alias="tcpSocket",
-            description="Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept for backward compatibility. There is no validation of this field and lifecycle hooks will fail at runtime when it is specified.",
+            description="Deprecated. TCPSocket is NOT supported as a LifecycleHandler and kept for the backward compatibility. There are no validation of this field and lifecycle hooks will fail in runtime when tcp handler is specified.",
         ),
     ] = None
 
@@ -4372,21 +4338,21 @@ class PersistentVolumeSpec(BaseModel):
         Optional[AWSElasticBlockStoreVolumeSource],
         Field(
             alias="awsElasticBlockStore",
-            description="awsElasticBlockStore represents an AWS Disk resource that is attached to a kubelet's host machine and then exposed to the pod. Deprecated: AWSElasticBlockStore is deprecated. All operations for the in-tree awsElasticBlockStore type are redirected to the ebs.csi.aws.com CSI driver. More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore",
+            description="awsElasticBlockStore represents an AWS Disk resource that is attached to a kubelet's host machine and then exposed to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore",
         ),
     ] = None
     azure_disk: Annotated[
         Optional[AzureDiskVolumeSource],
         Field(
             alias="azureDisk",
-            description="azureDisk represents an Azure Data Disk mount on the host and bind mount to the pod. Deprecated: AzureDisk is deprecated. All operations for the in-tree azureDisk type are redirected to the disk.csi.azure.com CSI driver.",
+            description="azureDisk represents an Azure Data Disk mount on the host and bind mount to the pod.",
         ),
     ] = None
     azure_file: Annotated[
         Optional[AzureFilePersistentVolumeSource],
         Field(
             alias="azureFile",
-            description="azureFile represents an Azure File Service mount on the host and bind mount to the pod. Deprecated: AzureFile is deprecated. All operations for the in-tree azureFile type are redirected to the file.csi.azure.com CSI driver.",
+            description="azureFile represents an Azure File Service mount on the host and bind mount to the pod.",
         ),
     ] = None
     capacity: Annotated[
@@ -4398,13 +4364,13 @@ class PersistentVolumeSpec(BaseModel):
     cephfs: Annotated[
         Optional[CephFSPersistentVolumeSource],
         Field(
-            description="cephFS represents a Ceph FS mount on the host that shares a pod's lifetime. Deprecated: CephFS is deprecated and the in-tree cephfs type is no longer supported."
+            description="cephFS represents a Ceph FS mount on the host that shares a pod's lifetime"
         ),
     ] = None
     cinder: Annotated[
         Optional[CinderPersistentVolumeSource],
         Field(
-            description="cinder represents a cinder volume attached and mounted on kubelets host machine. Deprecated: Cinder is deprecated. All operations for the in-tree cinder type are redirected to the cinder.csi.openstack.org CSI driver. More info: https://examples.k8s.io/mysql-cinder-pd/README.md"
+            description="cinder represents a cinder volume attached and mounted on kubelets host machine. More info: https://examples.k8s.io/mysql-cinder-pd/README.md"
         ),
     ] = None
     claim_ref: Annotated[
@@ -4416,7 +4382,9 @@ class PersistentVolumeSpec(BaseModel):
     ] = None
     csi: Annotated[
         Optional[CSIPersistentVolumeSource],
-        Field(description="csi represents storage that is handled by an external CSI driver."),
+        Field(
+            description="csi represents storage that is handled by an external CSI driver (Beta feature)."
+        ),
     ] = None
     fc: Annotated[
         Optional[FCVolumeSource],
@@ -4428,26 +4396,26 @@ class PersistentVolumeSpec(BaseModel):
         Optional[FlexPersistentVolumeSource],
         Field(
             alias="flexVolume",
-            description="flexVolume represents a generic volume resource that is provisioned/attached using an exec based plugin. Deprecated: FlexVolume is deprecated. Consider using a CSIDriver instead.",
+            description="flexVolume represents a generic volume resource that is provisioned/attached using an exec based plugin.",
         ),
     ] = None
     flocker: Annotated[
         Optional[FlockerVolumeSource],
         Field(
-            description="flocker represents a Flocker volume attached to a kubelet's host machine and exposed to the pod for its usage. This depends on the Flocker control service being running. Deprecated: Flocker is deprecated and the in-tree flocker type is no longer supported."
+            description="flocker represents a Flocker volume attached to a kubelet's host machine and exposed to the pod for its usage. This depends on the Flocker control service being running"
         ),
     ] = None
     gce_persistent_disk: Annotated[
         Optional[GCEPersistentDiskVolumeSource],
         Field(
             alias="gcePersistentDisk",
-            description="gcePersistentDisk represents a GCE Disk resource that is attached to a kubelet's host machine and then exposed to the pod. Provisioned by an admin. Deprecated: GCEPersistentDisk is deprecated. All operations for the in-tree gcePersistentDisk type are redirected to the pd.csi.storage.gke.io CSI driver. More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk",
+            description="gcePersistentDisk represents a GCE Disk resource that is attached to a kubelet's host machine and then exposed to the pod. Provisioned by an admin. More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk",
         ),
     ] = None
     glusterfs: Annotated[
         Optional[GlusterfsPersistentVolumeSource],
         Field(
-            description="glusterfs represents a Glusterfs volume that is attached to a host and exposed to the pod. Provisioned by an admin. Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported. More info: https://examples.k8s.io/volumes/glusterfs/README.md"
+            description="glusterfs represents a Glusterfs volume that is attached to a host and exposed to the pod. Provisioned by an admin. More info: https://examples.k8s.io/volumes/glusterfs/README.md"
         ),
     ] = None
     host_path: Annotated[
@@ -4498,33 +4466,33 @@ class PersistentVolumeSpec(BaseModel):
         Optional[PhotonPersistentDiskVolumeSource],
         Field(
             alias="photonPersistentDisk",
-            description="photonPersistentDisk represents a PhotonController persistent disk attached and mounted on kubelets host machine. Deprecated: PhotonPersistentDisk is deprecated and the in-tree photonPersistentDisk type is no longer supported.",
+            description="photonPersistentDisk represents a PhotonController persistent disk attached and mounted on kubelets host machine",
         ),
     ] = None
     portworx_volume: Annotated[
         Optional[PortworxVolumeSource],
         Field(
             alias="portworxVolume",
-            description="portworxVolume represents a portworx volume attached and mounted on kubelets host machine. Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate is on.",
+            description="portworxVolume represents a portworx volume attached and mounted on kubelets host machine",
         ),
     ] = None
     quobyte: Annotated[
         Optional[QuobyteVolumeSource],
         Field(
-            description="quobyte represents a Quobyte mount on the host that shares a pod's lifetime. Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer supported."
+            description="quobyte represents a Quobyte mount on the host that shares a pod's lifetime"
         ),
     ] = None
     rbd: Annotated[
         Optional[RBDPersistentVolumeSource],
         Field(
-            description="rbd represents a Rados Block Device mount on the host that shares a pod's lifetime. Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported. More info: https://examples.k8s.io/volumes/rbd/README.md"
+            description="rbd represents a Rados Block Device mount on the host that shares a pod's lifetime. More info: https://examples.k8s.io/volumes/rbd/README.md"
         ),
     ] = None
     scale_io: Annotated[
         Optional[ScaleIOPersistentVolumeSource],
         Field(
             alias="scaleIO",
-            description="scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes. Deprecated: ScaleIO is deprecated and the in-tree scaleIO type is no longer supported.",
+            description="scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.",
         ),
     ] = None
     storage_class_name: Annotated[
@@ -4537,7 +4505,7 @@ class PersistentVolumeSpec(BaseModel):
     storageos: Annotated[
         Optional[StorageOSPersistentVolumeSource],
         Field(
-            description="storageOS represents a StorageOS volume that is attached to the kubelet's host machine and mounted into the pod. Deprecated: StorageOS is deprecated and the in-tree storageos type is no longer supported. More info: https://examples.k8s.io/volumes/storageos/README.md"
+            description="storageOS represents a StorageOS volume that is attached to the kubelet's host machine and mounted into the pod More info: https://examples.k8s.io/volumes/storageos/README.md"
         ),
     ] = None
     volume_attributes_class_name: Annotated[
@@ -4558,7 +4526,7 @@ class PersistentVolumeSpec(BaseModel):
         Optional[VsphereVirtualDiskVolumeSource],
         Field(
             alias="vsphereVolume",
-            description="vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine. Deprecated: VsphereVolume is deprecated. All operations for the in-tree vsphereVolume type are redirected to the csi.vsphere.vmware.com CSI driver.",
+            description="vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine",
         ),
     ] = None
 
@@ -4618,14 +4586,14 @@ class PodStatus(BaseModel):
         Optional[List[ContainerStatus]],
         Field(
             alias="containerStatuses",
-            description="Statuses of containers in this pod. Each container in the pod should have at most one status in this list, and all statuses should be for containers in the pod. However this is not enforced. If a status for a non-existent container is present in the list, or the list has duplicate names, the behavior of various Kubernetes components is not defined and those statuses might be ignored. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status",
+            description="The list has one entry per container in the manifest. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status",
         ),
     ] = None
     ephemeral_container_statuses: Annotated[
         Optional[List[ContainerStatus]],
         Field(
             alias="ephemeralContainerStatuses",
-            description="Statuses for any ephemeral containers that have run in this pod. Each ephemeral container in the pod should have at most one status in this list, and all statuses should be for containers in the pod. However this is not enforced. If a status for a non-existent container is present in the list, or the list has duplicate names, the behavior of various Kubernetes components is not defined and those statuses might be ignored. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status",
+            description="Status for any ephemeral containers that have run in this pod.",
         ),
     ] = None
     host_ip: Annotated[
@@ -4646,7 +4614,7 @@ class PodStatus(BaseModel):
         Optional[List[ContainerStatus]],
         Field(
             alias="initContainerStatuses",
-            description="Statuses of init containers in this pod. The most recent successful non-restartable init container will have ready = true, the most recently started container will have startTime set. Each init container in the pod should have at most one status in this list, and all statuses should be for containers in the pod. However this is not enforced. If a status for a non-existent container is present in the list, or the list has duplicate names, the behavior of various Kubernetes components is not defined and those statuses might be ignored. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-and-container-status",
+            description="The list has one entry per init container in the manifest. The most recent successful init container will have ready = true, the most recently started container will have startTime set. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status",
         ),
     ] = None
     message: Annotated[
@@ -4716,8 +4684,7 @@ class PodStatus(BaseModel):
 
 class Probe(BaseModel):
     exec: Annotated[
-        Optional[ExecAction],
-        Field(description="Exec specifies a command to execute in the container."),
+        Optional[ExecAction], Field(description="Exec specifies the action to take.")
     ] = None
     failure_threshold: Annotated[
         Optional[int],
@@ -4728,13 +4695,13 @@ class Probe(BaseModel):
     ] = None
     grpc: Annotated[
         Optional[GRPCAction],
-        Field(description="GRPC specifies a GRPC HealthCheckRequest."),
+        Field(description="GRPC specifies an action involving a GRPC port."),
     ] = None
     http_get: Annotated[
         Optional[HTTPGetAction],
         Field(
             alias="httpGet",
-            description="HTTPGet specifies an HTTP GET request to perform.",
+            description="HTTPGet specifies the http request to perform.",
         ),
     ] = None
     initial_delay_seconds: Annotated[
@@ -4762,7 +4729,7 @@ class Probe(BaseModel):
         Optional[TCPSocketAction],
         Field(
             alias="tcpSocket",
-            description="TCPSocket specifies a connection to a TCP port.",
+            description="TCPSocket specifies an action involving a TCP port.",
         ),
     ] = None
     termination_grace_period_seconds: Annotated[
@@ -4915,7 +4882,7 @@ class ServiceAccount(Resource):
     secrets: Annotated[
         Optional[List[ObjectReference]],
         Field(
-            description='Secrets is a list of the secrets in the same namespace that pods running using this ServiceAccount are allowed to use. Pods are only limited to this list if this service account has a "kubernetes.io/enforce-mountable-secrets" annotation set to "true". The "kubernetes.io/enforce-mountable-secrets" annotation is deprecated since v1.32. Prefer separate namespaces to isolate access to mounted secrets. This field should not be used to find auto-generated service account token secrets for use outside of pods. Instead, tokens can be requested directly using the TokenRequest API, or service account token secrets can be manually created. More info: https://kubernetes.io/docs/concepts/configuration/secret'
+            description='Secrets is a list of the secrets in the same namespace that pods running using this ServiceAccount are allowed to use. Pods are only limited to this list if this service account has a "kubernetes.io/enforce-mountable-secrets" annotation set to "true". This field should not be used to find auto-generated service account token secrets for use outside of pods. Instead, tokens can be requested directly using the TokenRequest API, or service account token secrets can be manually created. More info: https://kubernetes.io/docs/concepts/configuration/secret'
         ),
     ] = None
 
@@ -5829,33 +5796,33 @@ class Volume(BaseModel):
         Optional[AWSElasticBlockStoreVolumeSource],
         Field(
             alias="awsElasticBlockStore",
-            description="awsElasticBlockStore represents an AWS Disk resource that is attached to a kubelet's host machine and then exposed to the pod. Deprecated: AWSElasticBlockStore is deprecated. All operations for the in-tree awsElasticBlockStore type are redirected to the ebs.csi.aws.com CSI driver. More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore",
+            description="awsElasticBlockStore represents an AWS Disk resource that is attached to a kubelet's host machine and then exposed to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore",
         ),
     ] = None
     azure_disk: Annotated[
         Optional[AzureDiskVolumeSource],
         Field(
             alias="azureDisk",
-            description="azureDisk represents an Azure Data Disk mount on the host and bind mount to the pod. Deprecated: AzureDisk is deprecated. All operations for the in-tree azureDisk type are redirected to the disk.csi.azure.com CSI driver.",
+            description="azureDisk represents an Azure Data Disk mount on the host and bind mount to the pod.",
         ),
     ] = None
     azure_file: Annotated[
         Optional[AzureFileVolumeSource],
         Field(
             alias="azureFile",
-            description="azureFile represents an Azure File Service mount on the host and bind mount to the pod. Deprecated: AzureFile is deprecated. All operations for the in-tree azureFile type are redirected to the file.csi.azure.com CSI driver.",
+            description="azureFile represents an Azure File Service mount on the host and bind mount to the pod.",
         ),
     ] = None
     cephfs: Annotated[
         Optional[CephFSVolumeSource],
         Field(
-            description="cephFS represents a Ceph FS mount on the host that shares a pod's lifetime. Deprecated: CephFS is deprecated and the in-tree cephfs type is no longer supported."
+            description="cephFS represents a Ceph FS mount on the host that shares a pod's lifetime"
         ),
     ] = None
     cinder: Annotated[
         Optional[CinderVolumeSource],
         Field(
-            description="cinder represents a cinder volume attached and mounted on kubelets host machine. Deprecated: Cinder is deprecated. All operations for the in-tree cinder type are redirected to the cinder.csi.openstack.org CSI driver. More info: https://examples.k8s.io/mysql-cinder-pd/README.md"
+            description="cinder represents a cinder volume attached and mounted on kubelets host machine. More info: https://examples.k8s.io/mysql-cinder-pd/README.md"
         ),
     ] = None
     config_map: Annotated[
@@ -5868,7 +5835,7 @@ class Volume(BaseModel):
     csi: Annotated[
         Optional[CSIVolumeSource],
         Field(
-            description="csi (Container Storage Interface) represents ephemeral storage that is handled by certain external CSI drivers."
+            description="csi (Container Storage Interface) represents ephemeral storage that is handled by certain external CSI drivers (Beta feature)."
         ),
     ] = None
     downward_api: Annotated[
@@ -5901,33 +5868,33 @@ class Volume(BaseModel):
         Optional[FlexVolumeSource],
         Field(
             alias="flexVolume",
-            description="flexVolume represents a generic volume resource that is provisioned/attached using an exec based plugin. Deprecated: FlexVolume is deprecated. Consider using a CSIDriver instead.",
+            description="flexVolume represents a generic volume resource that is provisioned/attached using an exec based plugin.",
         ),
     ] = None
     flocker: Annotated[
         Optional[FlockerVolumeSource],
         Field(
-            description="flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running. Deprecated: Flocker is deprecated and the in-tree flocker type is no longer supported."
+            description="flocker represents a Flocker volume attached to a kubelet's host machine. This depends on the Flocker control service being running"
         ),
     ] = None
     gce_persistent_disk: Annotated[
         Optional[GCEPersistentDiskVolumeSource],
         Field(
             alias="gcePersistentDisk",
-            description="gcePersistentDisk represents a GCE Disk resource that is attached to a kubelet's host machine and then exposed to the pod. Deprecated: GCEPersistentDisk is deprecated. All operations for the in-tree gcePersistentDisk type are redirected to the pd.csi.storage.gke.io CSI driver. More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk",
+            description="gcePersistentDisk represents a GCE Disk resource that is attached to a kubelet's host machine and then exposed to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk",
         ),
     ] = None
     git_repo: Annotated[
         Optional[GitRepoVolumeSource],
         Field(
             alias="gitRepo",
-            description="gitRepo represents a git repository at a particular revision. Deprecated: GitRepo is deprecated. To provision a container with a git repo, mount an EmptyDir into an InitContainer that clones the repo using git, then mount the EmptyDir into the Pod's container.",
+            description="gitRepo represents a git repository at a particular revision. DEPRECATED: GitRepo is deprecated. To provision a container with a git repo, mount an EmptyDir into an InitContainer that clones the repo using git, then mount the EmptyDir into the Pod's container.",
         ),
     ] = None
     glusterfs: Annotated[
         Optional[GlusterfsVolumeSource],
         Field(
-            description="glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime. Deprecated: Glusterfs is deprecated and the in-tree glusterfs type is no longer supported. More info: https://examples.k8s.io/volumes/glusterfs/README.md"
+            description="glusterfs represents a Glusterfs mount on the host that shares a pod's lifetime. More info: https://examples.k8s.io/volumes/glusterfs/README.md"
         ),
     ] = None
     host_path: Annotated[
@@ -5972,14 +5939,14 @@ class Volume(BaseModel):
         Optional[PhotonPersistentDiskVolumeSource],
         Field(
             alias="photonPersistentDisk",
-            description="photonPersistentDisk represents a PhotonController persistent disk attached and mounted on kubelets host machine. Deprecated: PhotonPersistentDisk is deprecated and the in-tree photonPersistentDisk type is no longer supported.",
+            description="photonPersistentDisk represents a PhotonController persistent disk attached and mounted on kubelets host machine",
         ),
     ] = None
     portworx_volume: Annotated[
         Optional[PortworxVolumeSource],
         Field(
             alias="portworxVolume",
-            description="portworxVolume represents a portworx volume attached and mounted on kubelets host machine. Deprecated: PortworxVolume is deprecated. All operations for the in-tree portworxVolume type are redirected to the pxd.portworx.com CSI driver when the CSIMigrationPortworx feature-gate is on.",
+            description="portworxVolume represents a portworx volume attached and mounted on kubelets host machine",
         ),
     ] = None
     projected: Annotated[
@@ -5991,20 +5958,20 @@ class Volume(BaseModel):
     quobyte: Annotated[
         Optional[QuobyteVolumeSource],
         Field(
-            description="quobyte represents a Quobyte mount on the host that shares a pod's lifetime. Deprecated: Quobyte is deprecated and the in-tree quobyte type is no longer supported."
+            description="quobyte represents a Quobyte mount on the host that shares a pod's lifetime"
         ),
     ] = None
     rbd: Annotated[
         Optional[RBDVolumeSource],
         Field(
-            description="rbd represents a Rados Block Device mount on the host that shares a pod's lifetime. Deprecated: RBD is deprecated and the in-tree rbd type is no longer supported. More info: https://examples.k8s.io/volumes/rbd/README.md"
+            description="rbd represents a Rados Block Device mount on the host that shares a pod's lifetime. More info: https://examples.k8s.io/volumes/rbd/README.md"
         ),
     ] = None
     scale_io: Annotated[
         Optional[ScaleIOVolumeSource],
         Field(
             alias="scaleIO",
-            description="scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes. Deprecated: ScaleIO is deprecated and the in-tree scaleIO type is no longer supported.",
+            description="scaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.",
         ),
     ] = None
     secret: Annotated[
@@ -6016,14 +5983,14 @@ class Volume(BaseModel):
     storageos: Annotated[
         Optional[StorageOSVolumeSource],
         Field(
-            description="storageOS represents a StorageOS volume attached and mounted on Kubernetes nodes. Deprecated: StorageOS is deprecated and the in-tree storageos type is no longer supported."
+            description="storageOS represents a StorageOS volume attached and mounted on Kubernetes nodes."
         ),
     ] = None
     vsphere_volume: Annotated[
         Optional[VsphereVirtualDiskVolumeSource],
         Field(
             alias="vsphereVolume",
-            description="vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine. Deprecated: VsphereVolume is deprecated. All operations for the in-tree vsphereVolume type are redirected to the csi.vsphere.vmware.com CSI driver.",
+            description="vsphereVolume represents a vSphere volume attached and mounted on kubelets host machine",
         ),
     ] = None
 
@@ -6196,12 +6163,6 @@ class PodSpec(BaseModel):
             description="ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
         ),
     ] = None
-    resources: Annotated[
-        Optional[ResourceRequirements],
-        Field(
-            description='Resources is the total amount of CPU and Memory resources required by all containers in the pod. It supports specifying Requests and Limits for "cpu" and "memory" resource names only. ResourceClaims are not supported.\n\nThis field enables fine-grained control over resource allocation for the entire pod, allowing resource sharing among containers in a pod.\n\nThis is an alpha field and requires enabling the PodLevelResources feature gate.'
-        ),
-    ] = None
     restart_policy: Annotated[
         Optional[str],
         Field(
@@ -6255,7 +6216,7 @@ class PodSpec(BaseModel):
         Optional[bool],
         Field(
             alias="setHostnameAsFQDN",
-            description="If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.",
+            description="If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.",
         ),
     ] = None
     share_process_namespace: Annotated[

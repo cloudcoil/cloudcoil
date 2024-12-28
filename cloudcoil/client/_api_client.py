@@ -2,14 +2,12 @@ from typing import TYPE_CHECKING, Generic, Type, TypeVar
 
 import httpx
 
+from cloudcoil.client.errors import APIError, ResourceAlreadyExists, ResourceNotFound
+
 if TYPE_CHECKING:
     from cloudcoil.client._resource import Resource
 
 T = TypeVar("T", bound="Resource")
-
-
-class ResourceNotFound(Exception):
-    pass
 
 
 class _BaseAPIClient(Generic[T]):
@@ -39,11 +37,18 @@ class _BaseAPIClient(Generic[T]):
             return f"{api_base}/namespaces/{namespace}/{self.resource}/{name}"
         return f"{api_base}/{self.resource}/{name}"
 
-    def _handle_response(self, response: httpx.Response, namespace: str, name: str) -> T:
+    def _handle_get_response(self, response: httpx.Response, namespace: str, name: str) -> T:
         if response.status_code == 404:
             raise ResourceNotFound(
                 f"Resource kind='{self.kind.__name__}', {namespace=}, {name=} not found"
             )
+        return self.kind.model_validate_json(response.content)  # type: ignore
+
+    def _handle_create_response(self, response: httpx.Response) -> T:
+        if response.status_code == 409:
+            raise ResourceAlreadyExists(response.json()["details"])
+        if response.status_code != 201:
+            raise APIError(response.json())
         return self.kind.model_validate_json(response.content)  # type: ignore
 
 
@@ -64,7 +69,21 @@ class APIClient(_BaseAPIClient[T]):
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
         response = self._client.get(url)
-        return self._handle_response(response, namespace, name)
+        return self._handle_get_response(response, namespace, name)
+
+    def create(self, body: T, namespace: str | None = None) -> T:
+        assert hasattr(body, "metadata") and hasattr(body.metadata, "namespace")
+        assert hasattr(body, "metadata") and hasattr(body.metadata, "name")
+        namespace = namespace or body.metadata.namespace or self.default_namespace
+        url = self._build_url(namespace=namespace)
+        response = self._client.post(url, json=body.model_dump(mode="json", by_alias=True))
+        return self._handle_create_response(response)
+
+    def delete(self, name: str, namespace: str | None = None) -> T:
+        namespace = namespace or self.default_namespace
+        url = self._build_url(name=name, namespace=namespace)
+        response = self._client.delete(url)
+        return self._handle_get_response(response, namespace, name)
 
 
 class AsyncAPIClient(_BaseAPIClient[T]):
@@ -84,4 +103,18 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
         response = await self._client.get(url)
-        return self._handle_response(response, namespace, name)
+        return self._handle_get_response(response, namespace, name)
+
+    async def create(self, body: T, namespace: str | None = None) -> T:
+        assert hasattr(body, "metadata") and hasattr(body.metadata, "namespace")
+        assert hasattr(body, "metadata") and hasattr(body.metadata, "name")
+        namespace = namespace or body.metadata.namespace or self.default_namespace
+        url = self._build_url(namespace=namespace)
+        response = await self._client.post(url, json=body.model_dump(mode="json", by_alias=True))
+        return self._handle_create_response(response)
+
+    async def delete(self, name: str, namespace: str | None = None) -> T:
+        namespace = namespace or self.default_namespace
+        url = self._build_url(name=name, namespace=namespace)
+        response = await self._client.delete(url)
+        return self._handle_get_response(response, namespace, name)
