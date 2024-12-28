@@ -18,7 +18,6 @@ dependencies = [
     "httpx",
     "pyyaml>=6.0.2",
     "typing_extensions>=4.0.0; python_version <= '3.10'",
-    "pytest-asyncio>=0.25.0",
 ]
 keywords = ["cloud-native", "kubernetes", "pydantic", "python", "async"]
 
@@ -35,7 +34,7 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -69,6 +68,7 @@ dev = [
     "types-pyyaml>=6.0.12.20241221",
     "ipython>=8.12.3",
     "pytest-sugar>=1.0.0",
+    "pytest-asyncio>=0.25.0",
 ]
 
 [tool.mypy]

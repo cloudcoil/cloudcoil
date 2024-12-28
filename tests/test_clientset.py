@@ -134,10 +134,11 @@ def test_incluster_initialization(tmp_path):
     token_path.write_text("test-token")
     namespace_path.write_text("test-namespace")
 
-    with patch("cloudcoil.client._client_set.INCLUSTER_TOKEN_PATH", token_path), patch(
-        "cloudcoil.client._client_set.INCLUSTER_CERT_PATH", ca_path
-    ), patch("cloudcoil.client._client_set.DEFAULT_KUBECONFIG", tmp_path / "dne"), patch(
-        "cloudcoil.client._client_set.INCLUSTER_NAMESPACE_PATH", namespace_path
+    with (
+        patch("cloudcoil.client._client_set.INCLUSTER_TOKEN_PATH", token_path),
+        patch("cloudcoil.client._client_set.INCLUSTER_CERT_PATH", ca_path),
+        patch("cloudcoil.client._client_set.DEFAULT_KUBECONFIG", tmp_path / "dne"),
+        patch("cloudcoil.client._client_set.INCLUSTER_NAMESPACE_PATH", namespace_path),
     ):
         client = ClientSet()
         assert client.server == "https://kubernetes.default.svc"
