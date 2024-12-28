@@ -13,4 +13,5 @@ def test_version(test_clientset):
         output = corev1.Namespace(metadata=metav1.ObjectMeta(generate_name="test-")).create()
         name = output.metadata.name
         assert corev1.Namespace.get(name).metadata.name == name
+        assert output.remove().metadata.name == name
         assert corev1.Namespace.delete(name).status.phase == "Terminating"
