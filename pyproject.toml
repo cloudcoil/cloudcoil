@@ -77,4 +77,4 @@ plugins = ['pydantic.mypy']
 cloudcoil = "cloudcoil._testing.plugin"
 
 [tool.coverage.run]
-omit = ["cloudcoil/models/**"]
+omit = ["cloudcoil/kinds/**"]
