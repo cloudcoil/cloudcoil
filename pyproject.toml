@@ -47,7 +47,7 @@ select = [
 ignore = ["E203", "B008", "N818", "E501", "B904"]
 
 [tool.pytest.ini_options]
-addopts = "-ra -q --cov=cloudcoil --cov-report=xml -vvv"
+addopts = "-ra -q --cov=cloudcoil --cov-report=xml --cov-report=term -vvv"
 testpaths = ["tests"]
 markers = ["configure_test_cluster: Configure cloudcoil test cluster"]
 
@@ -75,3 +75,6 @@ plugins = ['pydantic.mypy']
 # Add the pytest plugin
 [project.entry-points.pytest11]
 cloudcoil = "cloudcoil._testing.plugin"
+
+[tool.coverage.run]
+omit = ["cloudcoil/models/**"]

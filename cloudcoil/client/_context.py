@@ -22,7 +22,9 @@ class _Context:
         if not self.clientsets:
             from cloudcoil.client._client_set import ClientSet
 
-            self.clientsets = [ClientSet()]
+            clientset = ClientSet()
+            clientset.initialize()
+            self.clientsets = [clientset]
         return self.clientsets[-1]
 
     @property
