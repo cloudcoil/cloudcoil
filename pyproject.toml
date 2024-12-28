@@ -34,8 +34,11 @@ select = [
 ignore = ["E203", "B008", "N818", "E501", "B904"]
 
 [tool.pytest.ini_options]
-addopts = "-ra -q --cov=cloudcoil --cov-report=xml"
+addopts = "-ra -q --cov=cloudcoil --cov-report=xml -vvv"
 testpaths = ["tests"]
+markers = [
+    "configure_test_cluster: Configure cloudcoil test cluster",
+]
 
 [dependency-groups]
 dev = [
@@ -52,7 +55,12 @@ dev = [
     "datamodel-code-generator[http]",
     "types-pyyaml>=6.0.12.20241221",
     "ipython>=8.12.3",
+    "pytest-sugar>=1.0.0",
 ]
 
 [tool.mypy]
 plugins = ['pydantic.mypy']
+
+# Add the pytest plugin
+[project.entry-points.pytest11]
+cloudcoil = "cloudcoil._testing.plugin"

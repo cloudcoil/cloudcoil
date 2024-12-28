@@ -3,7 +3,7 @@ import httpx
 import json
 
 def fetch_swagger_schema():
-    url = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.32.0/api/openapi-spec/swagger.json"
+    url = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.31.4/api/openapi-spec/swagger.json"
     response = httpx.get(url)
     response.raise_for_status()
     return response.json()

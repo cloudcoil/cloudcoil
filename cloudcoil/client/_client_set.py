@@ -46,7 +46,8 @@ class ClientSet:
             kubeconfig = Path(kubeconfig)
             if not kubeconfig.is_file():
                 raise ValueError(f"Kubeconfig {kubeconfig} is not a file")
-        kubeconfig = DEFAULT_KUBECONFIG
+        else:
+            kubeconfig = DEFAULT_KUBECONFIG
         if kubeconfig.is_file():
             kubeconfig_data = yaml.safe_load(kubeconfig.read_text())
             if "clusters" not in kubeconfig_data:
@@ -116,9 +117,6 @@ class ClientSet:
         self.cafile = cafile or self.cafile
         self.certfile = certfile or self.certfile
         self.keyfile = keyfile or self.keyfile
-
-        if not self.server:
-            raise ValueError("Server not set")
         ctx = ssl.create_default_context(cafile=self.cafile)
         if self.certfile and self.keyfile:
             ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
@@ -168,14 +166,27 @@ class ClientSet:
         self._process_api_discovery(apis_data)
 
     def _process_api_discovery(self, api_discovery):
+        if not isinstance(api_discovery, dict) or "items" not in api_discovery:
+            return
+
         for api in api_discovery["items"]:
-            group = api["metadata"].get("name", "")
-            for version_data in api["versions"]:
-                version = version_data["version"]
-                for resource_data in version_data["resources"]:
-                    kind = resource_data["responseKind"]["kind"]
-                    resource = resource_data["resource"]
-                    namespaced = resource_data["scope"] == "Namespaced"
+            group = api.get("metadata", {}).get("name", "")
+            versions = api.get("versions", [])
+
+            for version_data in versions:
+                version = version_data.get("version")
+                if not version:
+                    continue
+
+                for resource_data in version_data.get("resources", []):
+                    kind = resource_data.get("responseKind", {}).get("kind")
+                    resource = resource_data.get("resource")
+                    scope = resource_data.get("scope")
+
+                    if not all([kind, resource, scope]):
+                        continue
+
+                    namespaced = scope == "Namespaced"
                     # construct api_version using group and version
                     api_version = f"{group}/{version}" if group != "" else version
                     self._rest_mapping[(api_version, kind)] = {
