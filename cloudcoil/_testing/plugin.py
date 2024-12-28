@@ -78,5 +78,5 @@ def test_cluster(request):
 
 
 @pytest.fixture
-def test_clientset(test_cluster):
+def test_client_set(test_cluster):
     yield ClientSet(kubeconfig=test_cluster)

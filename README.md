@@ -33,8 +33,8 @@ from cloudcoil.client import ClientSet
 from cloudcoil.client import errors
 # All default kubernetes types are neatly arranged
 # with appropriate apiversions as module paths
-from cloudcoil.models.apps import v1 as apps_v1
-from cloudcoil.models.core import v1 as core_v1
+from cloudcoil.kinds.apps import v1 as apps_v1
+from cloudcoil.kinds.core import v1 as core_v1
 
 
 # Uses the default clientset based on KUBECONFIG

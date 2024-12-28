@@ -174,3 +174,4 @@ extra_data.json
 .DS_Store
 .vscode
 junit.xml
+/output
