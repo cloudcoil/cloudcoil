@@ -1,12 +1,21 @@
 # cloudcoil
 
-[![CI](https://github.com/cloudcoil/cloudcoil/actions/workflows/ci.yml/badge.svg)](https://github.com/cloudcoil/cloudcoil/actions/workflows/ci.yml)
-[![PyPI version](https://badge.fury.io/py/cloudcoil.svg)](https://badge.fury.io/py/cloudcoil)
-[![Python Versions](https://img.shields.io/pypi/pyversions/cloudcoil.svg)](https://pypi.org/project/cloudcoil/)
-[![codecov](https://codecov.io/gh/cloudcoil/cloudcoil/branch/main/graph/badge.svg)](https://codecov.io/gh/cloudcoil/cloudcoil)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-
 Cloud native made easy with Python
+
+### PyPI stats
+
+[![PyPI](https://img.shields.io/pypi/v/cloudcoil.svg)](https://pypi.python.org/pypi/cloudcoil)
+[![Versions](https://img.shields.io/pypi/pyversions/cloudcoil.svg)](https://github.com/cloudcoil/cloudcoil)
+
+[![Downloads](https://static.pepy.tech/badge/cloudcoil)](https://pepy.tech/project/cloudcoil)
+[![Downloads/month](https://static.pepy.tech/badge/cloudcoil/month)](https://pepy.tech/project/cloudcoil)
+[![Downloads/week](https://static.pepy.tech/badge/cloudcoil/week)](https://pepy.tech/project/cloudcoil)
+
+### Repo information
+
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/license/apache-2-0/)
+[![CI](https://github.com/cloudcoil/cloudcoil/actions/workflows/ci.yml/badge.svg)](https://github.com/cloudcoil/cloudcoil/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/cloudcoil/cloudcoil/branch/main/graph/badge.svg)](https://codecov.io/gh/cloudcoil/cloudcoil)
 
 ## Installation
 
