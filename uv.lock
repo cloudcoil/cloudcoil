@@ -256,7 +256,6 @@ source = { editable = "." }
 dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
-    { name = "pytest-asyncio" },
     { name = "pyyaml" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
@@ -275,6 +274,7 @@ dev = [
     { name = "mkdocstrings-python", version = "1.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
     { name = "pytest-cov", version = "5.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
     { name = "pytest-cov", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
     { name = "pytest-sugar" },
@@ -286,7 +286,6 @@ dev = [
 requires-dist = [
     { name = "httpx" },
     { name = "pydantic", specifier = ">2.0" },
-    { name = "pytest-asyncio", specifier = ">=0.25.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.0.0" },
 ]
@@ -303,6 +302,7 @@ dev = [
     { name = "mkdocstrings-python", specifier = ">=1.7.5" },
     { name = "mypy" },
     { name = "pytest", specifier = ">=8.3.4" },
+    { name = "pytest-asyncio", specifier = ">=0.25.0" },
     { name = "pytest-cov", specifier = ">=4.1.0" },
     { name = "pytest-sugar", specifier = ">=1.0.0" },
     { name = "ruff", specifier = ">=0.8.4" },
