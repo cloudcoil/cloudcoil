@@ -7,7 +7,8 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import BaseModel, Resource
+from cloudcoil._pydantic import BaseModel
+from cloudcoil.client import Resource
 
 from ..apimachinery import utils
 from ..apimachinery import v1 as v1_1
@@ -18,7 +19,7 @@ class CELDeviceSelector(BaseModel):
     expression: Annotated[
         str,
         Field(
-            description='Expression is a CEL expression which evaluates a single device. It must evaluate to true when the device under consideration satisfies the desired criteria, and false when it does not. Any other result is an error and causes allocation of devices to abort.\n\nThe expression\'s input is an object named "device", which carries the following properties:\n - driver (string): the name of the driver which defines this device.\n - attributes (map[string]object): the device\'s attributes, grouped by prefix\n   (e.g. device.attributes["dra.example.com"] evaluates to an object with all\n   of the attributes which were prefixed by "dra.example.com".\n - capacity (map[string]object): the device\'s capacities, grouped by prefix.\n\nExample: Consider a device with driver="dra.example.com", which exposes two attributes named "model" and "ext.example.com/family" and which exposes one capacity named "modules". This input to this expression would have the following fields:\n\n    device.driver\n    device.attributes["dra.example.com"].model\n    device.attributes["ext.example.com"].family\n    device.capacity["dra.example.com"].modules\n\nThe device.driver field can be used to check for a specific driver, either as a high-level precondition (i.e. you only want to consider devices from this driver) or as part of a multi-clause expression that is meant to consider devices from different drivers.\n\nThe value type of each attribute is defined by the device definition, and users who write these expressions must consult the documentation for their specific drivers. The value type of each capacity is Quantity.\n\nIf an unknown prefix is used as a lookup in either device.attributes or device.capacity, an empty map will be returned. Any reference to an unknown field will cause an evaluation error and allocation to abort.\n\nA robust expression should check for the existence of attributes before referencing them.\n\nFor ease of use, the cel.bind() function is enabled, and can be used to simplify expressions that access multiple attributes with the same domain. For example:\n\n    cel.bind(dra, device.attributes["dra.example.com"], dra.someBool && dra.anotherBool)\n\nThe length of the expression must be smaller or equal to 10 Ki. The cost of evaluating it is also limited based on the estimated number of logical steps.'
+            description='Expression is a CEL expression which evaluates a single device. It must evaluate to true when the device under consideration satisfies the desired criteria, and false when it does not. Any other result is an error and causes allocation of devices to abort.\n\nThe expression\'s input is an object named "device", which carries the following properties:\n - driver (string): the name of the driver which defines this device.\n - attributes (map[string]object): the device\'s attributes, grouped by prefix\n   (e.g. device.attributes["dra.example.com"] evaluates to an object with all\n   of the attributes which were prefixed by "dra.example.com".\n - capacity (map[string]object): the device\'s capacities, grouped by prefix.\n\nExample: Consider a device with driver="dra.example.com", which exposes two attributes named "model" and "ext.example.com/family" and which exposes one capacity named "modules". This input to this expression would have the following fields:\n\n    device.driver\n    device.attributes["dra.example.com"].model\n    device.attributes["ext.example.com"].family\n    device.capacity["dra.example.com"].modules\n\nThe device.driver field can be used to check for a specific driver, either as a high-level precondition (i.e. you only want to consider devices from this driver) or as part of a multi-clause expression that is meant to consider devices from different drivers.\n\nThe value type of each attribute is defined by the device definition, and users who write these expressions must consult the documentation for their specific drivers. The value type of each capacity is Quantity.\n\nIf an unknown prefix is used as a lookup in either device.attributes or device.capacity, an empty map will be returned. Any reference to an unknown field will cause an evaluation error and allocation to abort.\n\nA robust expression should check for the existence of attributes before referencing them.\n\nFor ease of use, the cel.bind() function is enabled, and can be used to simplify expressions that access multiple attributes with the same domain. For example:\n\n    cel.bind(dra, device.attributes["dra.example.com"], dra.someBool && dra.anotherBool)'
         ),
     ]
 
@@ -55,13 +56,6 @@ class DeviceConstraint(BaseModel):
 
 
 class DeviceRequestAllocationResult(BaseModel):
-    admin_access: Annotated[
-        Optional[bool],
-        Field(
-            alias="adminAccess",
-            description="AdminAccess indicates that this device was allocated for administrative access. See the corresponding request field for a definition of mode.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
-        ),
-    ] = None
     device: Annotated[
         str,
         Field(
@@ -95,25 +89,19 @@ class DeviceSelector(BaseModel):
     ] = None
 
 
-class NetworkDeviceData(BaseModel):
-    hardware_address: Annotated[
-        Optional[str],
-        Field(
-            alias="hardwareAddress",
-            description="HardwareAddress represents the hardware address (e.g. MAC Address) of the device's network interface.\n\nMust not be longer than 128 characters.",
-        ),
-    ] = None
-    interface_name: Annotated[
-        Optional[str],
-        Field(
-            alias="interfaceName",
-            description="InterfaceName specifies the name of the network interface associated with the allocated device. This might be the name of a physical or virtual network interface being configured in the pod.\n\nMust not be longer than 256 characters.",
-        ),
-    ] = None
-    ips: Annotated[
+class PodSchedulingContextSpec(BaseModel):
+    potential_nodes: Annotated[
         Optional[List[str]],
         Field(
-            description='IPs lists the network addresses assigned to the device\'s network interface. This can include both IPv4 and IPv6 addresses. The IPs are in the CIDR notation, which includes both the address and the associated subnet mask. e.g.: "192.0.2.5/24" for IPv4 and "2001:db8::5/64" for IPv6.'
+            alias="potentialNodes",
+            description="PotentialNodes lists nodes where the Pod might be able to run.\n\nThe size of this field is limited to 128. This is large enough for many clusters. Larger clusters may need more attempts to find a node that suits all pending resources. This may get increased in the future, but not reduced.",
+        ),
+    ] = None
+    selected_node: Annotated[
+        Optional[str],
+        Field(
+            alias="selectedNode",
+            description='SelectedNode is the node for which allocation of ResourceClaims that are referenced by the Pod and that use "WaitForFirstConsumer" allocation is to be attempted.',
         ),
     ] = None
 
@@ -135,6 +123,20 @@ class ResourceClaimConsumerReference(BaseModel):
         str,
         Field(description="UID identifies exactly one incarnation of the resource."),
     ]
+
+
+class ResourceClaimSchedulingStatus(BaseModel):
+    name: Annotated[
+        str,
+        Field(description="Name matches the pod.spec.resourceClaims[*].Name field."),
+    ]
+    unsuitable_nodes: Annotated[
+        Optional[List[str]],
+        Field(
+            alias="unsuitableNodes",
+            description="UnsuitableNodes lists nodes that the ResourceClaim cannot be allocated for.\n\nThe size of this field is limited to 128, the same as for PodSchedulingSpec.PotentialNodes. This may get increased in the future, but not reduced.",
+        ),
+    ] = None
 
 
 class ResourcePool(BaseModel):
@@ -191,7 +193,7 @@ class DeviceRequest(BaseModel):
         Optional[bool],
         Field(
             alias="adminAccess",
-            description="AdminAccess indicates that this is a claim for administrative access to the device(s). Claims with AdminAccess are expected to be used for monitoring or other management services for a device.  They ignore all ordinary claims to the device with respect to access modes and any resource allocations.\n\nThis is an alpha field and requires enabling the DRAAdminAccess feature gate. Admin access is disabled if this field is unset or set to false, otherwise it is enabled.",
+            description="AdminAccess indicates that this is a claim for administrative access to the device(s). Claims with AdminAccess are expected to be used for monitoring or other management services for a device.  They ignore all ordinary claims to the device with respect to access modes and any resource allocations.",
         ),
     ] = None
     allocation_mode: Annotated[
@@ -238,9 +240,19 @@ class OpaqueDeviceConfiguration(BaseModel):
     parameters: Annotated[
         utils.RawExtension,
         Field(
-            description='Parameters can contain arbitrary data. It is the responsibility of the driver developer to handle validation and versioning. Typically this includes self-identification and a version ("kind" + "apiVersion" for Kubernetes types), with conversion between different versions.\n\nThe length of the raw data must be smaller or equal to 10 Ki.'
+            description='Parameters can contain arbitrary data. It is the responsibility of the driver developer to handle validation and versioning. Typically this includes self-identification and a version ("kind" + "apiVersion" for Kubernetes types), with conversion between different versions.'
         ),
     ]
+
+
+class PodSchedulingContextStatus(BaseModel):
+    resource_claims: Annotated[
+        Optional[List[ResourceClaimSchedulingStatus]],
+        Field(
+            alias="resourceClaims",
+            description='ResourceClaims describes resource availability for each pod.spec.resourceClaim entry where the corresponding ResourceClaim uses "WaitForFirstConsumer" allocation mode.',
+        ),
+    ] = None
 
 
 class ResourceSliceSpec(BaseModel):
@@ -280,46 +292,6 @@ class ResourceSliceSpec(BaseModel):
     pool: Annotated[
         ResourcePool,
         Field(description="Pool describes the pool that this ResourceSlice belongs to."),
-    ]
-
-
-class AllocatedDeviceStatus(BaseModel):
-    conditions: Annotated[
-        Optional[List[v1_1.Condition]],
-        Field(
-            description="Conditions contains the latest observation of the device's state. If the device has been configured according to the class and claim config references, the `Ready` condition should be True."
-        ),
-    ] = None
-    data: Annotated[
-        Optional[utils.RawExtension],
-        Field(
-            description="Data contains arbitrary driver-specific data.\n\nThe length of the raw data must be smaller or equal to 10 Ki."
-        ),
-    ] = None
-    device: Annotated[
-        str,
-        Field(
-            description="Device references one device instance via its name in the driver's resource pool. It must be a DNS label."
-        ),
-    ]
-    driver: Annotated[
-        str,
-        Field(
-            description="Driver specifies the name of the DRA driver whose kubelet plugin should be invoked to process the allocation once the claim is needed on a node.\n\nMust be a DNS subdomain and should end with a DNS domain owned by the vendor of the driver."
-        ),
-    ]
-    network_data: Annotated[
-        Optional[NetworkDeviceData],
-        Field(
-            alias="networkData",
-            description="NetworkData contains network-related information specific to the device.",
-        ),
-    ] = None
-    pool: Annotated[
-        str,
-        Field(
-            description="This name together with the driver name and the device name field identify which device was allocated (`<driver name>/<pool name>/<device name>`).\n\nMust not be longer than 253 characters and may contain one or more DNS sub-domains separated by slashes."
-        ),
     ]
 
 
@@ -388,6 +360,61 @@ class DeviceClassSpec(BaseModel):
             description="Each selector must be satisfied by a device which is claimed via this class."
         ),
     ] = None
+    suitable_nodes: Annotated[
+        Optional[v1.NodeSelector],
+        Field(
+            alias="suitableNodes",
+            description="Only nodes matching the selector will be considered by the scheduler when trying to find a Node that fits a Pod when that Pod uses a claim that has not been allocated yet *and* that claim gets allocated through a control plane controller. It is ignored when the claim does not use a control plane controller for allocation.\n\nSetting this field is optional. If unset, all Nodes are candidates.\n\nThis is an alpha field and requires enabling the DRAControlPlaneController feature gate.",
+        ),
+    ] = None
+
+
+class PodSchedulingContext(Resource):
+    api_version: Annotated[
+        Optional[Literal["resource.k8s.io/v1alpha3"]],
+        Field(
+            alias="apiVersion",
+            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+        ),
+    ] = "resource.k8s.io/v1alpha3"
+    kind: Annotated[
+        Optional[Literal["PodSchedulingContext"]],
+        Field(
+            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = "PodSchedulingContext"
+    metadata: Annotated[
+        Optional[v1_1.ObjectMeta], Field(description="Standard object metadata")
+    ] = None
+    spec: Annotated[
+        PodSchedulingContextSpec,
+        Field(description="Spec describes where resources for the Pod are needed."),
+    ]
+    status: Annotated[
+        Optional[PodSchedulingContextStatus],
+        Field(description="Status describes where resources for the Pod can be allocated."),
+    ] = None
+
+
+class PodSchedulingContextList(Resource):
+    api_version: Annotated[
+        Optional[Literal["resource.k8s.io/v1alpha3"]],
+        Field(
+            alias="apiVersion",
+            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+        ),
+    ] = "resource.k8s.io/v1alpha3"
+    items: Annotated[
+        List[PodSchedulingContext],
+        Field(description="Items is the list of PodSchedulingContext objects."),
+    ]
+    kind: Annotated[
+        Optional[Literal["PodSchedulingContextList"]],
+        Field(
+            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = "PodSchedulingContextList"
+    metadata: Annotated[Optional[v1_1.ListMeta], Field(description="Standard list metadata")] = None
 
 
 class ResourceSlice(Resource):
@@ -437,6 +464,12 @@ class ResourceSliceList(Resource):
 
 
 class AllocationResult(BaseModel):
+    controller: Annotated[
+        Optional[str],
+        Field(
+            description="Controller is the name of the DRA driver which handled the allocation. That driver is also responsible for deallocating the claim. It is empty when the claim can be deallocated without involving a driver.\n\nA driver may allocate devices provided by other drivers, so this driver name here can be different from the driver names listed for the results.\n\nThis is an alpha field and requires enabling the DRAControlPlaneController feature gate."
+        ),
+    ] = None
     devices: Annotated[
         Optional[DeviceAllocationResult],
         Field(description="Devices is the result of allocating devices."),
@@ -515,6 +548,12 @@ class DeviceClassList(Resource):
 
 
 class ResourceClaimSpec(BaseModel):
+    controller: Annotated[
+        Optional[str],
+        Field(
+            description="Controller is the name of the DRA driver that is meant to handle allocation of this claim. If empty, allocation is handled by the scheduler while scheduling a pod.\n\nMust be a DNS subdomain and should end with a DNS domain owned by the vendor of the driver.\n\nThis is an alpha field and requires enabling the DRAControlPlaneController feature gate."
+        ),
+    ] = None
     devices: Annotated[
         Optional[DeviceClaim],
         Field(description="Devices defines how to request devices."),
@@ -526,10 +565,11 @@ class ResourceClaimStatus(BaseModel):
         Optional[AllocationResult],
         Field(description="Allocation is set once the claim has been allocated successfully."),
     ] = None
-    devices: Annotated[
-        Optional[List[AllocatedDeviceStatus]],
+    deallocation_requested: Annotated[
+        Optional[bool],
         Field(
-            description="Devices contains the status of each device allocated for this claim, as reported by the driver. This can include driver-specific information. Entries are owned by their respective drivers."
+            alias="deallocationRequested",
+            description="Indicates that a claim is to be deallocated. While this is set, no new consumers may be added to ReservedFor.\n\nThis is only used if the claim needs to be deallocated by a DRA driver. That driver then must deallocate this claim and reset the field together with clearing the Allocation field.\n\nThis is an alpha field and requires enabling the DRAControlPlaneController feature gate.",
         ),
     ] = None
     reserved_for: Annotated[
@@ -545,7 +585,7 @@ class ResourceClaimTemplateSpec(BaseModel):
     metadata: Annotated[
         Optional[v1_1.ObjectMeta],
         Field(
-            description="ObjectMeta may contain labels and annotations that will be copied into the ResourceClaim when creating it. No other fields are allowed and will be rejected during validation."
+            description="ObjectMeta may contain labels and annotations that will be copied into the PVC when creating it. No other fields are allowed and will be rejected during validation."
         ),
     ] = None
     spec: Annotated[

@@ -235,7 +235,7 @@ class LimitedPriorityLevelConfiguration(BaseModel):
         Optional[int],
         Field(
             alias="nominalConcurrencyShares",
-            description='`nominalConcurrencyShares` (NCS) contributes to the computation of the NominalConcurrencyLimit (NominalCL) of this level. This is the number of execution seats available at this priority level. This is used both for requests dispatched from this priority level as well as requests dispatched from other priority levels borrowing seats from this level. The server\'s concurrency limit (ServerCL) is divided among the Limited priority levels in proportion to their NCS values:\n\nNominalCL(i)  = ceil( ServerCL * NCS(i) / sum_ncs ) sum_ncs = sum[priority level k] NCS(k)\n\nBigger numbers mean a larger nominal concurrency limit, at the expense of every other priority level.\n\nIf not specified, this field defaults to a value of 30.\n\nSetting this field to zero supports the construction of a "jail" for this priority level that is used to hold some request(s)',
+            description="`nominalConcurrencyShares` (NCS) contributes to the computation of the NominalConcurrencyLimit (NominalCL) of this level. This is the number of execution seats available at this priority level. This is used both for requests dispatched from this priority level as well as requests dispatched from other priority levels borrowing seats from this level. The server's concurrency limit (ServerCL) is divided among the Limited priority levels in proportion to their NCS values:\n\nNominalCL(i)  = ceil( ServerCL * NCS(i) / sum_ncs ) sum_ncs = sum[priority level k] NCS(k)\n\nBigger numbers mean a larger nominal concurrency limit, at the expense of every other priority level. This field has a default value of 30.",
         ),
     ] = None
 
@@ -346,12 +346,12 @@ class PolicyRulesWithSubjects(BaseModel):
 
 class PriorityLevelConfiguration(Resource):
     api_version: Annotated[
-        Optional[Literal["flowcontrol.apiserver.k8s.io/v1"]],
+        Optional[Literal["flowcontrol.apiserver.k8s.io/v1beta3"]],
         Field(
             alias="apiVersion",
             description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
         ),
-    ] = "flowcontrol.apiserver.k8s.io/v1"
+    ] = "flowcontrol.apiserver.k8s.io/v1beta3"
     kind: Annotated[
         Optional[Literal["PriorityLevelConfiguration"]],
         Field(
@@ -380,12 +380,12 @@ class PriorityLevelConfiguration(Resource):
 
 class PriorityLevelConfigurationList(Resource):
     api_version: Annotated[
-        Optional[Literal["flowcontrol.apiserver.k8s.io/v1"]],
+        Optional[Literal["flowcontrol.apiserver.k8s.io/v1beta3"]],
         Field(
             alias="apiVersion",
             description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
         ),
-    ] = "flowcontrol.apiserver.k8s.io/v1"
+    ] = "flowcontrol.apiserver.k8s.io/v1beta3"
     items: Annotated[
         List[PriorityLevelConfiguration],
         Field(description="`items` is a list of request-priorities."),
@@ -436,12 +436,12 @@ class FlowSchemaSpec(BaseModel):
 
 class FlowSchema(Resource):
     api_version: Annotated[
-        Optional[Literal["flowcontrol.apiserver.k8s.io/v1"]],
+        Optional[Literal["flowcontrol.apiserver.k8s.io/v1beta3"]],
         Field(
             alias="apiVersion",
             description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
         ),
-    ] = "flowcontrol.apiserver.k8s.io/v1"
+    ] = "flowcontrol.apiserver.k8s.io/v1beta3"
     kind: Annotated[
         Optional[Literal["FlowSchema"]],
         Field(
@@ -470,12 +470,12 @@ class FlowSchema(Resource):
 
 class FlowSchemaList(Resource):
     api_version: Annotated[
-        Optional[Literal["flowcontrol.apiserver.k8s.io/v1"]],
+        Optional[Literal["flowcontrol.apiserver.k8s.io/v1beta3"]],
         Field(
             alias="apiVersion",
             description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
         ),
-    ] = "flowcontrol.apiserver.k8s.io/v1"
+    ] = "flowcontrol.apiserver.k8s.io/v1beta3"
     items: Annotated[List[FlowSchema], Field(description="`items` is a list of FlowSchemas.")]
     kind: Annotated[
         Optional[Literal["FlowSchemaList"]],

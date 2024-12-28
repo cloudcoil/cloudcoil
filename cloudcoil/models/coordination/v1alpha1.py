@@ -7,19 +7,20 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import BaseModel, Resource
+from cloudcoil._pydantic import BaseModel
+from cloudcoil.client import Resource
 
 from ..apimachinery import v1
 
 
 class LeaseCandidateSpec(BaseModel):
     binary_version: Annotated[
-        str,
+        Optional[str],
         Field(
             alias="binaryVersion",
-            description="BinaryVersion is the binary version. It must be in a semver format without leading `v`. This field is required.",
+            description='BinaryVersion is the binary version. It must be in a semver format without leading `v`. This field is required when strategy is "OldestEmulationVersion"',
         ),
-    ]
+    ] = None
     emulation_version: Annotated[
         Optional[str],
         Field(
@@ -41,6 +42,13 @@ class LeaseCandidateSpec(BaseModel):
             description="PingTime is the last time that the server has requested the LeaseCandidate to renew. It is only done during leader election to check if any LeaseCandidates have become ineligible. When PingTime is updated, the LeaseCandidate will respond by updating RenewTime.",
         ),
     ] = None
+    preferred_strategies: Annotated[
+        List[str],
+        Field(
+            alias="preferredStrategies",
+            description="PreferredStrategies indicates the list of strategies for picking the leader for coordinated leader election. The list is ordered, and the first strategy supersedes all other strategies. The list is used by coordinated leader election to make a decision about the final election strategy. This follows as - If all clients have strategy X as the first element in this list, strategy X will be used. - If a candidate has strategy [X] and another candidate has strategy [Y, X], Y supersedes X and strategy Y\n  will be used.\n- If a candidate has strategy [X, Y] and another candidate has strategy [Y, X], this is a user error and leader\n  election will not operate the Lease until resolved.\n(Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled.",
+        ),
+    ]
     renew_time: Annotated[
         Optional[v1.MicroTime],
         Field(
@@ -48,22 +56,16 @@ class LeaseCandidateSpec(BaseModel):
             description="RenewTime is the time that the LeaseCandidate was last updated. Any time a Lease needs to do leader election, the PingTime field is updated to signal to the LeaseCandidate that they should update the RenewTime. Old LeaseCandidate objects are also garbage collected if it has been hours since the last renew. The PingTime field is updated regularly to prevent garbage collection for still active LeaseCandidates.",
         ),
     ] = None
-    strategy: Annotated[
-        str,
-        Field(
-            description="Strategy is the strategy that coordinated leader election will use for picking the leader. If multiple candidates for the same Lease return different strategies, the strategy provided by the candidate with the latest BinaryVersion will be used. If there is still conflict, this is a user error and coordinated leader election will not operate the Lease until resolved. (Alpha) Using this field requires the CoordinatedLeaderElection feature gate to be enabled."
-        ),
-    ]
 
 
 class LeaseCandidate(Resource):
     api_version: Annotated[
-        Optional[Literal["coordination.k8s.io/v1alpha2"]],
+        Optional[Literal["coordination.k8s.io/v1alpha1"]],
         Field(
             alias="apiVersion",
             description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
         ),
-    ] = "coordination.k8s.io/v1alpha2"
+    ] = "coordination.k8s.io/v1alpha1"
     kind: Annotated[
         Optional[Literal["LeaseCandidate"]],
         Field(
@@ -86,12 +88,12 @@ class LeaseCandidate(Resource):
 
 class LeaseCandidateList(Resource):
     api_version: Annotated[
-        Optional[Literal["coordination.k8s.io/v1alpha2"]],
+        Optional[Literal["coordination.k8s.io/v1alpha1"]],
         Field(
             alias="apiVersion",
             description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
         ),
-    ] = "coordination.k8s.io/v1alpha2"
+    ] = "coordination.k8s.io/v1alpha1"
     items: Annotated[List[LeaseCandidate], Field(description="items is a list of schema objects.")]
     kind: Annotated[
         Optional[Literal["LeaseCandidateList"]],

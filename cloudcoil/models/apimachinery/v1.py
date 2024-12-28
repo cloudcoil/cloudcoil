@@ -8,7 +8,8 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field, RootModel
 
-from cloudcoil.client import BaseModel, Resource
+from cloudcoil._pydantic import BaseModel
+from cloudcoil.client import Resource
 
 from . import utils
 
@@ -463,13 +464,6 @@ class DeleteOptions(Resource):
         Field(
             alias="gracePeriodSeconds",
             description="The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
-        ),
-    ] = None
-    ignore_store_read_error_with_cluster_breaking_potential: Annotated[
-        Optional[bool],
-        Field(
-            alias="ignoreStoreReadErrorWithClusterBreakingPotential",
-            description="if set to true, it will trigger an unsafe deletion of the resource in case the normal deletion flow fails with a corrupt object error. A resource is considered corrupt if it can not be retrieved from the underlying storage successfully because of a) its data can not be transformed e.g. decryption failure, or b) it fails to decode into an object. NOTE: unsafe deletion ignores finalizer constraints, skips precondition checks, and removes the object from the storage. WARNING: This may potentially break the cluster if the workload associated with the resource being unsafe-deleted relies on normal deletion flow. Use only if you REALLY know what you are doing. The default value is false, and the user must opt in to enable it",
         ),
     ] = None
     kind: Annotated[

@@ -7,7 +7,7 @@ from typing import Annotated, Union
 
 from pydantic import Field, RootModel
 
-from cloudcoil.client import BaseModel
+from cloudcoil._pydantic import BaseModel
 
 
 class Quantity(RootModel[str]):
