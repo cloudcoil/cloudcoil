@@ -47,7 +47,7 @@ select = [
 ignore = ["E203", "B008", "N818", "E501", "B904"]
 
 [tool.pytest.ini_options]
-addopts = "-ra -q --cov=cloudcoil --cov-report=xml --cov-report=term -vvv"
+addopts = "-ra -q --cov=cloudcoil --cov-report=xml --cov-report=term -vvv --junitxml=junit.xml -o junit_family=legacy"
 testpaths = ["tests"]
 markers = ["configure_test_cluster: Configure cloudcoil test cluster"]
 
