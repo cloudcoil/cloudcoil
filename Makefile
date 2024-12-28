@@ -23,3 +23,23 @@ prepare-for-pr: fix-lint lint test
 	@echo "It looks good! :)"
 	@echo "Make sure to commit all changes!"
 	@echo "========"
+
+.PHONY: gen-models
+gen-models:
+	rm -rf cloudcoil/models
+	uv run python scripts/fetch_schema.py
+	uv run datamodel-codegen \
+		--input processed_swagger.json \
+		--snake-case-field \
+		--target-python-version 3.9 \
+		--output cloudcoil/models \
+		--output-model-type pydantic_v2.BaseModel \
+		--enum-field-as-literal all \
+		--input-file-type jsonschema \
+		--disable-appending-item-suffix \
+		--disable-timestamp \
+		--base-class cloudcoil.client.Resource \
+		--use-annotated \
+		--use-default-kwarg \
+		--use-default
+	$(MAKE) fix-lint

@@ -11,15 +11,33 @@ Cloud native made easy with Python
 ## Installation
 
 ```bash
-pip install cloudcoil
+# Minimal dependencies
+# pydantic, httpx and pyyaml
+uv add cloudcoil
 ```
 
 ## Quick Start
 
 ```python
-import cloudcoil
+# ClientSet is the core way to interact with your Kubernetes API Server
+from cloudcoil.client import ClientSet
+# All default kubernetes types are neatly arranged
+# with appropriate apiversions as module paths
+from cloudcoil.models.apps import v1 as apps_v1
+from cloudcoil.models.core import v1 as core_v1
 
-# Add example code here
+# Uses the default clientset based on KUBECONFIG
+# Feels just as natural as kubectl
+# But comes with full pydantic validation
+kubernetes_service = core_v1.Service.get("kubernetes")
+
+# You can create temporary clientset contexts
+# This is similar to doing kubens kube-system
+with ClientSet(namespace="kube-system"):
+    # This searches for deployments in the kube-system namespace
+    core_dns_deployment = apps_v1.Deployment.get("core-dns")
+    # Also comes with async client out of the box!
+    kube_dns_service = await core_v1.Service.async_get("kube-dns")
 ```
 
 ## Documentation

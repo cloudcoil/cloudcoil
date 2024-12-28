@@ -7,10 +7,12 @@ authors = [
 ]
 license = {text = "Apache-2.0"}
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "pydantic>2.0",
-    "httpx"
+    "httpx",
+    "pyyaml>=6.0.2",
+    "typing_extensions>=4.0.0; python_version <= '3.10'",
 ]
 
 [build-system]
@@ -47,4 +49,10 @@ dev = [
     "pytest-cov>=4.1.0",
     "ruff>=0.8.4",
     "mkdocs-autorefs",
+    "datamodel-code-generator[http]",
+    "types-pyyaml>=6.0.12.20241221",
+    "ipython>=8.12.3",
 ]
+
+[tool.mypy]
+plugins = ['pydantic.mypy']
