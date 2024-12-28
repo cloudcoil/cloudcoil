@@ -56,9 +56,9 @@ def main():
     renames = {}
     for definition_name, definition in schema["definitions"].items():
         # Remove the io.k8s.api prefix
+        new_name = definition_name
         if definition_name.startswith("io.k8s.api."):
             new_name = definition_name[len("io.k8s.api."):]
-            renames[definition_name] = new_name
         # If definition starts with io.k8s.apimachinery, replace the whole thing with just apimachinery
         # except the last part
         if definition_name.startswith("io.k8s.apimachinery."):
@@ -70,16 +70,19 @@ def main():
                 new_name.append("utils")
             new_name.append(kind)
             new_name = ".".join(new_name)
-            renames[definition_name] = new_name
         # For apiextensions.k8s.io, replace with apiextensions
         if definition_name.startswith("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions."):
             new_name = definition_name.replace("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.", "apiextensions.")
-            renames[definition_name] = new_name
 
         # for apiregistration.k8s.io, replace with apiregistration
         if definition_name.startswith("io.k8s.kube-aggregator.pkg.apis."):
             new_name = definition_name.replace("io.k8s.kube-aggregator.pkg.apis.", "")
-            renames[definition_name] = new_name
+        
+        if not (new_name.startswith("apimachinery") and "x-kubernetes-group-version-kind" not in definition):
+            new_name = "kinds." + new_name
+        else:
+            new_name = "apimachinery." + new_name.split(".")[-1]
+        renames[definition_name] = new_name
     
     # Rename the definitions
     for old_name, new_name in renames.items():

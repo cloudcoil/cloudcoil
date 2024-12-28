@@ -1,11 +1,9 @@
-from typing import TYPE_CHECKING, Generic, Type, TypeVar
+from typing import Generic, Type, TypeVar
 
 import httpx
 
+from cloudcoil.client._resource import Resource
 from cloudcoil.client.errors import APIError, ResourceAlreadyExists, ResourceNotFound
-
-if TYPE_CHECKING:
-    from cloudcoil.client._resource import Resource
 
 T = TypeVar("T", bound="Resource")
 
@@ -72,8 +70,8 @@ class APIClient(_BaseAPIClient[T]):
         return self._handle_get_response(response, namespace, name)
 
     def create(self, body: T, namespace: str | None = None) -> T:
-        assert hasattr(body, "metadata") and hasattr(body.metadata, "namespace")
-        assert hasattr(body, "metadata") and hasattr(body.metadata, "name")
+        if not (body.metadata):
+            raise ValueError(f"metadata must be set for {body=}")
         namespace = namespace or body.metadata.namespace or self.default_namespace
         url = self._build_url(namespace=namespace)
         response = self._client.post(url, json=body.model_dump(mode="json", by_alias=True))
@@ -86,8 +84,8 @@ class APIClient(_BaseAPIClient[T]):
         return self._handle_get_response(response, namespace, name)
 
     def remove(self, body: T) -> T:
-        assert hasattr(body, "metadata") and hasattr(body.metadata, "namespace")
-        assert hasattr(body, "metadata") and hasattr(body.metadata, "name")
+        if not (body.metadata and body.metadata.name):
+            raise ValueError(f"metadata.name must be set for {body=}")
         namespace = body.metadata.namespace or self.default_namespace
         name = body.metadata.name
         return self.delete(name, namespace)
@@ -113,8 +111,8 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         return self._handle_get_response(response, namespace, name)
 
     async def create(self, body: T, namespace: str | None = None) -> T:
-        assert hasattr(body, "metadata") and hasattr(body.metadata, "namespace")
-        assert hasattr(body, "metadata") and hasattr(body.metadata, "name")
+        if not (body.metadata):
+            raise ValueError(f"metadata.name must be set for {body=}")
         namespace = namespace or body.metadata.namespace or self.default_namespace
         url = self._build_url(namespace=namespace)
         response = await self._client.post(url, json=body.model_dump(mode="json", by_alias=True))
@@ -127,8 +125,8 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         return self._handle_get_response(response, namespace, name)
 
     async def remove(self, body: T) -> T:
-        assert hasattr(body, "metadata") and hasattr(body.metadata, "namespace")
-        assert hasattr(body, "metadata") and hasattr(body.metadata, "name")
+        if not (body.metadata and body.metadata.name):
+            raise ValueError(f"metadata.name must be set for {body=}")
         namespace = body.metadata.namespace or self.default_namespace
         name = body.metadata.name
         return await self.delete(name, namespace)

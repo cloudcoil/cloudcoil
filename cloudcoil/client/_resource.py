@@ -1,22 +1,21 @@
 import sys
+from typing import Any
+
+from cloudcoil.apimachinery import ListMeta, ObjectMeta
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
 
-from pydantic import BaseModel, ConfigDict
-
+from cloudcoil._pydantic import BaseModel
 from cloudcoil.client._context import context
 
 
-class RootModel(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-    )
+class BaseResource(BaseModel):
+    api_version: Any
+    kind: Any
 
-
-class Resource(RootModel):
     @classmethod
     def gvk(cls):
         fields = cls.model_fields
@@ -27,6 +26,14 @@ class Resource(RootModel):
         api_version = fields["api_version"].default
         kind = fields["kind"].default
         return api_version, kind
+
+
+class ResourceList(BaseResource):
+    metadata: ListMeta | None = None
+
+
+class Resource(BaseResource):
+    metadata: ObjectMeta | None = None
 
     @classmethod
     def get(cls, name: str, namespace: str | None = None) -> Self:
