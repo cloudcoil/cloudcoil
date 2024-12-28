@@ -85,6 +85,13 @@ class APIClient(_BaseAPIClient[T]):
         response = self._client.delete(url)
         return self._handle_get_response(response, namespace, name)
 
+    def remove(self, body: T) -> T:
+        assert hasattr(body, "metadata") and hasattr(body.metadata, "namespace")
+        assert hasattr(body, "metadata") and hasattr(body.metadata, "name")
+        namespace = body.metadata.namespace or self.default_namespace
+        name = body.metadata.name
+        return self.delete(name, namespace)
+
 
 class AsyncAPIClient(_BaseAPIClient[T]):
     def __init__(
@@ -118,3 +125,10 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         url = self._build_url(name=name, namespace=namespace)
         response = await self._client.delete(url)
         return self._handle_get_response(response, namespace, name)
+
+    async def remove(self, body: T) -> T:
+        assert hasattr(body, "metadata") and hasattr(body.metadata, "namespace")
+        assert hasattr(body, "metadata") and hasattr(body.metadata, "name")
+        namespace = body.metadata.namespace or self.default_namespace
+        name = body.metadata.name
+        return await self.delete(name, namespace)

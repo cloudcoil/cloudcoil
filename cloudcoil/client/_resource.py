@@ -57,3 +57,11 @@ class Resource(RootModel):
     async def async_delete(cls, name: str, namespace: str | None = None) -> Self:
         client_set = context.active_client_set
         return await client_set.client_for(cls, sync=False).delete(name, namespace)
+
+    def remove(self) -> Self:
+        client_set = context.active_client_set
+        return client_set.client_for(self.__class__, sync=True).remove(self)
+
+    async def async_remove(self) -> Self:
+        client_set = context.active_client_set
+        return await client_set.client_for(self.__class__, sync=False).remove(self)
