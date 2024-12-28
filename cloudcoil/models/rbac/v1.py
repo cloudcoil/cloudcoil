@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class PolicyRule(Resource):
+class PolicyRule(BaseModel):
     api_groups: Annotated[
         Optional[List[str]],
         Field(
@@ -48,7 +48,7 @@ class PolicyRule(Resource):
     ]
 
 
-class RoleRef(Resource):
+class RoleRef(BaseModel):
     api_group: Annotated[
         str,
         Field(
@@ -60,7 +60,7 @@ class RoleRef(Resource):
     name: Annotated[str, Field(description="Name is the name of resource being referenced")]
 
 
-class Subject(Resource):
+class Subject(BaseModel):
     api_group: Annotated[
         Optional[str],
         Field(
@@ -83,7 +83,7 @@ class Subject(Resource):
     ] = None
 
 
-class AggregationRule(Resource):
+class AggregationRule(BaseModel):
     cluster_role_selectors: Annotated[
         Optional[List[v1.LabelSelector]],
         Field(

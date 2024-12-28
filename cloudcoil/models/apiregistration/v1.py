@@ -7,25 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
-from .......apimachinery import v1
-
-
-class ServiceReference(Resource):
-    name: Annotated[Optional[str], Field(description="Name is the name of the service")] = None
-    namespace: Annotated[
-        Optional[str], Field(description="Namespace is the namespace of the service")
-    ] = None
-    port: Annotated[
-        Optional[int],
-        Field(
-            description="If specified, the port on the service that hosting webhook. Default to 443 for backward compatibility. `port` should be a valid port number (1-65535, inclusive)."
-        ),
-    ] = None
+from ..apimachinery import v1
 
 
-class APIServiceCondition(Resource):
+class APIServiceCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -50,7 +37,27 @@ class APIServiceCondition(Resource):
     type: Annotated[str, Field(description="Type is the type of the condition.")]
 
 
-class APIServiceSpec(Resource):
+class APIServiceStatus(BaseModel):
+    conditions: Annotated[
+        Optional[List[APIServiceCondition]],
+        Field(description="Current service state of apiService."),
+    ] = None
+
+
+class ServiceReference(BaseModel):
+    name: Annotated[Optional[str], Field(description="Name is the name of the service")] = None
+    namespace: Annotated[
+        Optional[str], Field(description="Namespace is the namespace of the service")
+    ] = None
+    port: Annotated[
+        Optional[int],
+        Field(
+            description="If specified, the port on the service that hosting webhook. Default to 443 for backward compatibility. `port` should be a valid port number (1-65535, inclusive)."
+        ),
+    ] = None
+
+
+class APIServiceSpec(BaseModel):
     ca_bundle: Annotated[
         Optional[str],
         Field(
@@ -93,13 +100,6 @@ class APIServiceSpec(Resource):
             description='VersionPriority controls the ordering of this API version inside of its group.  Must be greater than zero. The primary sort is based on VersionPriority, ordered highest to lowest (20 before 10). Since it\'s inside of a group, the number can be small, probably in the 10s. In case of equal version priorities, the version string will be used to compute the order inside a group. If the version string is "kube-like", it will sort above non "kube-like" version strings, which are ordered lexicographically. "Kube-like" versions start with a "v", then are followed by a number (the major version), then optionally the string "alpha" or "beta" and another number (the minor version). These are sorted first by GA > beta > alpha (where GA is a version with no suffix such as beta or alpha), and then by comparing major version, then minor version. An example sorted list of versions: v10, v2, v1, v11beta2, v10beta3, v3beta1, v12alpha1, v11alpha2, foo1, foo10.',
         ),
     ]
-
-
-class APIServiceStatus(Resource):
-    conditions: Annotated[
-        Optional[List[APIServiceCondition]],
-        Field(description="Current service state of apiService."),
-    ] = None
 
 
 class APIService(Resource):

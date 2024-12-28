@@ -7,13 +7,13 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1 as v1_1
 from ..core import v1
 
 
-class PodFailurePolicyOnExitCodesRequirement(Resource):
+class PodFailurePolicyOnExitCodesRequirement(BaseModel):
     container_name: Annotated[
         Optional[str],
         Field(
@@ -35,7 +35,7 @@ class PodFailurePolicyOnExitCodesRequirement(Resource):
     ]
 
 
-class PodFailurePolicyOnPodConditionsPattern(Resource):
+class PodFailurePolicyOnPodConditionsPattern(BaseModel):
     status: Annotated[
         str,
         Field(
@@ -50,7 +50,7 @@ class PodFailurePolicyOnPodConditionsPattern(Resource):
     ]
 
 
-class PodFailurePolicyRule(Resource):
+class PodFailurePolicyRule(BaseModel):
     action: Annotated[
         str,
         Field(
@@ -73,7 +73,7 @@ class PodFailurePolicyRule(Resource):
     ] = None
 
 
-class SuccessPolicyRule(Resource):
+class SuccessPolicyRule(BaseModel):
     succeeded_count: Annotated[
         Optional[int],
         Field(
@@ -90,7 +90,7 @@ class SuccessPolicyRule(Resource):
     ] = None
 
 
-class UncountedTerminatedPods(Resource):
+class UncountedTerminatedPods(BaseModel):
     failed: Annotated[
         Optional[List[str]], Field(description="failed holds UIDs of failed Pods.")
     ] = None
@@ -100,7 +100,7 @@ class UncountedTerminatedPods(Resource):
     ] = None
 
 
-class CronJobStatus(Resource):
+class CronJobStatus(BaseModel):
     active: Annotated[
         Optional[List[v1.ObjectReference]],
         Field(description="A list of pointers to currently running jobs."),
@@ -121,7 +121,7 @@ class CronJobStatus(Resource):
     ] = None
 
 
-class JobCondition(Resource):
+class JobCondition(BaseModel):
     last_probe_time: Annotated[
         Optional[v1_1.Time],
         Field(alias="lastProbeTime", description="Last time the condition was checked."),
@@ -147,7 +147,7 @@ class JobCondition(Resource):
     type: Annotated[str, Field(description="Type of job condition, Complete or Failed.")]
 
 
-class JobStatus(Resource):
+class JobStatus(BaseModel):
     active: Annotated[
         Optional[int],
         Field(
@@ -221,7 +221,7 @@ class JobStatus(Resource):
     ] = None
 
 
-class PodFailurePolicy(Resource):
+class PodFailurePolicy(BaseModel):
     rules: Annotated[
         List[PodFailurePolicyRule],
         Field(
@@ -230,7 +230,7 @@ class PodFailurePolicy(Resource):
     ]
 
 
-class SuccessPolicy(Resource):
+class SuccessPolicy(BaseModel):
     rules: Annotated[
         List[SuccessPolicyRule],
         Field(
@@ -239,7 +239,7 @@ class SuccessPolicy(Resource):
     ]
 
 
-class JobSpec(Resource):
+class JobSpec(BaseModel):
     active_deadline_seconds: Annotated[
         Optional[int],
         Field(
@@ -349,7 +349,7 @@ class JobSpec(Resource):
     ] = None
 
 
-class JobTemplateSpec(Resource):
+class JobTemplateSpec(BaseModel):
     metadata: Annotated[
         Optional[v1_1.ObjectMeta],
         Field(
@@ -364,7 +364,7 @@ class JobTemplateSpec(Resource):
     ] = None
 
 
-class CronJobSpec(Resource):
+class CronJobSpec(BaseModel):
     concurrency_policy: Annotated[
         Optional[str],
         Field(

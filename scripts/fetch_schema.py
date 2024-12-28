@@ -77,8 +77,8 @@ def main():
             renames[definition_name] = new_name
 
         # for apiregistration.k8s.io, replace with apiregistration
-        if definition_name.startswith("io.k8s.apiregistration.pkg.apis.apiregistration."):
-            new_name = definition_name.replace("io.k8s.apiregistration.pkg.apis.apiregistration.", "apiregistration.")
+        if definition_name.startswith("io.k8s.kube-aggregator.pkg.apis."):
+            new_name = definition_name.replace("io.k8s.kube-aggregator.pkg.apis.", "")
             renames[definition_name] = new_name
     
     # Rename the definitions
@@ -104,6 +104,18 @@ def main():
 
     with open("processed_swagger.json", "w") as f:
         f.write(output_schema)
+    
+    # Add extra template data to mark kubenretes gvk objects witha boolean
+    extra_data = {}
+    for prop_name, prop in schema["definitions"].items():
+        if "x-kubernetes-group-version-kind" in prop:
+            extra_data[prop_name] = {"is_gvk": True}
+        else:
+            extra_data[prop_name] = {"is_gvk": False}
+    with open("extra_data.json", "w") as f:
+        json.dump(extra_data, f, indent=2)
+
+
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@ from typing import Annotated, Union
 
 from pydantic import Field, RootModel
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel
 
 
 class Quantity(RootModel[str]):
@@ -19,7 +19,7 @@ class Quantity(RootModel[str]):
     ]
 
 
-class RawExtension(Resource):
+class RawExtension(BaseModel):
     pass
 
 
@@ -32,7 +32,7 @@ class IntOrString(RootModel[Union[int, str]]):
     ]
 
 
-class Info(Resource):
+class Info(BaseModel):
     build_date: Annotated[str, Field(alias="buildDate")]
     compiler: str
     git_commit: Annotated[str, Field(alias="gitCommit")]

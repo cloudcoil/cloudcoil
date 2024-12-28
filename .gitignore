@@ -170,3 +170,5 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 processed_swagger.json
+extra_data.json
+.DS_Store

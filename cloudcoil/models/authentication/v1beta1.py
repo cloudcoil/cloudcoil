@@ -7,13 +7,13 @@ from typing import Annotated, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1 as v1_1
 from . import v1
 
 
-class SelfSubjectReviewStatus(Resource):
+class SelfSubjectReviewStatus(BaseModel):
     user_info: Annotated[
         Optional[v1.UserInfo],
         Field(

@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class LeaseSpec(Resource):
+class LeaseSpec(BaseModel):
     acquire_time: Annotated[
         Optional[v1.MicroTime],
         Field(

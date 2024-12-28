@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import utils, v1
 
 
-class CrossVersionObjectReference(Resource):
+class CrossVersionObjectReference(BaseModel):
     api_version: Annotated[
         Optional[str],
         Field(
@@ -34,7 +34,7 @@ class CrossVersionObjectReference(Resource):
     ]
 
 
-class HPAScalingPolicy(Resource):
+class HPAScalingPolicy(BaseModel):
     period_seconds: Annotated[
         int,
         Field(
@@ -51,7 +51,7 @@ class HPAScalingPolicy(Resource):
     ]
 
 
-class HPAScalingRules(Resource):
+class HPAScalingRules(BaseModel):
     policies: Annotated[
         Optional[List[HPAScalingPolicy]],
         Field(
@@ -74,7 +74,7 @@ class HPAScalingRules(Resource):
     ] = None
 
 
-class HorizontalPodAutoscalerBehavior(Resource):
+class HorizontalPodAutoscalerBehavior(BaseModel):
     scale_down: Annotated[
         Optional[HPAScalingRules],
         Field(
@@ -91,7 +91,7 @@ class HorizontalPodAutoscalerBehavior(Resource):
     ] = None
 
 
-class HorizontalPodAutoscalerCondition(Resource):
+class HorizontalPodAutoscalerCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -116,7 +116,7 @@ class HorizontalPodAutoscalerCondition(Resource):
     type: Annotated[str, Field(description="type describes the current condition")]
 
 
-class MetricTarget(Resource):
+class MetricTarget(BaseModel):
     average_utilization: Annotated[
         Optional[int],
         Field(
@@ -143,7 +143,7 @@ class MetricTarget(Resource):
     ] = None
 
 
-class MetricValueStatus(Resource):
+class MetricValueStatus(BaseModel):
     average_utilization: Annotated[
         Optional[int],
         Field(
@@ -164,7 +164,7 @@ class MetricValueStatus(Resource):
     ] = None
 
 
-class ResourceMetricSource(Resource):
+class ResourceMetricSource(BaseModel):
     name: Annotated[str, Field(description="name is the name of the resource in question.")]
     target: Annotated[
         MetricTarget,
@@ -172,7 +172,7 @@ class ResourceMetricSource(Resource):
     ]
 
 
-class ResourceMetricStatus(Resource):
+class ResourceMetricStatus(BaseModel):
     current: Annotated[
         MetricValueStatus,
         Field(description="current contains the current value for the given metric"),
@@ -180,7 +180,7 @@ class ResourceMetricStatus(Resource):
     name: Annotated[str, Field(description="name is the name of the resource in question.")]
 
 
-class ContainerResourceMetricSource(Resource):
+class ContainerResourceMetricSource(BaseModel):
     container: Annotated[
         str,
         Field(
@@ -194,7 +194,7 @@ class ContainerResourceMetricSource(Resource):
     ]
 
 
-class ContainerResourceMetricStatus(Resource):
+class ContainerResourceMetricStatus(BaseModel):
     container: Annotated[
         str,
         Field(
@@ -208,7 +208,7 @@ class ContainerResourceMetricStatus(Resource):
     name: Annotated[str, Field(description="name is the name of the resource in question.")]
 
 
-class MetricIdentifier(Resource):
+class MetricIdentifier(BaseModel):
     name: Annotated[str, Field(description="name is the name of the given metric")]
     selector: Annotated[
         Optional[v1.LabelSelector],
@@ -218,7 +218,7 @@ class MetricIdentifier(Resource):
     ] = None
 
 
-class ObjectMetricSource(Resource):
+class ObjectMetricSource(BaseModel):
     described_object: Annotated[
         CrossVersionObjectReference,
         Field(
@@ -236,7 +236,7 @@ class ObjectMetricSource(Resource):
     ]
 
 
-class ObjectMetricStatus(Resource):
+class ObjectMetricStatus(BaseModel):
     current: Annotated[
         MetricValueStatus,
         Field(description="current contains the current value for the given metric"),
@@ -254,7 +254,7 @@ class ObjectMetricStatus(Resource):
     ]
 
 
-class PodsMetricSource(Resource):
+class PodsMetricSource(BaseModel):
     metric: Annotated[
         MetricIdentifier,
         Field(description="metric identifies the target metric by name and selector"),
@@ -265,7 +265,7 @@ class PodsMetricSource(Resource):
     ]
 
 
-class PodsMetricStatus(Resource):
+class PodsMetricStatus(BaseModel):
     current: Annotated[
         MetricValueStatus,
         Field(description="current contains the current value for the given metric"),
@@ -276,7 +276,7 @@ class PodsMetricStatus(Resource):
     ]
 
 
-class ExternalMetricSource(Resource):
+class ExternalMetricSource(BaseModel):
     metric: Annotated[
         MetricIdentifier,
         Field(description="metric identifies the target metric by name and selector"),
@@ -287,7 +287,7 @@ class ExternalMetricSource(Resource):
     ]
 
 
-class ExternalMetricStatus(Resource):
+class ExternalMetricStatus(BaseModel):
     current: Annotated[
         MetricValueStatus,
         Field(description="current contains the current value for the given metric"),
@@ -298,7 +298,7 @@ class ExternalMetricStatus(Resource):
     ]
 
 
-class MetricSpec(Resource):
+class MetricSpec(BaseModel):
     container_resource: Annotated[
         Optional[ContainerResourceMetricSource],
         Field(
@@ -338,7 +338,7 @@ class MetricSpec(Resource):
     ]
 
 
-class MetricStatus(Resource):
+class MetricStatus(BaseModel):
     container_resource: Annotated[
         Optional[ContainerResourceMetricStatus],
         Field(
@@ -378,7 +378,7 @@ class MetricStatus(Resource):
     ]
 
 
-class HorizontalPodAutoscalerSpec(Resource):
+class HorizontalPodAutoscalerSpec(BaseModel):
     behavior: Annotated[
         Optional[HorizontalPodAutoscalerBehavior],
         Field(
@@ -414,7 +414,7 @@ class HorizontalPodAutoscalerSpec(Resource):
     ]
 
 
-class HorizontalPodAutoscalerStatus(Resource):
+class HorizontalPodAutoscalerStatus(BaseModel):
     conditions: Annotated[
         Optional[List[HorizontalPodAutoscalerCondition]],
         Field(

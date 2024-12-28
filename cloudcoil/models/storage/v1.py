@@ -7,13 +7,13 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import utils, v1
 from ..core import v1 as v1_1
 
 
-class TokenRequest(Resource):
+class TokenRequest(BaseModel):
     audience: Annotated[
         str,
         Field(
@@ -29,7 +29,7 @@ class TokenRequest(Resource):
     ] = None
 
 
-class VolumeNodeResources(Resource):
+class VolumeNodeResources(BaseModel):
     count: Annotated[
         Optional[int],
         Field(
@@ -38,7 +38,7 @@ class VolumeNodeResources(Resource):
     ] = None
 
 
-class CSIDriverSpec(Resource):
+class CSIDriverSpec(BaseModel):
     attach_required: Annotated[
         Optional[bool],
         Field(
@@ -97,7 +97,7 @@ class CSIDriverSpec(Resource):
     ] = None
 
 
-class CSINodeDriver(Resource):
+class CSINodeDriver(BaseModel):
     allocatable: Annotated[
         Optional[VolumeNodeResources],
         Field(
@@ -126,7 +126,7 @@ class CSINodeDriver(Resource):
     ] = None
 
 
-class CSINodeSpec(Resource):
+class CSINodeSpec(BaseModel):
     drivers: Annotated[
         List[CSINodeDriver],
         Field(
@@ -135,7 +135,7 @@ class CSINodeSpec(Resource):
     ]
 
 
-class VolumeError(Resource):
+class VolumeError(BaseModel):
     message: Annotated[
         Optional[str],
         Field(
@@ -407,7 +407,7 @@ class StorageClassList(Resource):
     ] = None
 
 
-class VolumeAttachmentSource(Resource):
+class VolumeAttachmentSource(BaseModel):
     inline_volume_spec: Annotated[
         Optional[v1_1.PersistentVolumeSpec],
         Field(
@@ -424,7 +424,7 @@ class VolumeAttachmentSource(Resource):
     ] = None
 
 
-class VolumeAttachmentSpec(Resource):
+class VolumeAttachmentSpec(BaseModel):
     attacher: Annotated[
         str,
         Field(
@@ -444,7 +444,7 @@ class VolumeAttachmentSpec(Resource):
     ]
 
 
-class VolumeAttachmentStatus(Resource):
+class VolumeAttachmentStatus(BaseModel):
     attach_error: Annotated[
         Optional[VolumeError],
         Field(

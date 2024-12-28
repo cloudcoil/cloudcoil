@@ -7,12 +7,12 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import utils, v1
 
 
-class AWSElasticBlockStoreVolumeSource(Resource):
+class AWSElasticBlockStoreVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -42,7 +42,7 @@ class AWSElasticBlockStoreVolumeSource(Resource):
     ]
 
 
-class AppArmorProfile(Resource):
+class AppArmorProfile(BaseModel):
     localhost_profile: Annotated[
         Optional[str],
         Field(
@@ -58,7 +58,7 @@ class AppArmorProfile(Resource):
     ]
 
 
-class AttachedVolume(Resource):
+class AttachedVolume(BaseModel):
     device_path: Annotated[
         str,
         Field(
@@ -69,7 +69,7 @@ class AttachedVolume(Resource):
     name: Annotated[str, Field(description="Name of the attached volume")]
 
 
-class AzureDiskVolumeSource(Resource):
+class AzureDiskVolumeSource(BaseModel):
     caching_mode: Annotated[
         Optional[str],
         Field(
@@ -113,7 +113,7 @@ class AzureDiskVolumeSource(Resource):
     ] = None
 
 
-class AzureFilePersistentVolumeSource(Resource):
+class AzureFilePersistentVolumeSource(BaseModel):
     read_only: Annotated[
         Optional[bool],
         Field(
@@ -140,7 +140,7 @@ class AzureFilePersistentVolumeSource(Resource):
     ]
 
 
-class AzureFileVolumeSource(Resource):
+class AzureFileVolumeSource(BaseModel):
     read_only: Annotated[
         Optional[bool],
         Field(
@@ -160,12 +160,12 @@ class AzureFileVolumeSource(Resource):
     ]
 
 
-class Capabilities(Resource):
+class Capabilities(BaseModel):
     add: Annotated[Optional[List[str]], Field(description="Added capabilities")] = None
     drop: Annotated[Optional[List[str]], Field(description="Removed capabilities")] = None
 
 
-class ClientIPConfig(Resource):
+class ClientIPConfig(BaseModel):
     timeout_seconds: Annotated[
         Optional[int],
         Field(
@@ -175,7 +175,7 @@ class ClientIPConfig(Resource):
     ] = None
 
 
-class ComponentCondition(Resource):
+class ComponentCondition(BaseModel):
     error: Annotated[
         Optional[str],
         Field(
@@ -200,7 +200,7 @@ class ComponentCondition(Resource):
     ]
 
 
-class ConfigMapEnvSource(Resource):
+class ConfigMapEnvSource(BaseModel):
     name: Annotated[
         Optional[str],
         Field(
@@ -213,7 +213,7 @@ class ConfigMapEnvSource(Resource):
     ] = None
 
 
-class ConfigMapKeySelector(Resource):
+class ConfigMapKeySelector(BaseModel):
     key: Annotated[str, Field(description="The key to select.")]
     name: Annotated[
         Optional[str],
@@ -227,7 +227,7 @@ class ConfigMapKeySelector(Resource):
     ] = None
 
 
-class ConfigMapNodeConfigSource(Resource):
+class ConfigMapNodeConfigSource(BaseModel):
     kubelet_config_key: Annotated[
         str,
         Field(
@@ -262,7 +262,7 @@ class ConfigMapNodeConfigSource(Resource):
     ] = None
 
 
-class ContainerImage(Resource):
+class ContainerImage(BaseModel):
     names: Annotated[
         Optional[List[str]],
         Field(
@@ -275,7 +275,7 @@ class ContainerImage(Resource):
     ] = None
 
 
-class ContainerPort(Resource):
+class ContainerPort(BaseModel):
     container_port: Annotated[
         int,
         Field(
@@ -306,7 +306,7 @@ class ContainerPort(Resource):
     ] = None
 
 
-class ContainerResizePolicy(Resource):
+class ContainerResizePolicy(BaseModel):
     resource_name: Annotated[
         str,
         Field(
@@ -323,7 +323,7 @@ class ContainerResizePolicy(Resource):
     ]
 
 
-class ContainerStateWaiting(Resource):
+class ContainerStateWaiting(BaseModel):
     message: Annotated[
         Optional[str],
         Field(description="Message regarding why the container is not yet running."),
@@ -334,11 +334,11 @@ class ContainerStateWaiting(Resource):
     ] = None
 
 
-class DaemonEndpoint(Resource):
+class DaemonEndpoint(BaseModel):
     port: Annotated[int, Field(alias="Port", description="Port number of the given endpoint.")]
 
 
-class EndpointPort(Resource):
+class EndpointPort(BaseModel):
     app_protocol: Annotated[
         Optional[str],
         Field(
@@ -361,7 +361,7 @@ class EndpointPort(Resource):
     ] = None
 
 
-class EventSource(Resource):
+class EventSource(BaseModel):
     component: Annotated[
         Optional[str], Field(description="Component from which the event is generated.")
     ] = None
@@ -370,7 +370,7 @@ class EventSource(Resource):
     ] = None
 
 
-class ExecAction(Resource):
+class ExecAction(BaseModel):
     command: Annotated[
         Optional[List[str]],
         Field(
@@ -379,7 +379,7 @@ class ExecAction(Resource):
     ] = None
 
 
-class FCVolumeSource(Resource):
+class FCVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -410,7 +410,7 @@ class FCVolumeSource(Resource):
     ] = None
 
 
-class FlockerVolumeSource(Resource):
+class FlockerVolumeSource(BaseModel):
     dataset_name: Annotated[
         Optional[str],
         Field(
@@ -427,7 +427,7 @@ class FlockerVolumeSource(Resource):
     ] = None
 
 
-class GCEPersistentDiskVolumeSource(Resource):
+class GCEPersistentDiskVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -457,7 +457,7 @@ class GCEPersistentDiskVolumeSource(Resource):
     ] = None
 
 
-class GRPCAction(Resource):
+class GRPCAction(BaseModel):
     port: Annotated[
         int,
         Field(
@@ -472,7 +472,7 @@ class GRPCAction(Resource):
     ] = None
 
 
-class GitRepoVolumeSource(Resource):
+class GitRepoVolumeSource(BaseModel):
     directory: Annotated[
         Optional[str],
         Field(
@@ -486,7 +486,7 @@ class GitRepoVolumeSource(Resource):
     ] = None
 
 
-class GlusterfsPersistentVolumeSource(Resource):
+class GlusterfsPersistentVolumeSource(BaseModel):
     endpoints: Annotated[
         str,
         Field(
@@ -515,7 +515,7 @@ class GlusterfsPersistentVolumeSource(Resource):
     ] = None
 
 
-class GlusterfsVolumeSource(Resource):
+class GlusterfsVolumeSource(BaseModel):
     endpoints: Annotated[
         str,
         Field(
@@ -537,7 +537,7 @@ class GlusterfsVolumeSource(Resource):
     ] = None
 
 
-class HTTPHeader(Resource):
+class HTTPHeader(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -547,18 +547,18 @@ class HTTPHeader(Resource):
     value: Annotated[str, Field(description="The header field value")]
 
 
-class HostAlias(Resource):
+class HostAlias(BaseModel):
     hostnames: Annotated[
         Optional[List[str]], Field(description="Hostnames for the above IP address.")
     ] = None
     ip: Annotated[str, Field(description="IP address of the host file entry.")]
 
 
-class HostIP(Resource):
+class HostIP(BaseModel):
     ip: Annotated[str, Field(description="IP is the IP address assigned to the host")]
 
 
-class HostPathVolumeSource(Resource):
+class HostPathVolumeSource(BaseModel):
     path: Annotated[
         str,
         Field(
@@ -573,7 +573,7 @@ class HostPathVolumeSource(Resource):
     ] = None
 
 
-class ImageVolumeSource(Resource):
+class ImageVolumeSource(BaseModel):
     pull_policy: Annotated[
         Optional[str],
         Field(
@@ -589,7 +589,7 @@ class ImageVolumeSource(Resource):
     ] = None
 
 
-class KeyToPath(Resource):
+class KeyToPath(BaseModel):
     key: Annotated[str, Field(description="key is the key to project.")]
     mode: Annotated[
         Optional[int],
@@ -605,7 +605,7 @@ class KeyToPath(Resource):
     ]
 
 
-class LinuxContainerUser(Resource):
+class LinuxContainerUser(BaseModel):
     gid: Annotated[
         int,
         Field(
@@ -627,7 +627,7 @@ class LinuxContainerUser(Resource):
     ]
 
 
-class LocalObjectReference(Resource):
+class LocalObjectReference(BaseModel):
     name: Annotated[
         Optional[str],
         Field(
@@ -636,7 +636,7 @@ class LocalObjectReference(Resource):
     ] = None
 
 
-class LocalVolumeSource(Resource):
+class LocalVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -652,7 +652,7 @@ class LocalVolumeSource(Resource):
     ]
 
 
-class ModifyVolumeStatus(Resource):
+class ModifyVolumeStatus(BaseModel):
     status: Annotated[
         str,
         Field(
@@ -668,7 +668,7 @@ class ModifyVolumeStatus(Resource):
     ] = None
 
 
-class NFSVolumeSource(Resource):
+class NFSVolumeSource(BaseModel):
     path: Annotated[
         str,
         Field(
@@ -690,7 +690,7 @@ class NFSVolumeSource(Resource):
     ]
 
 
-class NamespaceSpec(Resource):
+class NamespaceSpec(BaseModel):
     finalizers: Annotated[
         Optional[List[str]],
         Field(
@@ -699,7 +699,7 @@ class NamespaceSpec(Resource):
     ] = None
 
 
-class NodeAddress(Resource):
+class NodeAddress(BaseModel):
     address: Annotated[str, Field(description="The node address.")]
     type: Annotated[
         str,
@@ -707,7 +707,7 @@ class NodeAddress(Resource):
     ]
 
 
-class NodeConfigSource(Resource):
+class NodeConfigSource(BaseModel):
     config_map: Annotated[
         Optional[ConfigMapNodeConfigSource],
         Field(
@@ -717,7 +717,7 @@ class NodeConfigSource(Resource):
     ] = None
 
 
-class NodeConfigStatus(Resource):
+class NodeConfigStatus(BaseModel):
     active: Annotated[
         Optional[NodeConfigSource],
         Field(
@@ -745,7 +745,7 @@ class NodeConfigStatus(Resource):
     ] = None
 
 
-class NodeDaemonEndpoints(Resource):
+class NodeDaemonEndpoints(BaseModel):
     kubelet_endpoint: Annotated[
         Optional[DaemonEndpoint],
         Field(
@@ -755,7 +755,7 @@ class NodeDaemonEndpoints(Resource):
     ] = None
 
 
-class NodeFeatures(Resource):
+class NodeFeatures(BaseModel):
     supplemental_groups_policy: Annotated[
         Optional[bool],
         Field(
@@ -765,7 +765,7 @@ class NodeFeatures(Resource):
     ] = None
 
 
-class NodeRuntimeHandlerFeatures(Resource):
+class NodeRuntimeHandlerFeatures(BaseModel):
     recursive_read_only_mounts: Annotated[
         Optional[bool],
         Field(
@@ -782,7 +782,7 @@ class NodeRuntimeHandlerFeatures(Resource):
     ] = None
 
 
-class NodeSelectorRequirement(Resource):
+class NodeSelectorRequirement(BaseModel):
     key: Annotated[str, Field(description="The label key that the selector applies to.")]
     operator: Annotated[
         str,
@@ -798,7 +798,7 @@ class NodeSelectorRequirement(Resource):
     ] = None
 
 
-class NodeSelectorTerm(Resource):
+class NodeSelectorTerm(BaseModel):
     match_expressions: Annotated[
         Optional[List[NodeSelectorRequirement]],
         Field(
@@ -815,7 +815,7 @@ class NodeSelectorTerm(Resource):
     ] = None
 
 
-class NodeSystemInfo(Resource):
+class NodeSystemInfo(BaseModel):
     architecture: Annotated[str, Field(description="The Architecture reported by the node")]
     boot_id: Annotated[str, Field(alias="bootID", description="Boot ID reported by the node.")]
     container_runtime_version: Annotated[
@@ -873,7 +873,7 @@ class NodeSystemInfo(Resource):
     ]
 
 
-class ObjectFieldSelector(Resource):
+class ObjectFieldSelector(BaseModel):
     api_version: Annotated[
         Optional[str],
         Field(
@@ -890,7 +890,7 @@ class ObjectFieldSelector(Resource):
     ]
 
 
-class ObjectReference(Resource):
+class ObjectReference(BaseModel):
     api_version: Annotated[
         Optional[str],
         Field(alias="apiVersion", description="API version of the referent."),
@@ -935,7 +935,7 @@ class ObjectReference(Resource):
     ] = None
 
 
-class PersistentVolumeClaimVolumeSource(Resource):
+class PersistentVolumeClaimVolumeSource(BaseModel):
     claim_name: Annotated[
         str,
         Field(
@@ -952,7 +952,7 @@ class PersistentVolumeClaimVolumeSource(Resource):
     ] = None
 
 
-class PhotonPersistentDiskVolumeSource(Resource):
+class PhotonPersistentDiskVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -969,7 +969,7 @@ class PhotonPersistentDiskVolumeSource(Resource):
     ]
 
 
-class PodDNSConfigOption(Resource):
+class PodDNSConfigOption(BaseModel):
     name: Annotated[
         Optional[str],
         Field(description="Name is this DNS resolver option's name. Required."),
@@ -979,11 +979,11 @@ class PodDNSConfigOption(Resource):
     ] = None
 
 
-class PodIP(Resource):
+class PodIP(BaseModel):
     ip: Annotated[str, Field(description="IP is the IP address assigned to the pod")]
 
 
-class PodOS(Resource):
+class PodOS(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -992,7 +992,7 @@ class PodOS(Resource):
     ]
 
 
-class PodReadinessGate(Resource):
+class PodReadinessGate(BaseModel):
     condition_type: Annotated[
         str,
         Field(
@@ -1002,7 +1002,7 @@ class PodReadinessGate(Resource):
     ]
 
 
-class PodResourceClaim(Resource):
+class PodResourceClaim(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -1025,7 +1025,7 @@ class PodResourceClaim(Resource):
     ] = None
 
 
-class PodResourceClaimStatus(Resource):
+class PodResourceClaimStatus(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -1041,7 +1041,7 @@ class PodResourceClaimStatus(Resource):
     ] = None
 
 
-class PodSchedulingGate(Resource):
+class PodSchedulingGate(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -1050,7 +1050,7 @@ class PodSchedulingGate(Resource):
     ]
 
 
-class PortStatus(Resource):
+class PortStatus(BaseModel):
     error: Annotated[
         Optional[str],
         Field(
@@ -1071,7 +1071,7 @@ class PortStatus(Resource):
     ]
 
 
-class PortworxVolumeSource(Resource):
+class PortworxVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -1095,7 +1095,7 @@ class PortworxVolumeSource(Resource):
     ]
 
 
-class PreferredSchedulingTerm(Resource):
+class PreferredSchedulingTerm(BaseModel):
     preference: Annotated[
         NodeSelectorTerm,
         Field(description="A node selector term, associated with the corresponding weight."),
@@ -1108,7 +1108,7 @@ class PreferredSchedulingTerm(Resource):
     ]
 
 
-class QuobyteVolumeSource(Resource):
+class QuobyteVolumeSource(BaseModel):
     group: Annotated[
         Optional[str],
         Field(description="group to map volume access to Default is no group"),
@@ -1144,7 +1144,7 @@ class QuobyteVolumeSource(Resource):
     ]
 
 
-class RBDVolumeSource(Resource):
+class RBDVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -1198,7 +1198,7 @@ class RBDVolumeSource(Resource):
     ] = None
 
 
-class ResourceClaim(Resource):
+class ResourceClaim(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -1213,7 +1213,7 @@ class ResourceClaim(Resource):
     ] = None
 
 
-class ResourceHealth(Resource):
+class ResourceHealth(BaseModel):
     health: Annotated[
         Optional[str],
         Field(
@@ -1229,7 +1229,7 @@ class ResourceHealth(Resource):
     ]
 
 
-class ResourceStatus(Resource):
+class ResourceStatus(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -1244,7 +1244,7 @@ class ResourceStatus(Resource):
     ] = None
 
 
-class SELinuxOptions(Resource):
+class SELinuxOptions(BaseModel):
     level: Annotated[
         Optional[str],
         Field(description="Level is SELinux level label that applies to the container."),
@@ -1263,7 +1263,7 @@ class SELinuxOptions(Resource):
     ] = None
 
 
-class ScaleIOVolumeSource(Resource):
+class ScaleIOVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -1330,7 +1330,7 @@ class ScaleIOVolumeSource(Resource):
     ] = None
 
 
-class ScopedResourceSelectorRequirement(Resource):
+class ScopedResourceSelectorRequirement(BaseModel):
     operator: Annotated[
         str,
         Field(
@@ -1352,7 +1352,7 @@ class ScopedResourceSelectorRequirement(Resource):
     ] = None
 
 
-class SeccompProfile(Resource):
+class SeccompProfile(BaseModel):
     localhost_profile: Annotated[
         Optional[str],
         Field(
@@ -1368,7 +1368,7 @@ class SeccompProfile(Resource):
     ]
 
 
-class SecretEnvSource(Resource):
+class SecretEnvSource(BaseModel):
     name: Annotated[
         Optional[str],
         Field(
@@ -1380,7 +1380,7 @@ class SecretEnvSource(Resource):
     ] = None
 
 
-class SecretKeySelector(Resource):
+class SecretKeySelector(BaseModel):
     key: Annotated[
         str,
         Field(description="The key of the secret to select from.  Must be a valid secret key."),
@@ -1397,7 +1397,7 @@ class SecretKeySelector(Resource):
     ] = None
 
 
-class SecretProjection(Resource):
+class SecretProjection(BaseModel):
     items: Annotated[
         Optional[List[KeyToPath]],
         Field(
@@ -1416,7 +1416,7 @@ class SecretProjection(Resource):
     ] = None
 
 
-class SecretReference(Resource):
+class SecretReference(BaseModel):
     name: Annotated[
         Optional[str],
         Field(description="name is unique within a namespace to reference a secret resource."),
@@ -1429,7 +1429,7 @@ class SecretReference(Resource):
     ] = None
 
 
-class SecretVolumeSource(Resource):
+class SecretVolumeSource(BaseModel):
     default_mode: Annotated[
         Optional[int],
         Field(
@@ -1456,7 +1456,7 @@ class SecretVolumeSource(Resource):
     ] = None
 
 
-class ServiceAccountTokenProjection(Resource):
+class ServiceAccountTokenProjection(BaseModel):
     audience: Annotated[
         Optional[str],
         Field(
@@ -1478,7 +1478,7 @@ class ServiceAccountTokenProjection(Resource):
     ]
 
 
-class SessionAffinityConfig(Resource):
+class SessionAffinityConfig(BaseModel):
     client_ip: Annotated[
         Optional[ClientIPConfig],
         Field(
@@ -1488,11 +1488,11 @@ class SessionAffinityConfig(Resource):
     ] = None
 
 
-class SleepAction(Resource):
+class SleepAction(BaseModel):
     seconds: Annotated[int, Field(description="Seconds is the number of seconds to sleep.")]
 
 
-class StorageOSPersistentVolumeSource(Resource):
+class StorageOSPersistentVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -1530,7 +1530,7 @@ class StorageOSPersistentVolumeSource(Resource):
     ] = None
 
 
-class StorageOSVolumeSource(Resource):
+class StorageOSVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -1568,12 +1568,12 @@ class StorageOSVolumeSource(Resource):
     ] = None
 
 
-class Sysctl(Resource):
+class Sysctl(BaseModel):
     name: Annotated[str, Field(description="Name of a property to set")]
     value: Annotated[str, Field(description="Value of a property to set")]
 
 
-class Toleration(Resource):
+class Toleration(BaseModel):
     effect: Annotated[
         Optional[str],
         Field(
@@ -1607,7 +1607,7 @@ class Toleration(Resource):
     ] = None
 
 
-class TopologySelectorLabelRequirement(Resource):
+class TopologySelectorLabelRequirement(BaseModel):
     key: Annotated[str, Field(description="The label key that the selector applies to.")]
     values: Annotated[
         List[str],
@@ -1617,7 +1617,7 @@ class TopologySelectorLabelRequirement(Resource):
     ]
 
 
-class TopologySelectorTerm(Resource):
+class TopologySelectorTerm(BaseModel):
     match_label_expressions: Annotated[
         Optional[List[TopologySelectorLabelRequirement]],
         Field(
@@ -1627,7 +1627,7 @@ class TopologySelectorTerm(Resource):
     ] = None
 
 
-class TypedLocalObjectReference(Resource):
+class TypedLocalObjectReference(BaseModel):
     api_group: Annotated[
         Optional[str],
         Field(
@@ -1639,7 +1639,7 @@ class TypedLocalObjectReference(Resource):
     name: Annotated[str, Field(description="Name is the name of resource being referenced")]
 
 
-class TypedObjectReference(Resource):
+class TypedObjectReference(BaseModel):
     api_group: Annotated[
         Optional[str],
         Field(
@@ -1657,7 +1657,7 @@ class TypedObjectReference(Resource):
     ] = None
 
 
-class VolumeDevice(Resource):
+class VolumeDevice(BaseModel):
     device_path: Annotated[
         str,
         Field(
@@ -1671,7 +1671,7 @@ class VolumeDevice(Resource):
     ]
 
 
-class VolumeMount(Resource):
+class VolumeMount(BaseModel):
     mount_path: Annotated[
         str,
         Field(
@@ -1717,7 +1717,7 @@ class VolumeMount(Resource):
     ] = None
 
 
-class VolumeMountStatus(Resource):
+class VolumeMountStatus(BaseModel):
     mount_path: Annotated[
         str,
         Field(
@@ -1745,7 +1745,7 @@ class VolumeMountStatus(Resource):
     ] = None
 
 
-class VsphereVirtualDiskVolumeSource(Resource):
+class VsphereVirtualDiskVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -1776,7 +1776,7 @@ class VsphereVirtualDiskVolumeSource(Resource):
     ]
 
 
-class WindowsSecurityContextOptions(Resource):
+class WindowsSecurityContextOptions(BaseModel):
     gmsa_credential_spec: Annotated[
         Optional[str],
         Field(
@@ -1807,7 +1807,7 @@ class WindowsSecurityContextOptions(Resource):
     ] = None
 
 
-class CSIPersistentVolumeSource(Resource):
+class CSIPersistentVolumeSource(BaseModel):
     controller_expand_secret_ref: Annotated[
         Optional[SecretReference],
         Field(
@@ -1877,7 +1877,7 @@ class CSIPersistentVolumeSource(Resource):
     ]
 
 
-class CSIVolumeSource(Resource):
+class CSIVolumeSource(BaseModel):
     driver: Annotated[
         str,
         Field(
@@ -1914,7 +1914,7 @@ class CSIVolumeSource(Resource):
     ] = None
 
 
-class CephFSPersistentVolumeSource(Resource):
+class CephFSPersistentVolumeSource(BaseModel):
     monitors: Annotated[
         List[str],
         Field(
@@ -1956,7 +1956,7 @@ class CephFSPersistentVolumeSource(Resource):
     ] = None
 
 
-class CephFSVolumeSource(Resource):
+class CephFSVolumeSource(BaseModel):
     monitors: Annotated[
         List[str],
         Field(
@@ -1998,7 +1998,7 @@ class CephFSVolumeSource(Resource):
     ] = None
 
 
-class CinderPersistentVolumeSource(Resource):
+class CinderPersistentVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -2029,7 +2029,7 @@ class CinderPersistentVolumeSource(Resource):
     ]
 
 
-class CinderVolumeSource(Resource):
+class CinderVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -2060,7 +2060,7 @@ class CinderVolumeSource(Resource):
     ]
 
 
-class ConfigMapProjection(Resource):
+class ConfigMapProjection(BaseModel):
     items: Annotated[
         Optional[List[KeyToPath]],
         Field(
@@ -2079,7 +2079,7 @@ class ConfigMapProjection(Resource):
     ] = None
 
 
-class ConfigMapVolumeSource(Resource):
+class ConfigMapVolumeSource(BaseModel):
     default_mode: Annotated[
         Optional[int],
         Field(
@@ -2105,7 +2105,7 @@ class ConfigMapVolumeSource(Resource):
     ] = None
 
 
-class ContainerStateRunning(Resource):
+class ContainerStateRunning(BaseModel):
     started_at: Annotated[
         Optional[v1.Time],
         Field(
@@ -2115,7 +2115,7 @@ class ContainerStateRunning(Resource):
     ] = None
 
 
-class ContainerStateTerminated(Resource):
+class ContainerStateTerminated(BaseModel):
     container_id: Annotated[
         Optional[str],
         Field(
@@ -2158,7 +2158,7 @@ class ContainerStateTerminated(Resource):
     ] = None
 
 
-class ContainerUser(Resource):
+class ContainerUser(BaseModel):
     linux: Annotated[
         Optional[LinuxContainerUser],
         Field(
@@ -2167,7 +2167,7 @@ class ContainerUser(Resource):
     ] = None
 
 
-class EmptyDirVolumeSource(Resource):
+class EmptyDirVolumeSource(BaseModel):
     medium: Annotated[
         Optional[str],
         Field(
@@ -2183,7 +2183,7 @@ class EmptyDirVolumeSource(Resource):
     ] = None
 
 
-class EndpointAddress(Resource):
+class EndpointAddress(BaseModel):
     hostname: Annotated[Optional[str], Field(description="The Hostname of this endpoint")] = None
     ip: Annotated[
         str,
@@ -2204,7 +2204,7 @@ class EndpointAddress(Resource):
     ] = None
 
 
-class EndpointSubset(Resource):
+class EndpointSubset(BaseModel):
     addresses: Annotated[
         Optional[List[EndpointAddress]],
         Field(
@@ -2224,7 +2224,7 @@ class EndpointSubset(Resource):
     ] = None
 
 
-class EnvFromSource(Resource):
+class EnvFromSource(BaseModel):
     config_map_ref: Annotated[
         Optional[ConfigMapEnvSource],
         Field(alias="configMapRef", description="The ConfigMap to select from"),
@@ -2241,7 +2241,7 @@ class EnvFromSource(Resource):
     ] = None
 
 
-class EventSeries(Resource):
+class EventSeries(BaseModel):
     count: Annotated[
         Optional[int],
         Field(description="Number of occurrences in this series up to the last heartbeat time"),
@@ -2252,7 +2252,7 @@ class EventSeries(Resource):
     ] = None
 
 
-class FlexPersistentVolumeSource(Resource):
+class FlexPersistentVolumeSource(BaseModel):
     driver: Annotated[
         str,
         Field(description="driver is the name of the driver to use for this volume."),
@@ -2284,7 +2284,7 @@ class FlexPersistentVolumeSource(Resource):
     ] = None
 
 
-class FlexVolumeSource(Resource):
+class FlexVolumeSource(BaseModel):
     driver: Annotated[
         str,
         Field(description="driver is the name of the driver to use for this volume."),
@@ -2316,7 +2316,7 @@ class FlexVolumeSource(Resource):
     ] = None
 
 
-class HTTPGetAction(Resource):
+class HTTPGetAction(BaseModel):
     host: Annotated[
         Optional[str],
         Field(
@@ -2343,7 +2343,7 @@ class HTTPGetAction(Resource):
     ] = None
 
 
-class ISCSIPersistentVolumeSource(Resource):
+class ISCSIPersistentVolumeSource(BaseModel):
     chap_auth_discovery: Annotated[
         Optional[bool],
         Field(
@@ -2410,7 +2410,7 @@ class ISCSIPersistentVolumeSource(Resource):
     ]
 
 
-class ISCSIVolumeSource(Resource):
+class ISCSIVolumeSource(BaseModel):
     chap_auth_discovery: Annotated[
         Optional[bool],
         Field(
@@ -2477,7 +2477,7 @@ class ISCSIVolumeSource(Resource):
     ]
 
 
-class LimitRangeItem(Resource):
+class LimitRangeItem(BaseModel):
     default: Annotated[
         Optional[Dict[str, utils.Quantity]],
         Field(
@@ -2509,14 +2509,14 @@ class LimitRangeItem(Resource):
     type: Annotated[str, Field(description="Type of resource that this limit applies to.")]
 
 
-class LimitRangeSpec(Resource):
+class LimitRangeSpec(BaseModel):
     limits: Annotated[
         List[LimitRangeItem],
         Field(description="Limits is the list of LimitRangeItem objects that are enforced."),
     ]
 
 
-class LoadBalancerIngress(Resource):
+class LoadBalancerIngress(BaseModel):
     hostname: Annotated[
         Optional[str],
         Field(
@@ -2544,7 +2544,7 @@ class LoadBalancerIngress(Resource):
     ] = None
 
 
-class LoadBalancerStatus(Resource):
+class LoadBalancerStatus(BaseModel):
     ingress: Annotated[
         Optional[List[LoadBalancerIngress]],
         Field(
@@ -2553,7 +2553,7 @@ class LoadBalancerStatus(Resource):
     ] = None
 
 
-class NamespaceCondition(Resource):
+class NamespaceCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -2577,7 +2577,7 @@ class NamespaceCondition(Resource):
     type: Annotated[str, Field(description="Type of namespace controller condition.")]
 
 
-class NamespaceStatus(Resource):
+class NamespaceStatus(BaseModel):
     conditions: Annotated[
         Optional[List[NamespaceCondition]],
         Field(
@@ -2592,7 +2592,7 @@ class NamespaceStatus(Resource):
     ] = None
 
 
-class NodeCondition(Resource):
+class NodeCondition(BaseModel):
     last_heartbeat_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -2621,7 +2621,7 @@ class NodeCondition(Resource):
     type: Annotated[str, Field(description="Type of node condition.")]
 
 
-class NodeRuntimeHandler(Resource):
+class NodeRuntimeHandler(BaseModel):
     features: Annotated[
         Optional[NodeRuntimeHandlerFeatures], Field(description="Supported features.")
     ] = None
@@ -2631,7 +2631,7 @@ class NodeRuntimeHandler(Resource):
     ] = None
 
 
-class NodeSelector(Resource):
+class NodeSelector(BaseModel):
     node_selector_terms: Annotated[
         List[NodeSelectorTerm],
         Field(
@@ -2641,7 +2641,7 @@ class NodeSelector(Resource):
     ]
 
 
-class NodeStatus(Resource):
+class NodeStatus(BaseModel):
     addresses: Annotated[
         Optional[List[NodeAddress]],
         Field(
@@ -2722,7 +2722,7 @@ class NodeStatus(Resource):
     ] = None
 
 
-class PersistentVolumeClaimCondition(Resource):
+class PersistentVolumeClaimCondition(BaseModel):
     last_probe_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -2763,7 +2763,7 @@ class PersistentVolumeClaimCondition(Resource):
     ]
 
 
-class PersistentVolumeClaimStatus(Resource):
+class PersistentVolumeClaimStatus(BaseModel):
     access_modes: Annotated[
         Optional[List[str]],
         Field(
@@ -2815,7 +2815,7 @@ class PersistentVolumeClaimStatus(Resource):
     ] = None
 
 
-class PersistentVolumeStatus(Resource):
+class PersistentVolumeStatus(BaseModel):
     last_phase_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -2843,7 +2843,7 @@ class PersistentVolumeStatus(Resource):
     ] = None
 
 
-class PodCondition(Resource):
+class PodCondition(BaseModel):
     last_probe_time: Annotated[
         Optional[v1.Time],
         Field(alias="lastProbeTime", description="Last time we probed the condition."),
@@ -2879,7 +2879,7 @@ class PodCondition(Resource):
     ]
 
 
-class PodDNSConfig(Resource):
+class PodDNSConfig(BaseModel):
     nameservers: Annotated[
         Optional[List[str]],
         Field(
@@ -2900,7 +2900,7 @@ class PodDNSConfig(Resource):
     ] = None
 
 
-class PodSecurityContext(Resource):
+class PodSecurityContext(BaseModel):
     app_armor_profile: Annotated[
         Optional[AppArmorProfile],
         Field(
@@ -2993,7 +2993,7 @@ class PodSecurityContext(Resource):
     ] = None
 
 
-class RBDPersistentVolumeSource(Resource):
+class RBDPersistentVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -3047,7 +3047,7 @@ class RBDPersistentVolumeSource(Resource):
     ] = None
 
 
-class ReplicationControllerCondition(Resource):
+class ReplicationControllerCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -3069,7 +3069,7 @@ class ReplicationControllerCondition(Resource):
     type: Annotated[str, Field(description="Type of replication controller condition.")]
 
 
-class ReplicationControllerStatus(Resource):
+class ReplicationControllerStatus(BaseModel):
     available_replicas: Annotated[
         Optional[int],
         Field(
@@ -3112,7 +3112,7 @@ class ReplicationControllerStatus(Resource):
     ]
 
 
-class ResourceFieldSelector(Resource):
+class ResourceFieldSelector(BaseModel):
     container_name: Annotated[
         Optional[str],
         Field(
@@ -3127,7 +3127,7 @@ class ResourceFieldSelector(Resource):
     resource: Annotated[str, Field(description="Required: resource to select")]
 
 
-class ResourceQuotaStatus(Resource):
+class ResourceQuotaStatus(BaseModel):
     hard: Annotated[
         Optional[Dict[str, utils.Quantity]],
         Field(
@@ -3142,7 +3142,7 @@ class ResourceQuotaStatus(Resource):
     ] = None
 
 
-class ResourceRequirements(Resource):
+class ResourceRequirements(BaseModel):
     claims: Annotated[
         Optional[List[ResourceClaim]],
         Field(
@@ -3163,7 +3163,7 @@ class ResourceRequirements(Resource):
     ] = None
 
 
-class ScaleIOPersistentVolumeSource(Resource):
+class ScaleIOPersistentVolumeSource(BaseModel):
     fs_type: Annotated[
         Optional[str],
         Field(
@@ -3230,7 +3230,7 @@ class ScaleIOPersistentVolumeSource(Resource):
     ] = None
 
 
-class ScopeSelector(Resource):
+class ScopeSelector(BaseModel):
     match_expressions: Annotated[
         Optional[List[ScopedResourceSelectorRequirement]],
         Field(
@@ -3240,7 +3240,7 @@ class ScopeSelector(Resource):
     ] = None
 
 
-class SecurityContext(Resource):
+class SecurityContext(BaseModel):
     allow_privilege_escalation: Annotated[
         Optional[bool],
         Field(
@@ -3325,7 +3325,7 @@ class SecurityContext(Resource):
     ] = None
 
 
-class ServicePort(Resource):
+class ServicePort(BaseModel):
     app_protocol: Annotated[
         Optional[str],
         Field(
@@ -3362,7 +3362,7 @@ class ServicePort(Resource):
     ] = None
 
 
-class ServiceSpec(Resource):
+class ServiceSpec(BaseModel):
     allocate_load_balancer_node_ports: Annotated[
         Optional[bool],
         Field(
@@ -3502,7 +3502,7 @@ class ServiceSpec(Resource):
     ] = None
 
 
-class TCPSocketAction(Resource):
+class TCPSocketAction(BaseModel):
     host: Annotated[
         Optional[str],
         Field(description="Optional: Host name to connect to, defaults to the pod IP."),
@@ -3515,7 +3515,7 @@ class TCPSocketAction(Resource):
     ]
 
 
-class Taint(Resource):
+class Taint(BaseModel):
     effect: Annotated[
         str,
         Field(
@@ -3536,14 +3536,14 @@ class Taint(Resource):
     ] = None
 
 
-class VolumeNodeAffinity(Resource):
+class VolumeNodeAffinity(BaseModel):
     required: Annotated[
         Optional[NodeSelector],
         Field(description="required specifies hard node constraints that must be met."),
     ] = None
 
 
-class VolumeResourceRequirements(Resource):
+class VolumeResourceRequirements(BaseModel):
     limits: Annotated[
         Optional[Dict[str, utils.Quantity]],
         Field(
@@ -3584,7 +3584,7 @@ class Binding(Resource):
     ]
 
 
-class ClusterTrustBundleProjection(Resource):
+class ClusterTrustBundleProjection(BaseModel):
     label_selector: Annotated[
         Optional[v1.LabelSelector],
         Field(
@@ -3730,7 +3730,7 @@ class ConfigMapList(Resource):
     ] = None
 
 
-class ContainerState(Resource):
+class ContainerState(BaseModel):
     running: Annotated[
         Optional[ContainerStateRunning],
         Field(description="Details about a running container"),
@@ -3745,7 +3745,7 @@ class ContainerState(Resource):
     ] = None
 
 
-class ContainerStatus(Resource):
+class ContainerStatus(BaseModel):
     allocated_resources: Annotated[
         Optional[Dict[str, utils.Quantity]],
         Field(
@@ -3834,7 +3834,7 @@ class ContainerStatus(Resource):
     ] = None
 
 
-class DownwardAPIVolumeFile(Resource):
+class DownwardAPIVolumeFile(BaseModel):
     field_ref: Annotated[
         Optional[ObjectFieldSelector],
         Field(
@@ -3863,7 +3863,7 @@ class DownwardAPIVolumeFile(Resource):
     ] = None
 
 
-class DownwardAPIVolumeSource(Resource):
+class DownwardAPIVolumeSource(BaseModel):
     default_mode: Annotated[
         Optional[int],
         Field(
@@ -3928,7 +3928,7 @@ class EndpointsList(Resource):
     ] = None
 
 
-class EnvVarSource(Resource):
+class EnvVarSource(BaseModel):
     config_map_key_ref: Annotated[
         Optional[ConfigMapKeySelector],
         Field(alias="configMapKeyRef", description="Selects a key of a ConfigMap."),
@@ -4076,7 +4076,7 @@ class EventList(Resource):
     ] = None
 
 
-class LifecycleHandler(Resource):
+class LifecycleHandler(BaseModel):
     exec: Annotated[
         Optional[ExecAction],
         Field(description="Exec specifies a command to execute in the container."),
@@ -4219,7 +4219,7 @@ class NamespaceList(Resource):
     ] = None
 
 
-class NodeAffinity(Resource):
+class NodeAffinity(BaseModel):
     preferred_during_scheduling_ignored_during_execution: Annotated[
         Optional[List[PreferredSchedulingTerm]],
         Field(
@@ -4236,7 +4236,7 @@ class NodeAffinity(Resource):
     ] = None
 
 
-class NodeSpec(Resource):
+class NodeSpec(BaseModel):
     config_source: Annotated[
         Optional[NodeConfigSource],
         Field(
@@ -4283,7 +4283,7 @@ class NodeSpec(Resource):
     ] = None
 
 
-class PersistentVolumeClaimSpec(Resource):
+class PersistentVolumeClaimSpec(BaseModel):
     access_modes: Annotated[
         Optional[List[str]],
         Field(
@@ -4345,7 +4345,7 @@ class PersistentVolumeClaimSpec(Resource):
     ] = None
 
 
-class PersistentVolumeClaimTemplate(Resource):
+class PersistentVolumeClaimTemplate(BaseModel):
     metadata: Annotated[
         Optional[v1.ObjectMeta],
         Field(
@@ -4360,7 +4360,7 @@ class PersistentVolumeClaimTemplate(Resource):
     ]
 
 
-class PersistentVolumeSpec(Resource):
+class PersistentVolumeSpec(BaseModel):
     access_modes: Annotated[
         Optional[List[str]],
         Field(
@@ -4563,7 +4563,7 @@ class PersistentVolumeSpec(Resource):
     ] = None
 
 
-class PodAffinityTerm(Resource):
+class PodAffinityTerm(BaseModel):
     label_selector: Annotated[
         Optional[v1.LabelSelector],
         Field(
@@ -4607,7 +4607,7 @@ class PodAffinityTerm(Resource):
     ]
 
 
-class PodStatus(Resource):
+class PodStatus(BaseModel):
     conditions: Annotated[
         Optional[List[PodCondition]],
         Field(
@@ -4714,7 +4714,7 @@ class PodStatus(Resource):
     ] = None
 
 
-class Probe(Resource):
+class Probe(BaseModel):
     exec: Annotated[
         Optional[ExecAction],
         Field(description="Exec specifies a command to execute in the container."),
@@ -4781,7 +4781,7 @@ class Probe(Resource):
     ] = None
 
 
-class ResourceQuotaSpec(Resource):
+class ResourceQuotaSpec(BaseModel):
     hard: Annotated[
         Optional[Dict[str, utils.Quantity]],
         Field(
@@ -4948,7 +4948,7 @@ class ServiceAccountList(Resource):
     ] = None
 
 
-class ServiceStatus(Resource):
+class ServiceStatus(BaseModel):
     conditions: Annotated[
         Optional[List[v1.Condition]], Field(description="Current service state")
     ] = None
@@ -4961,7 +4961,7 @@ class ServiceStatus(Resource):
     ] = None
 
 
-class TopologySpreadConstraint(Resource):
+class TopologySpreadConstraint(BaseModel):
     label_selector: Annotated[
         Optional[v1.LabelSelector],
         Field(
@@ -5020,7 +5020,7 @@ class TopologySpreadConstraint(Resource):
     ]
 
 
-class WeightedPodAffinityTerm(Resource):
+class WeightedPodAffinityTerm(BaseModel):
     pod_affinity_term: Annotated[
         PodAffinityTerm,
         Field(
@@ -5036,14 +5036,14 @@ class WeightedPodAffinityTerm(Resource):
     ]
 
 
-class DownwardAPIProjection(Resource):
+class DownwardAPIProjection(BaseModel):
     items: Annotated[
         Optional[List[DownwardAPIVolumeFile]],
         Field(description="Items is a list of DownwardAPIVolume file"),
     ] = None
 
 
-class EnvVar(Resource):
+class EnvVar(BaseModel):
     name: Annotated[
         str,
         Field(description="Name of the environment variable. Must be a C_IDENTIFIER."),
@@ -5063,7 +5063,7 @@ class EnvVar(Resource):
     ] = None
 
 
-class EphemeralVolumeSource(Resource):
+class EphemeralVolumeSource(BaseModel):
     volume_claim_template: Annotated[
         Optional[PersistentVolumeClaimTemplate],
         Field(
@@ -5073,7 +5073,7 @@ class EphemeralVolumeSource(Resource):
     ] = None
 
 
-class Lifecycle(Resource):
+class Lifecycle(BaseModel):
     post_start: Annotated[
         Optional[LifecycleHandler],
         Field(
@@ -5271,7 +5271,7 @@ class PersistentVolumeList(Resource):
     ] = None
 
 
-class PodAffinity(Resource):
+class PodAffinity(BaseModel):
     preferred_during_scheduling_ignored_during_execution: Annotated[
         Optional[List[WeightedPodAffinityTerm]],
         Field(
@@ -5288,7 +5288,7 @@ class PodAffinity(Resource):
     ] = None
 
 
-class PodAntiAffinity(Resource):
+class PodAntiAffinity(BaseModel):
     preferred_during_scheduling_ignored_during_execution: Annotated[
         Optional[List[WeightedPodAffinityTerm]],
         Field(
@@ -5424,7 +5424,7 @@ class ServiceList(Resource):
     ] = None
 
 
-class VolumeProjection(Resource):
+class VolumeProjection(BaseModel):
     cluster_trust_bundle: Annotated[
         Optional[ClusterTrustBundleProjection],
         Field(
@@ -5459,7 +5459,7 @@ class VolumeProjection(Resource):
     ] = None
 
 
-class Affinity(Resource):
+class Affinity(BaseModel):
     node_affinity: Annotated[
         Optional[NodeAffinity],
         Field(
@@ -5483,7 +5483,7 @@ class Affinity(Resource):
     ] = None
 
 
-class Container(Resource):
+class Container(BaseModel):
     args: Annotated[
         Optional[List[str]],
         Field(
@@ -5644,7 +5644,7 @@ class Container(Resource):
     ] = None
 
 
-class EphemeralContainer(Resource):
+class EphemeralContainer(BaseModel):
     args: Annotated[
         Optional[List[str]],
         Field(
@@ -5808,7 +5808,7 @@ class EphemeralContainer(Resource):
     ] = None
 
 
-class ProjectedVolumeSource(Resource):
+class ProjectedVolumeSource(BaseModel):
     default_mode: Annotated[
         Optional[int],
         Field(
@@ -5824,7 +5824,7 @@ class ProjectedVolumeSource(Resource):
     ] = None
 
 
-class Volume(Resource):
+class Volume(BaseModel):
     aws_elastic_block_store: Annotated[
         Optional[AWSElasticBlockStoreVolumeSource],
         Field(
@@ -6028,7 +6028,7 @@ class Volume(Resource):
     ] = None
 
 
-class PodSpec(Resource):
+class PodSpec(BaseModel):
     active_deadline_seconds: Annotated[
         Optional[int],
         Field(
@@ -6297,7 +6297,7 @@ class PodSpec(Resource):
     ] = None
 
 
-class PodTemplateSpec(Resource):
+class PodTemplateSpec(BaseModel):
     metadata: Annotated[
         Optional[v1.ObjectMeta],
         Field(
@@ -6312,7 +6312,7 @@ class PodTemplateSpec(Resource):
     ] = None
 
 
-class ReplicationControllerSpec(Resource):
+class ReplicationControllerSpec(BaseModel):
     min_ready_seconds: Annotated[
         Optional[int],
         Field(

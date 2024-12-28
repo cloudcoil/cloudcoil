@@ -10,11 +10,13 @@ from pydantic import BaseModel, ConfigDict
 from cloudcoil.client._context import context
 
 
-class Resource(BaseModel):
+class RootModel(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
 
+
+class Resource(RootModel):
     @classmethod
     def gvk(cls):
         fields = cls.model_fields

@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class ExemptPriorityLevelConfiguration(Resource):
+class ExemptPriorityLevelConfiguration(BaseModel):
     lendable_percent: Annotated[
         Optional[int],
         Field(
@@ -29,7 +29,7 @@ class ExemptPriorityLevelConfiguration(Resource):
     ] = None
 
 
-class FlowDistinguisherMethod(Resource):
+class FlowDistinguisherMethod(BaseModel):
     type: Annotated[
         str,
         Field(
@@ -38,7 +38,7 @@ class FlowDistinguisherMethod(Resource):
     ]
 
 
-class GroupSubject(Resource):
+class GroupSubject(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -47,7 +47,7 @@ class GroupSubject(Resource):
     ]
 
 
-class NonResourcePolicyRule(Resource):
+class NonResourcePolicyRule(BaseModel):
     non_resource_ur_ls: Annotated[
         List[str],
         Field(
@@ -63,7 +63,7 @@ class NonResourcePolicyRule(Resource):
     ]
 
 
-class PriorityLevelConfigurationReference(Resource):
+class PriorityLevelConfigurationReference(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -72,7 +72,7 @@ class PriorityLevelConfigurationReference(Resource):
     ]
 
 
-class QueuingConfiguration(Resource):
+class QueuingConfiguration(BaseModel):
     hand_size: Annotated[
         Optional[int],
         Field(
@@ -95,7 +95,7 @@ class QueuingConfiguration(Resource):
     ] = None
 
 
-class ResourcePolicyRule(Resource):
+class ResourcePolicyRule(BaseModel):
     api_groups: Annotated[
         List[str],
         Field(
@@ -130,7 +130,7 @@ class ResourcePolicyRule(Resource):
     ]
 
 
-class ServiceAccountSubject(Resource):
+class ServiceAccountSubject(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -145,7 +145,7 @@ class ServiceAccountSubject(Resource):
     ]
 
 
-class UserSubject(Resource):
+class UserSubject(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -154,7 +154,7 @@ class UserSubject(Resource):
     ]
 
 
-class FlowSchemaCondition(Resource):
+class FlowSchemaCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -186,14 +186,14 @@ class FlowSchemaCondition(Resource):
     ] = None
 
 
-class FlowSchemaStatus(Resource):
+class FlowSchemaStatus(BaseModel):
     conditions: Annotated[
         Optional[List[FlowSchemaCondition]],
         Field(description="`conditions` is a list of the current states of FlowSchema."),
     ] = None
 
 
-class LimitResponse(Resource):
+class LimitResponse(BaseModel):
     queuing: Annotated[
         Optional[QueuingConfiguration],
         Field(
@@ -208,7 +208,7 @@ class LimitResponse(Resource):
     ]
 
 
-class LimitedPriorityLevelConfiguration(Resource):
+class LimitedPriorityLevelConfiguration(BaseModel):
     borrowing_limit_percent: Annotated[
         Optional[int],
         Field(
@@ -239,7 +239,7 @@ class LimitedPriorityLevelConfiguration(Resource):
     ] = None
 
 
-class PriorityLevelConfigurationCondition(Resource):
+class PriorityLevelConfigurationCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -271,7 +271,7 @@ class PriorityLevelConfigurationCondition(Resource):
     ] = None
 
 
-class PriorityLevelConfigurationSpec(Resource):
+class PriorityLevelConfigurationSpec(BaseModel):
     exempt: Annotated[
         Optional[ExemptPriorityLevelConfiguration],
         Field(
@@ -292,14 +292,14 @@ class PriorityLevelConfigurationSpec(Resource):
     ]
 
 
-class PriorityLevelConfigurationStatus(Resource):
+class PriorityLevelConfigurationStatus(BaseModel):
     conditions: Annotated[
         Optional[List[PriorityLevelConfigurationCondition]],
         Field(description='`conditions` is the current state of "request-priority".'),
     ] = None
 
 
-class Subject(Resource):
+class Subject(BaseModel):
     group: Annotated[
         Optional[GroupSubject],
         Field(description="`group` matches based on user group name."),
@@ -320,7 +320,7 @@ class Subject(Resource):
     ] = None
 
 
-class PolicyRulesWithSubjects(Resource):
+class PolicyRulesWithSubjects(BaseModel):
     non_resource_rules: Annotated[
         Optional[List[NonResourcePolicyRule]],
         Field(
@@ -403,7 +403,7 @@ class PriorityLevelConfigurationList(Resource):
     ] = None
 
 
-class FlowSchemaSpec(Resource):
+class FlowSchemaSpec(BaseModel):
     distinguisher_method: Annotated[
         Optional[FlowDistinguisherMethod],
         Field(

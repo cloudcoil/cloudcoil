@@ -7,14 +7,14 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import utils
 from ..apimachinery import v1 as v1_1
 from ..core import v1
 
 
-class IPBlock(Resource):
+class IPBlock(BaseModel):
     cidr: Annotated[
         str,
         Field(
@@ -30,7 +30,7 @@ class IPBlock(Resource):
     ] = None
 
 
-class IngressClassParametersReference(Resource):
+class IngressClassParametersReference(BaseModel):
     api_group: Annotated[
         Optional[str],
         Field(
@@ -54,7 +54,7 @@ class IngressClassParametersReference(Resource):
     ] = None
 
 
-class IngressClassSpec(Resource):
+class IngressClassSpec(BaseModel):
     controller: Annotated[
         Optional[str],
         Field(
@@ -69,7 +69,7 @@ class IngressClassSpec(Resource):
     ] = None
 
 
-class IngressPortStatus(Resource):
+class IngressPortStatus(BaseModel):
     error: Annotated[
         Optional[str],
         Field(
@@ -85,7 +85,7 @@ class IngressPortStatus(Resource):
     ]
 
 
-class IngressTLS(Resource):
+class IngressTLS(BaseModel):
     hosts: Annotated[
         Optional[List[str]],
         Field(
@@ -101,7 +101,7 @@ class IngressTLS(Resource):
     ] = None
 
 
-class ServiceBackendPort(Resource):
+class ServiceBackendPort(BaseModel):
     name: Annotated[
         Optional[str],
         Field(
@@ -116,7 +116,7 @@ class ServiceBackendPort(Resource):
     ] = None
 
 
-class IngressLoadBalancerIngress(Resource):
+class IngressLoadBalancerIngress(BaseModel):
     hostname: Annotated[
         Optional[str],
         Field(description="hostname is set for load-balancer ingress points that are DNS based."),
@@ -133,14 +133,14 @@ class IngressLoadBalancerIngress(Resource):
     ] = None
 
 
-class IngressLoadBalancerStatus(Resource):
+class IngressLoadBalancerStatus(BaseModel):
     ingress: Annotated[
         Optional[List[IngressLoadBalancerIngress]],
         Field(description="ingress is a list containing ingress points for the load-balancer."),
     ] = None
 
 
-class IngressServiceBackend(Resource):
+class IngressServiceBackend(BaseModel):
     name: Annotated[
         str,
         Field(
@@ -155,7 +155,7 @@ class IngressServiceBackend(Resource):
     ] = None
 
 
-class IngressStatus(Resource):
+class IngressStatus(BaseModel):
     load_balancer: Annotated[
         Optional[IngressLoadBalancerStatus],
         Field(
@@ -165,7 +165,7 @@ class IngressStatus(Resource):
     ] = None
 
 
-class NetworkPolicyPort(Resource):
+class NetworkPolicyPort(BaseModel):
     end_port: Annotated[
         Optional[int],
         Field(
@@ -187,7 +187,7 @@ class NetworkPolicyPort(Resource):
     ] = None
 
 
-class IngressBackend(Resource):
+class IngressBackend(BaseModel):
     resource: Annotated[
         Optional[v1.TypedLocalObjectReference],
         Field(
@@ -250,7 +250,7 @@ class IngressClassList(Resource):
     )
 
 
-class NetworkPolicyPeer(Resource):
+class NetworkPolicyPeer(BaseModel):
     ip_block: Annotated[
         Optional[IPBlock],
         Field(
@@ -274,7 +274,7 @@ class NetworkPolicyPeer(Resource):
     ] = None
 
 
-class HTTPIngressPath(Resource):
+class HTTPIngressPath(BaseModel):
     backend: Annotated[
         IngressBackend,
         Field(
@@ -296,14 +296,14 @@ class HTTPIngressPath(Resource):
     ]
 
 
-class HTTPIngressRuleValue(Resource):
+class HTTPIngressRuleValue(BaseModel):
     paths: Annotated[
         List[HTTPIngressPath],
         Field(description="paths is a collection of paths that map requests to backends."),
     ]
 
 
-class IngressRule(Resource):
+class IngressRule(BaseModel):
     host: Annotated[
         Optional[str],
         Field(
@@ -313,7 +313,7 @@ class IngressRule(Resource):
     http: Optional[HTTPIngressRuleValue] = None
 
 
-class IngressSpec(Resource):
+class IngressSpec(BaseModel):
     default_backend: Annotated[
         Optional[IngressBackend],
         Field(
@@ -342,7 +342,7 @@ class IngressSpec(Resource):
     ] = None
 
 
-class NetworkPolicyEgressRule(Resource):
+class NetworkPolicyEgressRule(BaseModel):
     ports: Annotated[
         Optional[List[NetworkPolicyPort]],
         Field(
@@ -357,7 +357,7 @@ class NetworkPolicyEgressRule(Resource):
     ] = None
 
 
-class NetworkPolicyIngressRule(Resource):
+class NetworkPolicyIngressRule(BaseModel):
     from_: Annotated[
         Optional[List[NetworkPolicyPeer]],
         Field(
@@ -373,7 +373,7 @@ class NetworkPolicyIngressRule(Resource):
     ] = None
 
 
-class NetworkPolicySpec(Resource):
+class NetworkPolicySpec(BaseModel):
     egress: Annotated[
         Optional[List[NetworkPolicyEgressRule]],
         Field(

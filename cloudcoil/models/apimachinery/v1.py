@@ -8,12 +8,12 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field, RootModel
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from . import utils
 
 
-class APIResource(Resource):
+class APIResource(BaseModel):
     categories: Annotated[
         Optional[List[str]],
         Field(
@@ -101,7 +101,7 @@ class APIResourceList(Resource):
     ]
 
 
-class FieldSelectorRequirement(Resource):
+class FieldSelectorRequirement(BaseModel):
     key: Annotated[
         str,
         Field(description="key is the field selector key that the requirement applies to."),
@@ -120,11 +120,11 @@ class FieldSelectorRequirement(Resource):
     ] = None
 
 
-class FieldsV1(Resource):
+class FieldsV1(BaseModel):
     pass
 
 
-class GroupVersionForDiscovery(Resource):
+class GroupVersionForDiscovery(BaseModel):
     group_version: Annotated[
         str,
         Field(
@@ -140,7 +140,7 @@ class GroupVersionForDiscovery(Resource):
     ]
 
 
-class LabelSelectorRequirement(Resource):
+class LabelSelectorRequirement(BaseModel):
     key: Annotated[str, Field(description="key is the label key that the selector applies to.")]
     operator: Annotated[
         str,
@@ -156,7 +156,7 @@ class LabelSelectorRequirement(Resource):
     ] = None
 
 
-class ListMeta(Resource):
+class ListMeta(BaseModel):
     continue_: Annotated[
         Optional[str],
         Field(
@@ -194,7 +194,7 @@ class MicroTime(RootModel[datetime]):
     ]
 
 
-class OwnerReference(Resource):
+class OwnerReference(BaseModel):
     api_version: Annotated[
         str, Field(alias="apiVersion", description="API version of the referent.")
     ]
@@ -229,11 +229,11 @@ class OwnerReference(Resource):
     ]
 
 
-class Patch(Resource):
+class Patch(BaseModel):
     pass
 
 
-class Preconditions(Resource):
+class Preconditions(BaseModel):
     resource_version: Annotated[
         Optional[str],
         Field(alias="resourceVersion", description="Specifies the target ResourceVersion"),
@@ -241,7 +241,7 @@ class Preconditions(Resource):
     uid: Annotated[Optional[str], Field(description="Specifies the target UID.")] = None
 
 
-class ServerAddressByClientCIDR(Resource):
+class ServerAddressByClientCIDR(BaseModel):
     client_cidr: Annotated[
         str,
         Field(
@@ -258,7 +258,7 @@ class ServerAddressByClientCIDR(Resource):
     ]
 
 
-class StatusCause(Resource):
+class StatusCause(BaseModel):
     field: Annotated[
         Optional[str],
         Field(
@@ -279,7 +279,7 @@ class StatusCause(Resource):
     ] = None
 
 
-class StatusDetails(Resource):
+class StatusDetails(BaseModel):
     causes: Annotated[
         Optional[List[StatusCause]],
         Field(
@@ -407,7 +407,7 @@ class APIVersions(Resource):
     ]
 
 
-class Condition(Resource):
+class Condition(BaseModel):
     last_transition_time: Annotated[
         Time,
         Field(
@@ -500,7 +500,7 @@ class DeleteOptions(Resource):
     ] = None
 
 
-class LabelSelector(Resource):
+class LabelSelector(BaseModel):
     match_expressions: Annotated[
         Optional[List[LabelSelectorRequirement]],
         Field(
@@ -517,7 +517,7 @@ class LabelSelector(Resource):
     ] = None
 
 
-class ManagedFieldsEntry(Resource):
+class ManagedFieldsEntry(BaseModel):
     api_version: Annotated[
         Optional[str],
         Field(
@@ -563,7 +563,7 @@ class ManagedFieldsEntry(Resource):
     ] = None
 
 
-class ObjectMeta(Resource):
+class ObjectMeta(BaseModel):
     annotations: Annotated[
         Optional[Dict[str, str]],
         Field(

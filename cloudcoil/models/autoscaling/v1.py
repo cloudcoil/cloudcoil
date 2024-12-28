@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class CrossVersionObjectReference(Resource):
+class CrossVersionObjectReference(BaseModel):
     api_version: Annotated[
         Optional[str],
         Field(
@@ -34,7 +34,7 @@ class CrossVersionObjectReference(Resource):
     ]
 
 
-class HorizontalPodAutoscalerSpec(Resource):
+class HorizontalPodAutoscalerSpec(BaseModel):
     max_replicas: Annotated[
         int,
         Field(
@@ -65,14 +65,14 @@ class HorizontalPodAutoscalerSpec(Resource):
     ] = None
 
 
-class ScaleSpec(Resource):
+class ScaleSpec(BaseModel):
     replicas: Annotated[
         Optional[int],
         Field(description="replicas is the desired number of instances for the scaled object."),
     ] = None
 
 
-class ScaleStatus(Resource):
+class ScaleStatus(BaseModel):
     replicas: Annotated[
         int,
         Field(
@@ -87,7 +87,7 @@ class ScaleStatus(Resource):
     ] = None
 
 
-class HorizontalPodAutoscalerStatus(Resource):
+class HorizontalPodAutoscalerStatus(BaseModel):
     current_cpu_utilization_percentage: Annotated[
         Optional[int],
         Field(

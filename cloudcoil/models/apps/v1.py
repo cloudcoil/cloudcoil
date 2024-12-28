@@ -7,13 +7,13 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import utils, v1
 from ..core import v1 as v1_1
 
 
-class StatefulSetOrdinals(Resource):
+class StatefulSetOrdinals(BaseModel):
     start: Annotated[
         Optional[int],
         Field(
@@ -22,7 +22,7 @@ class StatefulSetOrdinals(Resource):
     ] = None
 
 
-class StatefulSetPersistentVolumeClaimRetentionPolicy(Resource):
+class StatefulSetPersistentVolumeClaimRetentionPolicy(BaseModel):
     when_deleted: Annotated[
         Optional[str],
         Field(
@@ -39,7 +39,7 @@ class StatefulSetPersistentVolumeClaimRetentionPolicy(Resource):
     ] = None
 
 
-class DaemonSetCondition(Resource):
+class DaemonSetCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -61,7 +61,7 @@ class DaemonSetCondition(Resource):
     type: Annotated[str, Field(description="Type of DaemonSet condition.")]
 
 
-class DaemonSetStatus(Resource):
+class DaemonSetStatus(BaseModel):
     collision_count: Annotated[
         Optional[int],
         Field(
@@ -133,7 +133,7 @@ class DaemonSetStatus(Resource):
     ] = None
 
 
-class DeploymentCondition(Resource):
+class DeploymentCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -162,7 +162,7 @@ class DeploymentCondition(Resource):
     type: Annotated[str, Field(description="Type of deployment condition.")]
 
 
-class DeploymentStatus(Resource):
+class DeploymentStatus(BaseModel):
     available_replicas: Annotated[
         Optional[int],
         Field(
@@ -219,7 +219,7 @@ class DeploymentStatus(Resource):
     ] = None
 
 
-class ReplicaSetCondition(Resource):
+class ReplicaSetCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -241,7 +241,7 @@ class ReplicaSetCondition(Resource):
     type: Annotated[str, Field(description="Type of replica set condition.")]
 
 
-class ReplicaSetStatus(Resource):
+class ReplicaSetStatus(BaseModel):
     available_replicas: Annotated[
         Optional[int],
         Field(
@@ -284,7 +284,7 @@ class ReplicaSetStatus(Resource):
     ]
 
 
-class RollingUpdateDaemonSet(Resource):
+class RollingUpdateDaemonSet(BaseModel):
     max_surge: Annotated[
         Optional[utils.IntOrString],
         Field(
@@ -301,7 +301,7 @@ class RollingUpdateDaemonSet(Resource):
     ] = None
 
 
-class RollingUpdateDeployment(Resource):
+class RollingUpdateDeployment(BaseModel):
     max_surge: Annotated[
         Optional[utils.IntOrString],
         Field(
@@ -318,7 +318,7 @@ class RollingUpdateDeployment(Resource):
     ] = None
 
 
-class RollingUpdateStatefulSetStrategy(Resource):
+class RollingUpdateStatefulSetStrategy(BaseModel):
     max_unavailable: Annotated[
         Optional[utils.IntOrString],
         Field(
@@ -334,7 +334,7 @@ class RollingUpdateStatefulSetStrategy(Resource):
     ] = None
 
 
-class StatefulSetCondition(Resource):
+class StatefulSetCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -356,7 +356,7 @@ class StatefulSetCondition(Resource):
     type: Annotated[str, Field(description="Type of statefulset condition.")]
 
 
-class StatefulSetStatus(Resource):
+class StatefulSetStatus(BaseModel):
     available_replicas: Annotated[
         Optional[int],
         Field(
@@ -425,7 +425,7 @@ class StatefulSetStatus(Resource):
     ] = None
 
 
-class StatefulSetUpdateStrategy(Resource):
+class StatefulSetUpdateStrategy(BaseModel):
     rolling_update: Annotated[
         Optional[RollingUpdateStatefulSetStrategy],
         Field(
@@ -497,7 +497,7 @@ class ControllerRevisionList(Resource):
     ] = None
 
 
-class DaemonSetUpdateStrategy(Resource):
+class DaemonSetUpdateStrategy(BaseModel):
     rolling_update: Annotated[
         Optional[RollingUpdateDaemonSet],
         Field(
@@ -513,7 +513,7 @@ class DaemonSetUpdateStrategy(Resource):
     ] = None
 
 
-class DeploymentStrategy(Resource):
+class DeploymentStrategy(BaseModel):
     rolling_update: Annotated[
         Optional[RollingUpdateDeployment],
         Field(
@@ -529,7 +529,7 @@ class DeploymentStrategy(Resource):
     ] = None
 
 
-class DaemonSetSpec(Resource):
+class DaemonSetSpec(BaseModel):
     min_ready_seconds: Annotated[
         Optional[int],
         Field(
@@ -565,7 +565,7 @@ class DaemonSetSpec(Resource):
     ] = None
 
 
-class DeploymentSpec(Resource):
+class DeploymentSpec(BaseModel):
     min_ready_seconds: Annotated[
         Optional[int],
         Field(
@@ -614,7 +614,7 @@ class DeploymentSpec(Resource):
     ]
 
 
-class ReplicaSetSpec(Resource):
+class ReplicaSetSpec(BaseModel):
     min_ready_seconds: Annotated[
         Optional[int],
         Field(
@@ -642,7 +642,7 @@ class ReplicaSetSpec(Resource):
     ] = None
 
 
-class StatefulSetSpec(Resource):
+class StatefulSetSpec(BaseModel):
     min_ready_seconds: Annotated[
         Optional[int],
         Field(

@@ -7,7 +7,7 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import utils, v1
 
@@ -36,7 +36,7 @@ class Eviction(Resource):
     ] = None
 
 
-class PodDisruptionBudgetSpec(Resource):
+class PodDisruptionBudgetSpec(BaseModel):
     max_unavailable: Annotated[
         Optional[utils.IntOrString],
         Field(
@@ -66,7 +66,7 @@ class PodDisruptionBudgetSpec(Resource):
     ] = None
 
 
-class PodDisruptionBudgetStatus(Resource):
+class PodDisruptionBudgetStatus(BaseModel):
     conditions: Annotated[
         Optional[List[v1.Condition]],
         Field(

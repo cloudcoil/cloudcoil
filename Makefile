@@ -10,8 +10,8 @@ lint:
 
 .PHONY: fix-lint
 fix-lint:
-	uv run ruff check --fix cloudcoil tests
 	uv run ruff format cloudcoil tests
+	uv run ruff check --fix cloudcoil tests
 
 .PHONY: docs-serve
 docs-serve:
@@ -41,5 +41,10 @@ gen-models:
 		--base-class cloudcoil.client.Resource \
 		--use-annotated \
 		--use-default-kwarg \
+		--custom-template-dir templates \
+		--extra-template-data extra_data.json \
+		--additional-imports cloudcoil.client.BaseModel \
 		--use-default
+	rm -rf cloudcoil/models/__init__.py
+	touch cloudcoil/models/__init__.py
 	$(MAKE) fix-lint

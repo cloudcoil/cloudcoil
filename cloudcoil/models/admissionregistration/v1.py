@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class AuditAnnotation(Resource):
+class AuditAnnotation(BaseModel):
     key: Annotated[
         str,
         Field(
@@ -28,7 +28,7 @@ class AuditAnnotation(Resource):
     ]
 
 
-class ExpressionWarning(Resource):
+class ExpressionWarning(BaseModel):
     field_ref: Annotated[
         str,
         Field(
@@ -44,7 +44,7 @@ class ExpressionWarning(Resource):
     ]
 
 
-class MatchCondition(Resource):
+class MatchCondition(BaseModel):
     expression: Annotated[
         str,
         Field(
@@ -59,7 +59,7 @@ class MatchCondition(Resource):
     ]
 
 
-class NamedRuleWithOperations(Resource):
+class NamedRuleWithOperations(BaseModel):
     api_groups: Annotated[
         Optional[List[str]],
         Field(
@@ -101,7 +101,7 @@ class NamedRuleWithOperations(Resource):
     ] = None
 
 
-class ParamKind(Resource):
+class ParamKind(BaseModel):
     api_version: Annotated[
         Optional[str],
         Field(
@@ -115,7 +115,7 @@ class ParamKind(Resource):
     ] = None
 
 
-class RuleWithOperations(Resource):
+class RuleWithOperations(BaseModel):
     api_groups: Annotated[
         Optional[List[str]],
         Field(
@@ -150,7 +150,7 @@ class RuleWithOperations(Resource):
     ] = None
 
 
-class ServiceReference(Resource):
+class ServiceReference(BaseModel):
     name: Annotated[str, Field(description="`name` is the name of the service. Required")]
     namespace: Annotated[
         str, Field(description="`namespace` is the namespace of the service. Required")
@@ -169,7 +169,7 @@ class ServiceReference(Resource):
     ] = None
 
 
-class TypeChecking(Resource):
+class TypeChecking(BaseModel):
     expression_warnings: Annotated[
         Optional[List[ExpressionWarning]],
         Field(
@@ -179,7 +179,7 @@ class TypeChecking(Resource):
     ] = None
 
 
-class Validation(Resource):
+class Validation(BaseModel):
     expression: Annotated[
         str,
         Field(
@@ -207,7 +207,7 @@ class Validation(Resource):
     ] = None
 
 
-class Variable(Resource):
+class Variable(BaseModel):
     expression: Annotated[
         str,
         Field(
@@ -222,7 +222,7 @@ class Variable(Resource):
     ]
 
 
-class WebhookClientConfig(Resource):
+class WebhookClientConfig(BaseModel):
     ca_bundle: Annotated[
         Optional[str],
         Field(
@@ -244,7 +244,7 @@ class WebhookClientConfig(Resource):
     ] = None
 
 
-class MatchResources(Resource):
+class MatchResources(BaseModel):
     exclude_resource_rules: Annotated[
         Optional[List[NamedRuleWithOperations]],
         Field(
@@ -282,7 +282,7 @@ class MatchResources(Resource):
     ] = None
 
 
-class MutatingWebhook(Resource):
+class MutatingWebhook(BaseModel):
     admission_review_versions: Annotated[
         List[str],
         Field(
@@ -421,7 +421,7 @@ class MutatingWebhookConfigurationList(Resource):
     ] = None
 
 
-class ParamRef(Resource):
+class ParamRef(BaseModel):
     name: Annotated[
         Optional[str],
         Field(
@@ -449,7 +449,7 @@ class ParamRef(Resource):
     ] = None
 
 
-class ValidatingAdmissionPolicyBindingSpec(Resource):
+class ValidatingAdmissionPolicyBindingSpec(BaseModel):
     match_resources: Annotated[
         Optional[MatchResources],
         Field(
@@ -480,7 +480,7 @@ class ValidatingAdmissionPolicyBindingSpec(Resource):
     ] = None
 
 
-class ValidatingAdmissionPolicySpec(Resource):
+class ValidatingAdmissionPolicySpec(BaseModel):
     audit_annotations: Annotated[
         Optional[List[AuditAnnotation]],
         Field(
@@ -530,7 +530,7 @@ class ValidatingAdmissionPolicySpec(Resource):
     ] = None
 
 
-class ValidatingAdmissionPolicyStatus(Resource):
+class ValidatingAdmissionPolicyStatus(BaseModel):
     conditions: Annotated[
         Optional[List[v1.Condition]],
         Field(
@@ -553,7 +553,7 @@ class ValidatingAdmissionPolicyStatus(Resource):
     ] = None
 
 
-class ValidatingWebhook(Resource):
+class ValidatingWebhook(BaseModel):
     admission_review_versions: Annotated[
         List[str],
         Field(

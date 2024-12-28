@@ -7,17 +7,17 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class NonResourceAttributes(Resource):
+class NonResourceAttributes(BaseModel):
     path: Annotated[Optional[str], Field(description="Path is the URL path of the request")] = None
     verb: Annotated[Optional[str], Field(description="Verb is the standard HTTP verb")] = None
 
 
-class NonResourceRule(Resource):
+class NonResourceRule(BaseModel):
     non_resource_ur_ls: Annotated[
         Optional[List[str]],
         Field(
@@ -33,7 +33,7 @@ class NonResourceRule(Resource):
     ]
 
 
-class ResourceRule(Resource):
+class ResourceRule(BaseModel):
     api_groups: Annotated[
         Optional[List[str]],
         Field(
@@ -62,13 +62,13 @@ class ResourceRule(Resource):
     ]
 
 
-class SelfSubjectRulesReviewSpec(Resource):
+class SelfSubjectRulesReviewSpec(BaseModel):
     namespace: Annotated[
         Optional[str], Field(description="Namespace to evaluate rules for. Required.")
     ] = None
 
 
-class SubjectAccessReviewStatus(Resource):
+class SubjectAccessReviewStatus(BaseModel):
     allowed: Annotated[
         bool,
         Field(
@@ -94,7 +94,7 @@ class SubjectAccessReviewStatus(Resource):
     ] = None
 
 
-class SubjectRulesReviewStatus(Resource):
+class SubjectRulesReviewStatus(BaseModel):
     evaluation_error: Annotated[
         Optional[str],
         Field(
@@ -124,7 +124,7 @@ class SubjectRulesReviewStatus(Resource):
     ]
 
 
-class FieldSelectorAttributes(Resource):
+class FieldSelectorAttributes(BaseModel):
     raw_selector: Annotated[
         Optional[str],
         Field(
@@ -140,7 +140,7 @@ class FieldSelectorAttributes(Resource):
     ] = None
 
 
-class LabelSelectorAttributes(Resource):
+class LabelSelectorAttributes(BaseModel):
     raw_selector: Annotated[
         Optional[str],
         Field(
@@ -156,7 +156,7 @@ class LabelSelectorAttributes(Resource):
     ] = None
 
 
-class ResourceAttributes(Resource):
+class ResourceAttributes(BaseModel):
     field_selector: Annotated[
         Optional[FieldSelectorAttributes],
         Field(
@@ -207,7 +207,7 @@ class ResourceAttributes(Resource):
     ] = None
 
 
-class SelfSubjectAccessReviewSpec(Resource):
+class SelfSubjectAccessReviewSpec(BaseModel):
     non_resource_attributes: Annotated[
         Optional[NonResourceAttributes],
         Field(
@@ -224,7 +224,7 @@ class SelfSubjectAccessReviewSpec(Resource):
     ] = None
 
 
-class SubjectAccessReviewSpec(Resource):
+class SubjectAccessReviewSpec(BaseModel):
     extra: Annotated[
         Optional[Dict[str, List[str]]],
         Field(

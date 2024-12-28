@@ -7,13 +7,13 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 from ..core import v1 as v1_1
 
 
-class EventSeries(Resource):
+class EventSeries(BaseModel):
     count: Annotated[
         int,
         Field(

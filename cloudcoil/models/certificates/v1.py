@@ -7,12 +7,12 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class CertificateSigningRequestSpec(Resource):
+class CertificateSigningRequestSpec(BaseModel):
     expiration_seconds: Annotated[
         Optional[int],
         Field(
@@ -65,7 +65,7 @@ class CertificateSigningRequestSpec(Resource):
     ] = None
 
 
-class CertificateSigningRequestCondition(Resource):
+class CertificateSigningRequestCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -104,7 +104,7 @@ class CertificateSigningRequestCondition(Resource):
     ]
 
 
-class CertificateSigningRequestStatus(Resource):
+class CertificateSigningRequestStatus(BaseModel):
     certificate: Annotated[
         Optional[str],
         Field(

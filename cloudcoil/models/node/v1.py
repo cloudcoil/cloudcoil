@@ -7,14 +7,14 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import utils
 from ..apimachinery import v1 as v1_1
 from ..core import v1
 
 
-class Scheduling(Resource):
+class Scheduling(BaseModel):
     node_selector: Annotated[
         Optional[Dict[str, str]],
         Field(
@@ -30,7 +30,7 @@ class Scheduling(Resource):
     ] = None
 
 
-class Overhead(Resource):
+class Overhead(BaseModel):
     pod_fixed: Annotated[
         Optional[Dict[str, utils.Quantity]],
         Field(

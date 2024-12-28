@@ -7,18 +7,18 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class GroupVersionResource(Resource):
+class GroupVersionResource(BaseModel):
     group: Annotated[Optional[str], Field(description="The name of the group.")] = None
     resource: Annotated[Optional[str], Field(description="The name of the resource.")] = None
     version: Annotated[Optional[str], Field(description="The name of the version.")] = None
 
 
-class StorageVersionMigrationSpec(Resource):
+class StorageVersionMigrationSpec(BaseModel):
     continue_token: Annotated[
         Optional[str],
         Field(
@@ -34,7 +34,7 @@ class StorageVersionMigrationSpec(Resource):
     ]
 
 
-class MigrationCondition(Resource):
+class MigrationCondition(BaseModel):
     last_update_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -56,7 +56,7 @@ class MigrationCondition(Resource):
     type: Annotated[str, Field(description="Type of the condition.")]
 
 
-class StorageVersionMigrationStatus(Resource):
+class StorageVersionMigrationStatus(BaseModel):
     conditions: Annotated[
         Optional[List[MigrationCondition]],
         Field(description="The latest available observations of the migration's current state."),

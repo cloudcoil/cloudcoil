@@ -7,12 +7,12 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import Field, RootModel
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class CustomResourceColumnDefinition(Resource):
+class CustomResourceColumnDefinition(BaseModel):
     description: Annotated[
         Optional[str],
         Field(description="description is a human readable description of this column."),
@@ -45,7 +45,7 @@ class CustomResourceColumnDefinition(Resource):
     ]
 
 
-class CustomResourceDefinitionNames(Resource):
+class CustomResourceDefinitionNames(BaseModel):
     categories: Annotated[
         Optional[List[str]],
         Field(
@@ -86,7 +86,7 @@ class CustomResourceDefinitionNames(Resource):
     ] = None
 
 
-class CustomResourceSubresourceScale(Resource):
+class CustomResourceSubresourceScale(BaseModel):
     label_selector_path: Annotated[
         Optional[str],
         Field(
@@ -110,11 +110,11 @@ class CustomResourceSubresourceScale(Resource):
     ]
 
 
-class CustomResourceSubresourceStatus(Resource):
+class CustomResourceSubresourceStatus(BaseModel):
     pass
 
 
-class CustomResourceSubresources(Resource):
+class CustomResourceSubresources(BaseModel):
     scale: Annotated[
         Optional[CustomResourceSubresourceScale],
         Field(
@@ -129,7 +129,7 @@ class CustomResourceSubresources(Resource):
     ] = None
 
 
-class ExternalDocumentation(Resource):
+class ExternalDocumentation(BaseModel):
     description: Optional[str] = None
     url: Optional[str] = None
 
@@ -170,7 +170,7 @@ class JSONSchemaPropsOrStringArray(RootModel[Any]):
     ]
 
 
-class SelectableField(Resource):
+class SelectableField(BaseModel):
     json_path: Annotated[
         str,
         Field(
@@ -180,7 +180,7 @@ class SelectableField(Resource):
     ]
 
 
-class ServiceReference(Resource):
+class ServiceReference(BaseModel):
     name: Annotated[str, Field(description="name is the name of the service. Required")]
     namespace: Annotated[
         str, Field(description="namespace is the namespace of the service. Required")
@@ -197,7 +197,7 @@ class ServiceReference(Resource):
     ] = None
 
 
-class ValidationRule(Resource):
+class ValidationRule(BaseModel):
     field_path: Annotated[
         Optional[str],
         Field(
@@ -239,7 +239,7 @@ class ValidationRule(Resource):
     ]
 
 
-class WebhookClientConfig(Resource):
+class WebhookClientConfig(BaseModel):
     ca_bundle: Annotated[
         Optional[str],
         Field(
@@ -261,7 +261,7 @@ class WebhookClientConfig(Resource):
     ] = None
 
 
-class WebhookConversion(Resource):
+class WebhookConversion(BaseModel):
     client_config: Annotated[
         Optional[WebhookClientConfig],
         Field(
@@ -278,7 +278,7 @@ class WebhookConversion(Resource):
     ]
 
 
-class CustomResourceConversion(Resource):
+class CustomResourceConversion(BaseModel):
     strategy: Annotated[
         str,
         Field(
@@ -293,7 +293,7 @@ class CustomResourceConversion(Resource):
     ] = None
 
 
-class CustomResourceDefinitionCondition(Resource):
+class CustomResourceDefinitionCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -325,7 +325,7 @@ class CustomResourceDefinitionCondition(Resource):
     ]
 
 
-class CustomResourceDefinitionStatus(Resource):
+class CustomResourceDefinitionStatus(BaseModel):
     accepted_names: Annotated[
         Optional[CustomResourceDefinitionNames],
         Field(
@@ -348,7 +348,7 @@ class CustomResourceDefinitionStatus(Resource):
     ] = None
 
 
-class JSONSchemaProps(Resource):
+class JSONSchemaProps(BaseModel):
     field_ref: Annotated[Optional[str], Field(alias="$ref")] = None
     field_schema: Annotated[Optional[str], Field(alias="$schema")] = None
     additional_items: Annotated[Optional[JSONSchemaPropsOrBool], Field(alias="additionalItems")] = (
@@ -453,7 +453,7 @@ class JSONSchemaProps(Resource):
     ] = None
 
 
-class CustomResourceValidation(Resource):
+class CustomResourceValidation(BaseModel):
     open_apiv3_schema: Annotated[
         Optional[JSONSchemaProps],
         Field(
@@ -463,7 +463,7 @@ class CustomResourceValidation(Resource):
     ] = None
 
 
-class CustomResourceDefinitionVersion(Resource):
+class CustomResourceDefinitionVersion(BaseModel):
     additional_printer_columns: Annotated[
         Optional[List[CustomResourceColumnDefinition]],
         Field(
@@ -524,7 +524,7 @@ class CustomResourceDefinitionVersion(Resource):
     ] = None
 
 
-class CustomResourceDefinitionSpec(Resource):
+class CustomResourceDefinitionSpec(BaseModel):
     conversion: Annotated[
         Optional[CustomResourceConversion],
         Field(description="conversion defines conversion settings for the CRD."),

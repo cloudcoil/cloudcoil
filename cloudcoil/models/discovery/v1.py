@@ -7,13 +7,13 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1 as v1_1
 from ..core import v1
 
 
-class EndpointConditions(Resource):
+class EndpointConditions(BaseModel):
     ready: Annotated[
         Optional[bool],
         Field(
@@ -34,7 +34,7 @@ class EndpointConditions(Resource):
     ] = None
 
 
-class EndpointPort(Resource):
+class EndpointPort(BaseModel):
     app_protocol: Annotated[
         Optional[str],
         Field(
@@ -62,11 +62,11 @@ class EndpointPort(Resource):
     ] = None
 
 
-class ForZone(Resource):
+class ForZone(BaseModel):
     name: Annotated[str, Field(description="name represents the name of the zone.")]
 
 
-class EndpointHints(Resource):
+class EndpointHints(BaseModel):
     for_zones: Annotated[
         Optional[List[ForZone]],
         Field(
@@ -76,7 +76,7 @@ class EndpointHints(Resource):
     ] = None
 
 
-class Endpoint(Resource):
+class Endpoint(BaseModel):
     addresses: Annotated[
         List[str],
         Field(

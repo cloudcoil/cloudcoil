@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class ParentReference(Resource):
+class ParentReference(BaseModel):
     group: Annotated[
         Optional[str],
         Field(description="Group is the group of the object being referenced."),
@@ -28,7 +28,7 @@ class ParentReference(Resource):
     ]
 
 
-class ServiceCIDRSpec(Resource):
+class ServiceCIDRSpec(BaseModel):
     cidrs: Annotated[
         Optional[List[str]],
         Field(
@@ -37,7 +37,7 @@ class ServiceCIDRSpec(Resource):
     ] = None
 
 
-class IPAddressSpec(Resource):
+class IPAddressSpec(BaseModel):
     parent_ref: Annotated[
         ParentReference,
         Field(
@@ -98,7 +98,7 @@ class IPAddressList(Resource):
     ] = None
 
 
-class ServiceCIDRStatus(Resource):
+class ServiceCIDRStatus(BaseModel):
     conditions: Annotated[
         Optional[List[v1.Condition]],
         Field(

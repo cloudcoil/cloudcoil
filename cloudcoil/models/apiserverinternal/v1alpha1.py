@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class ServerStorageVersion(Resource):
+class ServerStorageVersion(BaseModel):
     api_server_id: Annotated[
         Optional[str],
         Field(alias="apiServerID", description="The ID of the reporting API server."),
@@ -40,11 +40,11 @@ class ServerStorageVersion(Resource):
     ] = None
 
 
-class StorageVersionSpec(Resource):
+class StorageVersionSpec(BaseModel):
     pass
 
 
-class StorageVersionCondition(Resource):
+class StorageVersionCondition(BaseModel):
     last_transition_time: Annotated[
         Optional[v1.Time],
         Field(
@@ -70,7 +70,7 @@ class StorageVersionCondition(Resource):
     type: Annotated[str, Field(description="Type of the condition.")]
 
 
-class StorageVersionStatus(Resource):
+class StorageVersionStatus(BaseModel):
     common_encoding_version: Annotated[
         Optional[str],
         Field(

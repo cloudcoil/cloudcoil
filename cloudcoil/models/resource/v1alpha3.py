@@ -7,14 +7,14 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import utils
 from ..apimachinery import v1 as v1_1
 from ..core import v1
 
 
-class CELDeviceSelector(Resource):
+class CELDeviceSelector(BaseModel):
     expression: Annotated[
         str,
         Field(
@@ -23,7 +23,7 @@ class CELDeviceSelector(Resource):
     ]
 
 
-class DeviceAttribute(Resource):
+class DeviceAttribute(BaseModel):
     bool: Annotated[Optional[bool], Field(description="BoolValue is a true/false value.")] = None
     int: Annotated[Optional[int], Field(description="IntValue is a number.")] = None
     string: Annotated[
@@ -38,7 +38,7 @@ class DeviceAttribute(Resource):
     ] = None
 
 
-class DeviceConstraint(Resource):
+class DeviceConstraint(BaseModel):
     match_attribute: Annotated[
         Optional[str],
         Field(
@@ -54,7 +54,7 @@ class DeviceConstraint(Resource):
     ] = None
 
 
-class DeviceRequestAllocationResult(Resource):
+class DeviceRequestAllocationResult(BaseModel):
     admin_access: Annotated[
         Optional[bool],
         Field(
@@ -88,14 +88,14 @@ class DeviceRequestAllocationResult(Resource):
     ]
 
 
-class DeviceSelector(Resource):
+class DeviceSelector(BaseModel):
     cel: Annotated[
         Optional[CELDeviceSelector],
         Field(description="CEL contains a CEL expression for selecting a device."),
     ] = None
 
 
-class NetworkDeviceData(Resource):
+class NetworkDeviceData(BaseModel):
     hardware_address: Annotated[
         Optional[str],
         Field(
@@ -118,7 +118,7 @@ class NetworkDeviceData(Resource):
     ] = None
 
 
-class ResourceClaimConsumerReference(Resource):
+class ResourceClaimConsumerReference(BaseModel):
     api_group: Annotated[
         Optional[str],
         Field(
@@ -137,7 +137,7 @@ class ResourceClaimConsumerReference(Resource):
     ]
 
 
-class ResourcePool(Resource):
+class ResourcePool(BaseModel):
     generation: Annotated[
         int,
         Field(
@@ -159,7 +159,7 @@ class ResourcePool(Resource):
     ]
 
 
-class BasicDevice(Resource):
+class BasicDevice(BaseModel):
     attributes: Annotated[
         Optional[Dict[str, DeviceAttribute]],
         Field(
@@ -174,7 +174,7 @@ class BasicDevice(Resource):
     ] = None
 
 
-class Device(Resource):
+class Device(BaseModel):
     basic: Annotated[
         Optional[BasicDevice], Field(description="Basic defines one device instance.")
     ] = None
@@ -186,7 +186,7 @@ class Device(Resource):
     ]
 
 
-class DeviceRequest(Resource):
+class DeviceRequest(BaseModel):
     admin_access: Annotated[
         Optional[bool],
         Field(
@@ -228,7 +228,7 @@ class DeviceRequest(Resource):
     ] = None
 
 
-class OpaqueDeviceConfiguration(Resource):
+class OpaqueDeviceConfiguration(BaseModel):
     driver: Annotated[
         str,
         Field(
@@ -243,7 +243,7 @@ class OpaqueDeviceConfiguration(Resource):
     ]
 
 
-class ResourceSliceSpec(Resource):
+class ResourceSliceSpec(BaseModel):
     all_nodes: Annotated[
         Optional[bool],
         Field(
@@ -283,7 +283,7 @@ class ResourceSliceSpec(Resource):
     ]
 
 
-class AllocatedDeviceStatus(Resource):
+class AllocatedDeviceStatus(BaseModel):
     conditions: Annotated[
         Optional[List[v1_1.Condition]],
         Field(
@@ -323,7 +323,7 @@ class AllocatedDeviceStatus(Resource):
     ]
 
 
-class DeviceAllocationConfiguration(Resource):
+class DeviceAllocationConfiguration(BaseModel):
     opaque: Annotated[
         Optional[OpaqueDeviceConfiguration],
         Field(description="Opaque provides driver-specific configuration parameters."),
@@ -342,7 +342,7 @@ class DeviceAllocationConfiguration(Resource):
     ]
 
 
-class DeviceAllocationResult(Resource):
+class DeviceAllocationResult(BaseModel):
     config: Annotated[
         Optional[List[DeviceAllocationConfiguration]],
         Field(
@@ -355,7 +355,7 @@ class DeviceAllocationResult(Resource):
     ] = None
 
 
-class DeviceClaimConfiguration(Resource):
+class DeviceClaimConfiguration(BaseModel):
     opaque: Annotated[
         Optional[OpaqueDeviceConfiguration],
         Field(description="Opaque provides driver-specific configuration parameters."),
@@ -368,14 +368,14 @@ class DeviceClaimConfiguration(Resource):
     ] = None
 
 
-class DeviceClassConfiguration(Resource):
+class DeviceClassConfiguration(BaseModel):
     opaque: Annotated[
         Optional[OpaqueDeviceConfiguration],
         Field(description="Opaque provides driver-specific configuration parameters."),
     ] = None
 
 
-class DeviceClassSpec(Resource):
+class DeviceClassSpec(BaseModel):
     config: Annotated[
         Optional[List[DeviceClassConfiguration]],
         Field(
@@ -436,7 +436,7 @@ class ResourceSliceList(Resource):
     metadata: Annotated[Optional[v1_1.ListMeta], Field(description="Standard list metadata")] = None
 
 
-class AllocationResult(Resource):
+class AllocationResult(BaseModel):
     devices: Annotated[
         Optional[DeviceAllocationResult],
         Field(description="Devices is the result of allocating devices."),
@@ -450,7 +450,7 @@ class AllocationResult(Resource):
     ] = None
 
 
-class DeviceClaim(Resource):
+class DeviceClaim(BaseModel):
     config: Annotated[
         Optional[List[DeviceClaimConfiguration]],
         Field(
@@ -514,14 +514,14 @@ class DeviceClassList(Resource):
     metadata: Annotated[Optional[v1_1.ListMeta], Field(description="Standard list metadata")] = None
 
 
-class ResourceClaimSpec(Resource):
+class ResourceClaimSpec(BaseModel):
     devices: Annotated[
         Optional[DeviceClaim],
         Field(description="Devices defines how to request devices."),
     ] = None
 
 
-class ResourceClaimStatus(Resource):
+class ResourceClaimStatus(BaseModel):
     allocation: Annotated[
         Optional[AllocationResult],
         Field(description="Allocation is set once the claim has been allocated successfully."),
@@ -541,7 +541,7 @@ class ResourceClaimStatus(Resource):
     ] = None
 
 
-class ResourceClaimTemplateSpec(Resource):
+class ResourceClaimTemplateSpec(BaseModel):
     metadata: Annotated[
         Optional[v1_1.ObjectMeta],
         Field(

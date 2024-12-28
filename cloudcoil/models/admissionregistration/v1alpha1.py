@@ -7,12 +7,12 @@ from typing import Annotated, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class ApplyConfiguration(Resource):
+class ApplyConfiguration(BaseModel):
     expression: Annotated[
         Optional[str],
         Field(
@@ -21,7 +21,7 @@ class ApplyConfiguration(Resource):
     ] = None
 
 
-class JSONPatch(Resource):
+class JSONPatch(BaseModel):
     expression: Annotated[
         Optional[str],
         Field(
@@ -30,7 +30,7 @@ class JSONPatch(Resource):
     ] = None
 
 
-class MatchCondition(Resource):
+class MatchCondition(BaseModel):
     expression: Annotated[
         str,
         Field(
@@ -45,7 +45,7 @@ class MatchCondition(Resource):
     ]
 
 
-class Mutation(Resource):
+class Mutation(BaseModel):
     apply_configuration: Annotated[
         Optional[ApplyConfiguration],
         Field(
@@ -69,7 +69,7 @@ class Mutation(Resource):
     ]
 
 
-class NamedRuleWithOperations(Resource):
+class NamedRuleWithOperations(BaseModel):
     api_groups: Annotated[
         Optional[List[str]],
         Field(
@@ -111,7 +111,7 @@ class NamedRuleWithOperations(Resource):
     ] = None
 
 
-class ParamKind(Resource):
+class ParamKind(BaseModel):
     api_version: Annotated[
         Optional[str],
         Field(
@@ -125,7 +125,7 @@ class ParamKind(Resource):
     ] = None
 
 
-class Variable(Resource):
+class Variable(BaseModel):
     expression: Annotated[
         str,
         Field(
@@ -140,7 +140,7 @@ class Variable(Resource):
     ]
 
 
-class MatchResources(Resource):
+class MatchResources(BaseModel):
     exclude_resource_rules: Annotated[
         Optional[List[NamedRuleWithOperations]],
         Field(
@@ -178,7 +178,7 @@ class MatchResources(Resource):
     ] = None
 
 
-class MutatingAdmissionPolicySpec(Resource):
+class MutatingAdmissionPolicySpec(BaseModel):
     failure_policy: Annotated[
         Optional[str],
         Field(
@@ -228,7 +228,7 @@ class MutatingAdmissionPolicySpec(Resource):
     ] = None
 
 
-class ParamRef(Resource):
+class ParamRef(BaseModel):
     name: Annotated[
         Optional[str],
         Field(
@@ -282,7 +282,7 @@ class MutatingAdmissionPolicy(Resource):
     ] = None
 
 
-class MutatingAdmissionPolicyBindingSpec(Resource):
+class MutatingAdmissionPolicyBindingSpec(BaseModel):
     match_resources: Annotated[
         Optional[MatchResources],
         Field(

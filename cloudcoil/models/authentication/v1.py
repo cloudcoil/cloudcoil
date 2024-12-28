@@ -7,12 +7,12 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource
+from cloudcoil.client import BaseModel, Resource
 
 from ..apimachinery import v1
 
 
-class BoundObjectReference(Resource):
+class BoundObjectReference(BaseModel):
     api_version: Annotated[
         Optional[str],
         Field(alias="apiVersion", description="API version of the referent."),
@@ -25,7 +25,7 @@ class BoundObjectReference(Resource):
     uid: Annotated[Optional[str], Field(description="UID of the referent.")] = None
 
 
-class TokenRequestSpec(Resource):
+class TokenRequestSpec(BaseModel):
     audiences: Annotated[
         List[str],
         Field(
@@ -48,7 +48,7 @@ class TokenRequestSpec(Resource):
     ] = None
 
 
-class TokenReviewSpec(Resource):
+class TokenReviewSpec(BaseModel):
     audiences: Annotated[
         Optional[List[str]],
         Field(
@@ -58,7 +58,7 @@ class TokenReviewSpec(Resource):
     token: Annotated[Optional[str], Field(description="Token is the opaque bearer token.")] = None
 
 
-class UserInfo(Resource):
+class UserInfo(BaseModel):
     extra: Annotated[
         Optional[Dict[str, List[str]]],
         Field(description="Any additional information provided by the authenticator."),
@@ -79,7 +79,7 @@ class UserInfo(Resource):
     ] = None
 
 
-class SelfSubjectReviewStatus(Resource):
+class SelfSubjectReviewStatus(BaseModel):
     user_info: Annotated[
         Optional[UserInfo],
         Field(
@@ -89,7 +89,7 @@ class SelfSubjectReviewStatus(Resource):
     ] = None
 
 
-class TokenRequestStatus(Resource):
+class TokenRequestStatus(BaseModel):
     expiration_timestamp: Annotated[
         v1.Time,
         Field(
@@ -100,7 +100,7 @@ class TokenRequestStatus(Resource):
     token: Annotated[str, Field(description="Token is the opaque bearer token.")]
 
 
-class TokenReviewStatus(Resource):
+class TokenReviewStatus(BaseModel):
     audiences: Annotated[
         Optional[List[str]],
         Field(
