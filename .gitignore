@@ -172,3 +172,4 @@ cython_debug/
 processed_swagger.json
 extra_data.json
 .DS_Store
+.vscode

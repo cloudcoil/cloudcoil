@@ -18,7 +18,6 @@ DEFAULT_KUBECONFIG = Path.home() / ".kube" / "config"
 INCLUSTER_TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
 INCLUSTER_CERT_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
 INCLUSTER_NAMESPACE_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-INCLUSTER = INCLUSTER_TOKEN_PATH.is_file() and INCLUSTER_CERT_PATH.is_file()
 
 
 class ClientSet:
@@ -104,7 +103,7 @@ class ClientSet:
                 client_key.write_bytes(base64.b64decode(user["client-key-data"]))
                 self.certfile = client_cert
                 self.keyfile = client_key
-        elif INCLUSTER:
+        elif INCLUSTER_TOKEN_PATH.is_file():
             self.server = "https://kubernetes.default.svc"
             self.namespace = INCLUSTER_NAMESPACE_PATH.read_text()
             self.token = INCLUSTER_TOKEN_PATH.read_text()
@@ -128,7 +127,6 @@ class ClientSet:
             verify=ctx, auth=self.auth or None, base_url=self.server
         )
         self._rest_mapping: dict[tuple[str, str], Any] = {}
-        self._create_rest_mapper()
 
     def _create_rest_mapper(self):
         # Check if version if greater than 1.30
@@ -229,7 +227,12 @@ class ClientSet:
             client=self.async_client,
         )
 
+    def initialize(self):
+        if not self._rest_mapping:
+            self._create_rest_mapper()
+
     def __enter__(self):
+        self.initialize()
         context._enter(self)
         return self
 
