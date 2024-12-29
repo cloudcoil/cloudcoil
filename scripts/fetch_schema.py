@@ -64,12 +64,9 @@ def main():
         if definition_name.startswith("io.k8s.apimachinery."):
             *_, version, kind = definition_name.split(".")
             new_name = ["apimachinery"]
-            if re.match(r"v\d.*", version):
-                new_name.append(version)
-            else:
-                new_name.append("utils")
             new_name.append(kind)
             new_name = ".".join(new_name)
+            definition.pop("x-kubernetes-group-version-kind", None)
         # For apiextensions.k8s.io, replace with apiextensions
         if definition_name.startswith("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions."):
             new_name = definition_name.replace("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.", "apiextensions.")
@@ -78,10 +75,8 @@ def main():
         if definition_name.startswith("io.k8s.kube-aggregator.pkg.apis."):
             new_name = definition_name.replace("io.k8s.kube-aggregator.pkg.apis.", "")
         
-        if not (new_name.startswith("apimachinery") and "x-kubernetes-group-version-kind" not in definition):
+        if not new_name.startswith("apimachinery"):
             new_name = "kinds." + new_name
-        else:
-            new_name = "apimachinery." + new_name.split(".")[-1]
         renames[definition_name] = new_name
     
     # Rename the definitions

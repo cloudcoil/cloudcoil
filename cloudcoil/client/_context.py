@@ -23,7 +23,6 @@ class _Context:
             from cloudcoil.client._config import Config
 
             config = Config()
-            config.initialize()
             self.configs = [config]
         return self.configs[-1]
 
