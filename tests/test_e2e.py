@@ -13,6 +13,9 @@ def test_e2e(test_config):
         output = corev1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
         name = output.metadata.name
         assert corev1.Namespace.get(name).metadata.name == name
+        output.metadata.annotations = {"test": "test"}
+        output = output.update()
+        assert output.metadata.annotations == {"test": "test"}
         assert output.remove(dry_run=True).metadata.name == name
         assert corev1.Namespace.delete(name, grace_period_seconds=0).status.phase == "Terminating"
 
@@ -28,6 +31,9 @@ async def test_async_e2e(test_config):
         output = await corev1.Namespace(metadata=ObjectMeta(generate_name="test-")).async_create()
         name = output.metadata.name
         assert (await corev1.Namespace.async_get(name)).metadata.name == name
+        output.metadata.annotations = {"test": "test"}
+        output = await output.async_update()
+        assert output.metadata.annotations == {"test": "test"}
         assert (await output.async_remove(dry_run=True)).metadata.name == name
         assert (
             await corev1.Namespace.async_delete(name, grace_period_seconds=0)

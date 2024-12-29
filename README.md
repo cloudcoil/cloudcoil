@@ -52,6 +52,17 @@ with Config(namespace="kube-system"):
 
 # Create new objects with generate name easily
 test_namespace = core_v1.Namespace(metadata=dict(generate_name="test-")).create()
+# You can also modify the object and update it
+test_namespace.metadata.labels = {"test": "true"}
+# Get the new value of the test namespace back from the server
+# after updating it
+test_namespace = test_namespace.update()
+
+# You can also easily fetch namespace using
+kube_system_namespace = core_v1.Namespace()
+kube_system_namespace.name = "kube-system"
+# Fetch the latest version of the namespace from the server
+kube_system_namespace = kube_system_namespace.fetch()
 
 # We can access the output from the APIServer from the create method
 # Switch to the new namespace
