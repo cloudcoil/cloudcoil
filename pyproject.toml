@@ -50,10 +50,10 @@ select = [
 ignore = ["E203", "B008", "N818", "E501", "B904"]
 
 [tool.pytest.ini_options]
-addopts = "-ra -q --cov=cloudcoil --cov-report=xml --cov-report=term -vvv --junitxml=junit.xml -o junit_family=legacy"
-testpaths = ["tests"]
+addopts = "-ra -q --cov=cloudcoil --cov-report=term-missing --cov-report=xml -vvv --junitxml=junit.xml -o junit_family=legacy"
 markers = ["configure_test_cluster: Configure cloudcoil test cluster"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
 
 [dependency-groups]
 dev = [
@@ -64,7 +64,7 @@ dev = [
     "mkdocstrings-python>=1.7.5",
     "mkdocs-autorefs>=0.5.0",
     "pytest>=8.3.4",
-    "pytest-cov>=4.1.0",
+    "pytest-cov>=6.0.0",
     "ruff>=0.8.4",
     "mkdocs-autorefs",
     "datamodel-code-generator[http]",
@@ -83,3 +83,34 @@ cloudcoil = "cloudcoil._testing.plugin"
 
 [tool.coverage.run]
 omit = ["cloudcoil/kinds/**"]
+source = ["cloudcoil"]
+parallel = true
+exclude_also = [
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    ]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "pragma: no cover",
+    "raise NotImplementedError()",
+    "except ImportError",
+    "_yaml = None",
+]
+precision = 1
+skip_covered = true
+show_missing = true
+
+[tool.coverage.paths]
+source = [
+    "cloudcoil",
+]

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Dict, List, Optional, Union
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
 from pydantic import Field, RootModel
 
@@ -77,6 +77,35 @@ class APIResource(BaseModel):
             description="version is the preferred version of the resource.  Empty implies the version of the containing resource list For subresources, this may have a different value, for example: v1 (while inside a v1beta1 version of the core resource's group)\"."
         ),
     ] = None
+
+
+class APIResourceList(BaseModel):
+    api_version: Annotated[
+        Optional[Literal["v1"]],
+        Field(
+            alias="apiVersion",
+            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+        ),
+    ] = "v1"
+    group_version: Annotated[
+        str,
+        Field(
+            alias="groupVersion",
+            description="groupVersion is the group and version this APIResourceList is for.",
+        ),
+    ]
+    kind: Annotated[
+        Optional[Literal["APIResourceList"]],
+        Field(
+            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = "APIResourceList"
+    resources: Annotated[
+        List[APIResource],
+        Field(
+            description="resources contains the name of the resources and if they are namespaced."
+        ),
+    ]
 
 
 class FieldSelectorRequirement(BaseModel):
@@ -331,6 +360,85 @@ class Info(BaseModel):
     platform: str
 
 
+class APIGroup(BaseModel):
+    api_version: Annotated[
+        Optional[Literal["v1"]],
+        Field(
+            alias="apiVersion",
+            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+        ),
+    ] = "v1"
+    kind: Annotated[
+        Optional[Literal["APIGroup"]],
+        Field(
+            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = "APIGroup"
+    name: Annotated[str, Field(description="name is the name of the group.")]
+    preferred_version: Annotated[
+        Optional[GroupVersionForDiscovery],
+        Field(
+            alias="preferredVersion",
+            description="preferredVersion is the version preferred by the API server, which probably is the storage version.",
+        ),
+    ] = None
+    server_address_by_client_cid_rs: Annotated[
+        Optional[List[ServerAddressByClientCIDR]],
+        Field(
+            alias="serverAddressByClientCIDRs",
+            description="a map of client CIDR to server address that is serving this group. This is to help clients reach servers in the most network-efficient way possible. Clients can use the appropriate server address as per the CIDR that they match. In case of multiple matches, clients should use the longest matching CIDR. The server returns only those CIDRs that it thinks that the client can match. For example: the master will return an internal IP CIDR only, if the client reaches the server using an internal IP. Server looks at X-Forwarded-For header or X-Real-Ip header or request.RemoteAddr (in that order) to get the client IP.",
+        ),
+    ] = None
+    versions: Annotated[
+        List[GroupVersionForDiscovery],
+        Field(description="versions are the versions supported in this group."),
+    ]
+
+
+class APIGroupList(BaseModel):
+    api_version: Annotated[
+        Optional[Literal["v1"]],
+        Field(
+            alias="apiVersion",
+            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+        ),
+    ] = "v1"
+    groups: Annotated[List[APIGroup], Field(description="groups is a list of APIGroup.")]
+    kind: Annotated[
+        Optional[Literal["APIGroupList"]],
+        Field(
+            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = "APIGroupList"
+
+
+class APIVersions(BaseModel):
+    api_version: Annotated[
+        Optional[Literal["v1"]],
+        Field(
+            alias="apiVersion",
+            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+        ),
+    ] = "v1"
+    kind: Annotated[
+        Optional[Literal["APIVersions"]],
+        Field(
+            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = "APIVersions"
+    server_address_by_client_cid_rs: Annotated[
+        List[ServerAddressByClientCIDR],
+        Field(
+            alias="serverAddressByClientCIDRs",
+            description="a map of client CIDR to server address that is serving this group. This is to help clients reach servers in the most network-efficient way possible. Clients can use the appropriate server address as per the CIDR that they match. In case of multiple matches, clients should use the longest matching CIDR. The server returns only those CIDRs that it thinks that the client can match. For example: the master will return an internal IP CIDR only, if the client reaches the server using an internal IP. Server looks at X-Forwarded-For header or X-Real-Ip header or request.RemoteAddr (in that order) to get the client IP.",
+        ),
+    ]
+    versions: Annotated[
+        List[str],
+        Field(description="versions are the api versions that are available."),
+    ]
+
+
 class Condition(BaseModel):
     last_transition_time: Annotated[
         Time,
@@ -365,6 +473,56 @@ class Condition(BaseModel):
         str,
         Field(description="type of condition in CamelCase or in foo.example.com/CamelCase."),
     ]
+
+
+class DeleteOptions(BaseModel):
+    api_version: Annotated[
+        Optional[Literal["v1"]],
+        Field(
+            alias="apiVersion",
+            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+        ),
+    ] = "v1"
+    dry_run: Annotated[
+        Optional[List[str]],
+        Field(
+            alias="dryRun",
+            description="When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+        ),
+    ] = None
+    grace_period_seconds: Annotated[
+        Optional[int],
+        Field(
+            alias="gracePeriodSeconds",
+            description="The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+        ),
+    ] = None
+    kind: Annotated[
+        Optional[Literal["DeleteOptions"]],
+        Field(
+            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = "DeleteOptions"
+    orphan_dependents: Annotated[
+        Optional[bool],
+        Field(
+            alias="orphanDependents",
+            description='Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the "orphan" finalizer will be added to/removed from the object\'s finalizers list. Either this field or PropagationPolicy may be set, but not both.',
+        ),
+    ] = None
+    preconditions: Annotated[
+        Optional[Preconditions],
+        Field(
+            description="Must be fulfilled before a deletion is carried out. If not possible, a 409 Conflict status will be returned."
+        ),
+    ] = None
+    propagation_policy: Annotated[
+        Optional[str],
+        Field(
+            alias="propagationPolicy",
+            description="Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
+        ),
+    ] = None
 
 
 class LabelSelector(BaseModel):
@@ -529,3 +687,61 @@ class ObjectMeta(BaseModel):
             description="UID is the unique in time and space value for this object. It is typically generated by the server on successful creation of a resource and is not allowed to change on PUT operations.\n\nPopulated by the system. Read-only. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#uids"
         ),
     ] = None
+
+
+class Status(BaseModel):
+    api_version: Annotated[
+        Optional[Literal["v1"]],
+        Field(
+            alias="apiVersion",
+            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+        ),
+    ] = "v1"
+    code: Annotated[
+        Optional[int],
+        Field(description="Suggested HTTP return code for this status, 0 if not set."),
+    ] = None
+    details: Annotated[
+        Optional[StatusDetails],
+        Field(
+            description="Extended data associated with the reason.  Each reason may define its own extended details. This field is optional and the data returned is not guaranteed to conform to any schema except that defined by the reason type."
+        ),
+    ] = None
+    kind: Annotated[
+        Optional[Literal["Status"]],
+        Field(
+            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = "Status"
+    message: Annotated[
+        Optional[str],
+        Field(description="A human-readable description of the status of this operation."),
+    ] = None
+    metadata: Annotated[
+        Optional[ListMeta],
+        Field(
+            description="Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
+        ),
+    ] = None
+    reason: Annotated[
+        Optional[str],
+        Field(
+            description='A machine-readable description of why this operation is in the "Failure" status. If this value is empty there is no information available. A Reason clarifies an HTTP status code but does not override it.'
+        ),
+    ] = None
+    status: Annotated[
+        Optional[str],
+        Field(
+            description='Status of the operation. One of: "Success" or "Failure". More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+        ),
+    ] = None
+
+
+class WatchEvent(BaseModel):
+    object: Annotated[
+        RawExtension,
+        Field(
+            description="Object is:\n * If Type is Added or Modified: the new state of the object.\n * If Type is Deleted: the state of the object immediately before deletion.\n * If Type is Error: *Status is recommended; other types may make sense\n   depending on context."
+        ),
+    ]
+    type: str

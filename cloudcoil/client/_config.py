@@ -225,7 +225,7 @@ class Config:
                 resource=self._rest_mapping[gvk]["resource"],
                 namespaced=self._rest_mapping[gvk]["namespaced"],
                 default_namespace=self.namespace,
-                client=self.client,
+                client=self.async_client,
             )
         return AsyncAPIClient(
             api_version=gvk.api_version,

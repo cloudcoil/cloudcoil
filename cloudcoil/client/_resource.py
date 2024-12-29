@@ -80,7 +80,7 @@ class Resource(BaseResource):
     @classmethod
     def get(cls, name: str, namespace: str | None = None) -> Self:
         config = context.active_config
-        return config.client_for(cls, sync=True).get(name, namespace)
+        return config.client_for(cls, sync=True).get(name, namespace)  # type: ignore
 
     @classmethod
     async def async_get(cls, name: str, namespace: str | None = None) -> Self:
@@ -91,7 +91,7 @@ class Resource(BaseResource):
         config = context.active_config
         if self.name is None:
             raise ValueError("Resource name is not set")
-        return config.client_for(self.__class__, sync=True).get(self.name, self.namespace)
+        return config.client_for(self.__class__, sync=True).get(self.name, self.namespace)  # type: ignore
 
     async def async_fetch(self) -> Self:
         config = context.active_config
@@ -101,7 +101,7 @@ class Resource(BaseResource):
 
     def create(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return config.client_for(self.__class__, sync=True).create(self, dry_run=dry_run)
+        return config.client_for(self.__class__, sync=True).create(self, dry_run=dry_run)  # type: ignore
 
     async def async_create(self, dry_run: bool = False) -> Self:
         config = context.active_config
@@ -109,7 +109,7 @@ class Resource(BaseResource):
 
     def update(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return config.client_for(self.__class__, sync=True).update(self, dry_run=dry_run)
+        return config.client_for(self.__class__, sync=True).update(self, dry_run=dry_run)  # type: ignore
 
     async def async_update(self, dry_run: bool = False) -> Self:
         config = context.active_config
@@ -125,7 +125,7 @@ class Resource(BaseResource):
         grace_period_seconds: int | None = None,
     ) -> Self:
         config = context.active_config
-        return config.client_for(cls, sync=True).delete(
+        return config.client_for(cls, sync=True).delete(  # type: ignore
             name,
             namespace,
             dry_run=dry_run,
@@ -158,8 +158,11 @@ class Resource(BaseResource):
         grace_period_seconds: int | None = None,
     ) -> Self:
         config = context.active_config
-        return config.client_for(self.__class__, sync=True).remove(
-            self,
+        if not self.name:
+            raise ValueError("Resource name is not set")
+        return config.client_for(self.__class__, sync=True).delete(  # type: ignore
+            self.name,
+            self.namespace,
             dry_run=dry_run,
             propagation_policy=propagation_policy,
             grace_period_seconds=grace_period_seconds,
@@ -172,8 +175,11 @@ class Resource(BaseResource):
         grace_period_seconds: int | None = None,
     ) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).remove(
-            self,
+        if not self.name:
+            raise ValueError("Resource name is not set")
+        return await config.client_for(self.__class__, sync=False).delete(
+            self.name,
+            self.namespace,
             dry_run=dry_run,
             propagation_policy=propagation_policy,
             grace_period_seconds=grace_period_seconds,

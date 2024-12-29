@@ -11,7 +11,6 @@ from cloudcoil._pydantic import BaseModel
 from cloudcoil.client import Resource, ResourceList
 
 from ... import apimachinery
-from ..apimachinery import v1
 
 
 class Eviction(Resource):
@@ -23,7 +22,7 @@ class Eviction(Resource):
         ),
     ] = "policy/v1"
     delete_options: Annotated[
-        Optional[v1.DeleteOptions],
+        Optional[apimachinery.DeleteOptions],
         Field(alias="deleteOptions", description="DeleteOptions may be provided"),
     ] = None
     kind: Annotated[
