@@ -15,6 +15,8 @@ fix-lint:
 
 .PHONY: docs-serve
 docs-serve:
+	rm -rf docs/index.md
+	cp README.md docs/index.md
 	uv run mkdocs serve
 
 .PHONY: prepare-for-pr

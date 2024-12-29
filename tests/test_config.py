@@ -1,4 +1,4 @@
-"""Tests for clientset"""
+"""Tests for config"""
 
 import os
 from unittest.mock import patch
@@ -6,8 +6,8 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from cloudcoil.client._client_set import (
-    ClientSet,
+from cloudcoil.client._config import (
+    Config,
 )
 
 
@@ -73,7 +73,7 @@ def test_kubeconfig_initialization(kubeconfig_content, expected, tmp_path):
     kubeconfig.write_text(yaml.dump(kubeconfig_content))
 
     with patch.dict(os.environ, {"KUBECONFIG": str(kubeconfig)}):
-        client = ClientSet()
+        client = Config()
         assert client.server == expected["server"]
         assert client.namespace == expected["namespace"]
         if "token" in expected:
@@ -97,7 +97,7 @@ def test_direct_parameter_initialization(
     params,
     expected,
 ):
-    client = ClientSet(**params)
+    client = Config(**params)
     assert client.server == expected["server"]
     assert client.namespace == expected["namespace"]
     assert client.token == expected["token"]
@@ -122,7 +122,7 @@ def test_invalid_kubeconfig(kubeconfig_content, tmp_path):
 
     with patch.dict(os.environ, {"KUBECONFIG": str(kubeconfig)}):
         with pytest.raises(ValueError):
-            ClientSet()
+            Config()
 
 
 def test_incluster_initialization(tmp_path):
@@ -135,12 +135,12 @@ def test_incluster_initialization(tmp_path):
     namespace_path.write_text("test-namespace")
 
     with (
-        patch("cloudcoil.client._client_set.INCLUSTER_TOKEN_PATH", token_path),
-        patch("cloudcoil.client._client_set.INCLUSTER_CERT_PATH", ca_path),
-        patch("cloudcoil.client._client_set.DEFAULT_KUBECONFIG", tmp_path / "dne"),
-        patch("cloudcoil.client._client_set.INCLUSTER_NAMESPACE_PATH", namespace_path),
+        patch("cloudcoil.client._config.INCLUSTER_TOKEN_PATH", token_path),
+        patch("cloudcoil.client._config.INCLUSTER_CERT_PATH", ca_path),
+        patch("cloudcoil.client._config.DEFAULT_KUBECONFIG", tmp_path / "dne"),
+        patch("cloudcoil.client._config.INCLUSTER_NAMESPACE_PATH", namespace_path),
     ):
-        client = ClientSet()
+        client = Config()
         assert client.server == "https://kubernetes.default.svc"
         assert client.namespace == "test-namespace"
         assert client.token == "test-token"

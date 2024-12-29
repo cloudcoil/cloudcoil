@@ -20,7 +20,7 @@ INCLUSTER_CERT_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 INCLUSTER_NAMESPACE_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 
 
-class ClientSet:
+class Config:
     def __init__(
         self,
         kubeconfig: Path | str | None = None,
@@ -31,6 +31,7 @@ class ClientSet:
         cafile: Path | None = None,
         certfile: Path | None = None,
         keyfile: Path | None = None,
+        context: str | None = None,
     ) -> None:
         self.server = None
         self.namespace = "default"
@@ -55,52 +56,54 @@ class ClientSet:
                 raise ValueError(f"Kubeconfig {kubeconfig} does not have contexts")
             if "users" not in kubeconfig_data:
                 raise ValueError(f"Kubeconfig {kubeconfig} does not have users")
-            if "current-context" not in kubeconfig_data:
+            if not context and "current-context" not in kubeconfig_data:
                 raise ValueError(f"Kubeconfig {kubeconfig} does not have current-context")
-            current_context = kubeconfig_data["current-context"]
-            for context_data in kubeconfig_data["contexts"]:
-                if context_data["name"] == current_context:
+            current_context = context or kubeconfig_data["current-context"]
+            for data in kubeconfig_data["contexts"]:
+                if data["name"] == current_context:
                     break
             else:
                 raise ValueError(f"Kubeconfig {kubeconfig} does not have context {current_context}")
-            context = context_data["context"]
-            for cluster_data in kubeconfig_data["clusters"]:
-                if cluster_data["name"] == context["cluster"]:
+            context_data = data["context"]
+            for data in kubeconfig_data["clusters"]:
+                if data["name"] == context_data["cluster"]:
                     break
             else:
                 raise ValueError(
-                    f"Kubeconfig {kubeconfig} does not have cluster {context['cluster']}"
+                    f"Kubeconfig {kubeconfig} does not have cluster {context_data['cluster']}"
                 )
-            cluster = cluster_data["cluster"]
-            for user_data in kubeconfig_data["users"]:
-                if user_data["name"] == context["user"]:
+            cluster_data = data["cluster"]
+            for data in kubeconfig_data["users"]:
+                if data["name"] == context_data["user"]:
                     break
             else:
-                raise ValueError(f"Kubeconfig {kubeconfig} does not have user {context['user']}")
-            user = user_data["user"]
-            self.server = cluster["server"]
-            if "certificate-authority" in cluster:
-                self.cafile = cluster["certificate-authority"]
-            if "certificate-authority-data" in cluster:
+                raise ValueError(
+                    f"Kubeconfig {kubeconfig} does not have user {context_data['user']}"
+                )
+            user_data = data["user"]
+            self.server = cluster_data["server"]
+            if "certificate-authority" in cluster_data:
+                self.cafile = cluster_data["certificate-authority"]
+            if "certificate-authority-data" in cluster_data:
                 # Write certificate to disk at a temporary location and use it
                 cafile = Path(tempdir.name) / "ca.crt"
-                cafile.write_bytes(base64.b64decode(cluster["certificate-authority-data"]))
+                cafile.write_bytes(base64.b64decode(cluster_data["certificate-authority-data"]))
                 self.cafile = cafile
 
-            if "namespace" in context:
-                self.namespace = context["namespace"]
-            if "token" in user:
-                self.token = user["token"]
-            elif "client-certificate" in user and "client-key" in user:
-                self.certfile = user["client-certificate"]
-                self.keyfile = user["client-key"]
-            elif "client-certificate-data" in user and "client-key-data" in user:
+            if "namespace" in context_data:
+                self.namespace = context_data["namespace"]
+            if "token" in user_data:
+                self.token = user_data["token"]
+            elif "client-certificate" in user_data and "client-key" in user_data:
+                self.certfile = user_data["client-certificate"]
+                self.keyfile = user_data["client-key"]
+            elif "client-certificate-data" in user_data and "client-key-data" in user_data:
                 # Write client certificate and key to disk at a temporary location
                 # and use them
                 client_cert = Path(tempdir.name) / "client.crt"
-                client_cert.write_bytes(base64.b64decode(user["client-certificate-data"]))
+                client_cert.write_bytes(base64.b64decode(user_data["client-certificate-data"]))
                 client_key = Path(tempdir.name) / "client.key"
-                client_key.write_bytes(base64.b64decode(user["client-key-data"]))
+                client_key.write_bytes(base64.b64decode(user_data["client-key-data"]))
                 self.certfile = client_cert
                 self.keyfile = client_key
         elif INCLUSTER_TOKEN_PATH.is_file():

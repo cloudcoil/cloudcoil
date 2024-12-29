@@ -2,38 +2,38 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from cloudcoil.client._client_set import ClientSet
+    from cloudcoil.client._config import Config
 
-_clientsets = ContextVar("_clientsets", default=None)
+_configs = ContextVar("_configs", default=None)
 
 
 class _Context:
-    def _enter(self, clientset: "ClientSet") -> None:
-        if self.clientsets is None:
-            self.clientsets = []
-        self.clientsets.append(clientset)
+    def _enter(self, config: "Config") -> None:
+        if self.configs is None:
+            self.configs = []
+        self.configs.append(config)
 
     def _exit(self) -> None:
-        if self.clientsets:
-            self.clientsets.pop()
+        if self.configs:
+            self.configs.pop()
 
     @property
-    def active_client_set(self) -> "ClientSet":
-        if not self.clientsets:
-            from cloudcoil.client._client_set import ClientSet
+    def active_config(self) -> "Config":
+        if not self.configs:
+            from cloudcoil.client._config import Config
 
-            clientset = ClientSet()
-            clientset.initialize()
-            self.clientsets = [clientset]
-        return self.clientsets[-1]
+            config = Config()
+            config.initialize()
+            self.configs = [config]
+        return self.configs[-1]
 
     @property
-    def clientsets(self) -> list["ClientSet"] | None:
-        return _clientsets.get()
+    def configs(self) -> list["Config"] | None:
+        return _configs.get()
 
-    @clientsets.setter
-    def clientsets(self, value) -> None:
-        _clientsets.set(value)
+    @configs.setter
+    def configs(self, value) -> None:
+        _configs.set(value)
 
 
 context = _Context()
