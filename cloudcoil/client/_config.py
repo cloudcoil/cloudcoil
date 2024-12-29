@@ -213,6 +213,7 @@ class Config:
     def client_for(
         self, resource: Type[T], sync: Literal[False, True] = True
     ) -> APIClient[T] | AsyncAPIClient[T]:
+        self.initialize()
         if not issubclass(resource, Resource):
             raise ValueError(f"Resource {resource} is not a cloudcoil.Resource")
         gvk = resource.gvk()
