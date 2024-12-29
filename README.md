@@ -28,8 +28,8 @@ uv add cloudcoil
 ## Quick Start
 
 ```python
-# ClientSet is the core way to interact with your Kubernetes API Server
-from cloudcoil.client import ClientSet
+# Config is the core way to interact with your Kubernetes API Server
+from cloudcoil.client import Config
 from cloudcoil.client import errors
 # All default kubernetes types are neatly arranged
 # with appropriate apiversions as module paths
@@ -37,14 +37,14 @@ from cloudcoil.kinds.apps import v1 as apps_v1
 from cloudcoil.kinds.core import v1 as core_v1
 
 
-# Uses the default clientset based on KUBECONFIG
+# Uses the default config based on KUBECONFIG
 # Feels just as natural as kubectl
 # But comes with full pydantic validation
 kubernetes_service = core_v1.Service.get("kubernetes")
 
-# You can create temporary clientset contexts
+# You can create temporary config contexts
 # This is similar to doing kubens kube-system
-with ClientSet(namespace="kube-system"):
+with Config(namespace="kube-system"):
     # This searches for deployments in the kube-system namespace
     core_dns_deployment = apps_v1.Deployment.get("core-dns")
     # Also comes with async client out of the box!
@@ -55,7 +55,7 @@ test_namespace = core_v1.Namespace(metadata=dict(generate_name="test-")).create(
 
 # We can access the output from the APIServer from the create method
 # Switch to the new namespace
-with ClientSet(namespace=test_namespace.metadata.name):
+with Config(namespace=test_namespace.metadata.name):
     try:
         core_dns_deployment = apps_v1.Deployment.get("core-dns")
     except errors.ResourceNotFound:
@@ -67,6 +67,47 @@ test_namespace.remove().status.phase == "Terminating"
 # You can also delete it using the name/namespace if you wish
 core_v1.Namespace.delete(name=test_namespace.metadata.name)
 ```
+
+### Testing Integration
+
+cloudcoil includes pytest fixtures to help you test your Kubernetes applications. Install with test dependencies:
+
+```bash
+uv add cloudcoil[test]
+```
+
+The testing integration provides two key fixtures:
+
+- `test_cluster`: Creates and manages a k3d cluster for testing
+- `test_config`: Provides a Config instance configured for the test cluster
+
+Example usage:
+
+```python
+import pytest
+from cloudcoil.kinds.core import v1 as corev1
+
+@pytest.mark.configure_test_cluster(
+    cluster_name="my-test-cluster",
+    k3d_version="v5.7.5",
+    k8s_version="v1.31.4",
+    remove=True
+)
+def test_my_resources(test_config):
+    with test_config:
+        namespace = corev1.Namespace.get("default")
+        assert namespace.metadata.name == "default"
+```
+
+#### Test Cluster Configuration
+
+The `configure_test_cluster` mark accepts these arguments:
+
+- `cluster_name`: Name of the test cluster (default: auto-generated)
+- `k3d_version`: Version of k3d to use (default: v5.7.5)
+- `k8s_version`: Kubernetes version to use (default: v1.31.4)
+- `k8s_image`: Custom k3s image (default: rancher/k3s:{k8s_version}-k3s1)
+- `remove`: Whether to remove the cluster after tests (default: True)
 
 ## Documentation
 

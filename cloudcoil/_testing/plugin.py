@@ -12,7 +12,7 @@ from pathlib import Path
 
 import httpx
 
-from cloudcoil.client import ClientSet
+from cloudcoil.client import Config
 
 DEFAULT_K3D_VERSION = "v5.7.5"
 DEFAULT_K8S_VERSION = "v1.31.4"
@@ -78,5 +78,5 @@ def test_cluster(request):
 
 
 @pytest.fixture
-def test_client_set(test_cluster):
-    yield ClientSet(kubeconfig=test_cluster)
+def test_config(test_cluster):
+    yield Config(kubeconfig=test_cluster)

@@ -7,8 +7,8 @@ from cloudcoil.kinds.core import v1 as corev1
 
 
 @pytest.mark.configure_test_cluster(cluster_name="test-cloudcoil-v1.31", remove=False)
-def test_e2e(test_client_set):
-    with test_client_set:
+def test_e2e(test_config):
+    with test_config:
         assert corev1.Service.get("kubernetes", "default").metadata.name == "kubernetes"
         output = corev1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
         name = output.metadata.name
@@ -20,8 +20,8 @@ def test_e2e(test_client_set):
 @pytest.mark.configure_test_cluster(
     cluster_name="test-cloudcoil-v1.30", remove=False, version="v1.30.8"
 )
-async def test_async_e2e(test_client_set):
-    with test_client_set:
+async def test_async_e2e(test_config):
+    with test_config:
         assert (
             await corev1.Service.async_get("kubernetes", "default")
         ).metadata.name == "kubernetes"

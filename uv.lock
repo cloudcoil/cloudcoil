@@ -260,6 +260,11 @@ dependencies = [
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "datamodel-code-generator", extra = ["http"] },
@@ -286,6 +291,7 @@ dev = [
 requires-dist = [
     { name = "httpx" },
     { name = "pydantic", specifier = ">2.0" },
+    { name = "pytest", marker = "extra == 'test'" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.0.0" },
 ]
