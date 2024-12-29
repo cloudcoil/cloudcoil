@@ -1,6 +1,3 @@
-from importlib.metadata import version
+from ._version import __version__
 
-try:
-    __version__ = version("cloudcoil")
-except ImportError:
-    __version__ = "0.0.0"
+__all__ = ["__version__"]

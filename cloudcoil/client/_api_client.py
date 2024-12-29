@@ -1,4 +1,4 @@
-from typing import Generic, Type, TypeVar
+from typing import Any, Generic, Literal, Type, TypeVar
 
 import httpx
 
@@ -69,26 +69,57 @@ class APIClient(_BaseAPIClient[T]):
         response = self._client.get(url)
         return self._handle_get_response(response, namespace, name)
 
-    def create(self, body: T, namespace: str | None = None) -> T:
+    def create(self, body: T, namespace: str | None = None, dry_run: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata must be set for {body=}")
         namespace = namespace or body.metadata.namespace or self.default_namespace
         url = self._build_url(namespace=namespace)
-        response = self._client.post(url, json=body.model_dump(mode="json", by_alias=True))
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        response = self._client.post(
+            url, json=body.model_dump(mode="json", by_alias=True), params=params
+        )
         return self._handle_create_response(response)
 
-    def delete(self, name: str, namespace: str | None = None) -> T:
+    def delete(
+        self,
+        name: str,
+        namespace: str | None = None,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+    ) -> T:
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
-        response = self._client.delete(url)
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        if propagation_policy:
+            params["propagationPolicy"] = propagation_policy.capitalize()
+        if grace_period_seconds:
+            params["gracePeriodSeconds"] = grace_period_seconds
+        response = self._client.delete(url, params=params)
         return self._handle_get_response(response, namespace, name)
 
-    def remove(self, body: T) -> T:
+    def remove(
+        self,
+        body: T,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+    ) -> T:
         if not (body.metadata and body.metadata.name):
             raise ValueError(f"metadata.name must be set for {body=}")
         namespace = body.metadata.namespace or self.default_namespace
         name = body.metadata.name
-        return self.delete(name, namespace)
+        return self.delete(
+            name,
+            namespace,
+            dry_run=dry_run,
+            propagation_policy=propagation_policy,
+            grace_period_seconds=grace_period_seconds,
+        )
 
 
 class AsyncAPIClient(_BaseAPIClient[T]):
@@ -110,23 +141,54 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         response = await self._client.get(url)
         return self._handle_get_response(response, namespace, name)
 
-    async def create(self, body: T, namespace: str | None = None) -> T:
+    async def create(self, body: T, namespace: str | None = None, dry_run: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata.name must be set for {body=}")
         namespace = namespace or body.metadata.namespace or self.default_namespace
         url = self._build_url(namespace=namespace)
-        response = await self._client.post(url, json=body.model_dump(mode="json", by_alias=True))
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        response = await self._client.post(
+            url, json=body.model_dump(mode="json", by_alias=True), params=params
+        )
         return self._handle_create_response(response)
 
-    async def delete(self, name: str, namespace: str | None = None) -> T:
+    async def delete(
+        self,
+        name: str,
+        namespace: str | None = None,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+    ) -> T:
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
-        response = await self._client.delete(url)
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        if propagation_policy:
+            params["propagationPolicy"] = propagation_policy.capitalize()
+        if grace_period_seconds:
+            params["gracePeriodSeconds"] = grace_period_seconds
+        response = await self._client.delete(url, params=params)
         return self._handle_get_response(response, namespace, name)
 
-    async def remove(self, body: T) -> T:
+    async def remove(
+        self,
+        body: T,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+    ) -> T:
         if not (body.metadata and body.metadata.name):
             raise ValueError(f"metadata.name must be set for {body=}")
         namespace = body.metadata.namespace or self.default_namespace
         name = body.metadata.name
-        return await self.delete(name, namespace)
+        return await self.delete(
+            name,
+            namespace,
+            dry_run=dry_run,
+            propagation_policy=propagation_policy,
+            grace_period_seconds=grace_period_seconds,
+        )

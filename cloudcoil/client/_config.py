@@ -1,5 +1,6 @@
 import base64
 import os
+import platform
 import ssl
 import tempfile
 from pathlib import Path
@@ -8,6 +9,7 @@ from typing import Any, Callable, Literal, Type, TypeVar, overload
 import httpx
 import yaml
 
+from cloudcoil._version import __version__
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
 from cloudcoil.client._context import context
 from cloudcoil.client._resource import Resource
@@ -122,7 +124,13 @@ class Config:
         ctx = ssl.create_default_context(cafile=self.cafile)
         if self.certfile and self.keyfile:
             ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
-        headers = {"Authorization": f"Bearer {self.token}"} if self.token else None
+        headers = {
+            # Add a custom User-Agent to identify the client
+            # similar to kubectl
+            "User-Agent": f"cloudcoil/{__version__} ({platform.platform()}) python/{platform.python_version()}",
+        }
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
         self.client = httpx.Client(
             verify=ctx, auth=self.auth or None, base_url=self.server, headers=headers
         )

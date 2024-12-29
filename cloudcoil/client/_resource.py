@@ -1,5 +1,5 @@
 import sys
-from typing import Any
+from typing import Any, Literal
 
 from cloudcoil.apimachinery import ListMeta, ObjectMeta
 
@@ -54,19 +54,65 @@ class Resource(BaseResource):
         return await config.client_for(self.__class__, sync=False).create(self, namespace=namespace)
 
     @classmethod
-    def delete(cls, name: str, namespace: str | None = None) -> Self:
+    def delete(
+        cls,
+        name: str,
+        namespace: str | None = None,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+    ) -> Self:
         config = context.active_config
-        return config.client_for(cls, sync=True).delete(name, namespace)
+        return config.client_for(cls, sync=True).delete(
+            name,
+            namespace,
+            dry_run=dry_run,
+            propagation_policy=propagation_policy,
+            grace_period_seconds=grace_period_seconds,
+        )
 
     @classmethod
-    async def async_delete(cls, name: str, namespace: str | None = None) -> Self:
+    async def async_delete(
+        cls,
+        name: str,
+        namespace: str | None = None,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+    ) -> Self:
         config = context.active_config
-        return await config.client_for(cls, sync=False).delete(name, namespace)
+        return await config.client_for(cls, sync=False).delete(
+            name,
+            namespace,
+            dry_run=dry_run,
+            propagation_policy=propagation_policy,
+            grace_period_seconds=grace_period_seconds,
+        )
 
-    def remove(self) -> Self:
+    def remove(
+        self,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+    ) -> Self:
         config = context.active_config
-        return config.client_for(self.__class__, sync=True).remove(self)
+        return config.client_for(self.__class__, sync=True).remove(
+            self,
+            dry_run=dry_run,
+            propagation_policy=propagation_policy,
+            grace_period_seconds=grace_period_seconds,
+        )
 
-    async def async_remove(self) -> Self:
+    async def async_remove(
+        self,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+    ) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).remove(self)
+        return await config.client_for(self.__class__, sync=False).remove(
+            self,
+            dry_run=dry_run,
+            propagation_policy=propagation_policy,
+            grace_period_seconds=grace_period_seconds,
+        )
