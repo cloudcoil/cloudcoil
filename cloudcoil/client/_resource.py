@@ -8,8 +8,24 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
+from pydantic import ConfigDict
+
 from cloudcoil._pydantic import BaseModel
 from cloudcoil.client._context import context
+
+
+class GVK(BaseModel):
+    api_version: str
+    kind: str
+    model_config = ConfigDict(frozen=True)
+
+    @property
+    def group(self) -> str:
+        return self.api_version.split("/")[0]
+
+    @property
+    def version(self) -> str:
+        return self.api_version.split("/")[1]
 
 
 class BaseResource(BaseModel):
@@ -17,7 +33,7 @@ class BaseResource(BaseModel):
     kind: Any
 
     @classmethod
-    def gvk(cls):
+    def gvk(cls) -> GVK:
         fields = cls.model_fields
         if "api_version" not in fields:
             raise ValueError(f"Resource {cls} does not have an api_version field")
@@ -25,7 +41,7 @@ class BaseResource(BaseModel):
             raise ValueError(f"Resource {cls} does not have a kind field")
         api_version = fields["api_version"].default
         kind = fields["kind"].default
-        return api_version, kind
+        return GVK(api_version=api_version, kind=kind)
 
 
 class ResourceList(BaseResource):
@@ -34,6 +50,18 @@ class ResourceList(BaseResource):
 
 class Resource(BaseResource):
     metadata: ObjectMeta | None = None
+
+    @property
+    def name(self) -> str | None:
+        if self.metadata is None:
+            return None
+        return self.metadata.name
+
+    @property
+    def namespace(self) -> str | None:
+        if self.metadata is None:
+            return None
+        return self.metadata.namespace
 
     @classmethod
     def get(cls, name: str, namespace: str | None = None) -> Self:

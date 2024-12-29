@@ -12,7 +12,7 @@ import yaml
 from cloudcoil._version import __version__
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
 from cloudcoil.client._context import context
-from cloudcoil.client._resource import Resource
+from cloudcoil.client._resource import GVK, Resource
 
 T = TypeVar("T", bound=Resource)
 
@@ -137,7 +137,7 @@ class Config:
         self.async_client = httpx.AsyncClient(
             verify=ctx, auth=self.auth or None, base_url=self.server
         )
-        self._rest_mapping: dict[tuple[str, str], Any] = {}
+        self._rest_mapping: dict[GVK, Any] = {}
 
     def _create_rest_mapper(self):
         # Check if version if greater than 1.30
@@ -198,7 +198,7 @@ class Config:
                     namespaced = scope == "Namespaced"
                     # construct api_version using group and version
                     api_version = f"{group}/{version}" if group != "" else version
-                    self._rest_mapping[(api_version, kind)] = {
+                    self._rest_mapping[GVK(api_version=api_version, kind=kind)] = {
                         "namespaced": namespaced,
                         "resource": resource,
                     }
@@ -215,25 +215,23 @@ class Config:
     ) -> APIClient[T] | AsyncAPIClient[T]:
         if not issubclass(resource, Resource):
             raise ValueError(f"Resource {resource} is not a cloudcoil.Resource")
-        key = (api_version, kind) = resource.gvk()
-        if key not in self._rest_mapping:
-            raise ValueError(
-                f"Resource with {api_version=} and {kind=} is not registered with the server"
-            )
+        gvk = resource.gvk()
+        if gvk not in self._rest_mapping:
+            raise ValueError(f"Resource with {gvk=} is not registered with the server")
         if sync:
             return APIClient(
-                api_version=api_version,
+                api_version=gvk.api_version,
                 kind=resource,
-                resource=self._rest_mapping[key]["resource"],
-                namespaced=self._rest_mapping[key]["namespaced"],
+                resource=self._rest_mapping[gvk]["resource"],
+                namespaced=self._rest_mapping[gvk]["namespaced"],
                 default_namespace=self.namespace,
                 client=self.client,
             )
         return AsyncAPIClient(
-            api_version=api_version,
+            api_version=gvk.api_version,
             kind=resource,
-            resource=self._rest_mapping[key]["resource"],
-            namespaced=self._rest_mapping[key]["namespaced"],
+            resource=self._rest_mapping[gvk]["resource"],
+            namespaced=self._rest_mapping[gvk]["namespaced"],
             default_namespace=self.namespace,
             client=self.async_client,
         )
