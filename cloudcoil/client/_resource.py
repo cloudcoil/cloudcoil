@@ -57,11 +57,25 @@ class Resource(BaseResource):
             return None
         return self.metadata.name
 
+    @name.setter
+    def name(self, value: str):
+        if self.metadata is None:
+            self.metadata = ObjectMeta(name=value)
+        else:
+            self.metadata.name = value
+
     @property
     def namespace(self) -> str | None:
         if self.metadata is None:
             return None
         return self.metadata.namespace
+
+    @namespace.setter
+    def namespace(self, value: str):
+        if self.metadata is None:
+            self.metadata = ObjectMeta(namespace=value)
+        else:
+            self.metadata.namespace = value
 
     @classmethod
     def get(cls, name: str, namespace: str | None = None) -> Self:
@@ -73,13 +87,33 @@ class Resource(BaseResource):
         config = context.active_config
         return await config.client_for(cls, sync=False).get(name, namespace)
 
-    def create(self, namespace: str | None = None) -> Self:
+    def fetch(self) -> Self:
         config = context.active_config
-        return config.client_for(self.__class__, sync=True).create(self, namespace=namespace)
+        if self.name is None:
+            raise ValueError("Resource name is not set")
+        return config.client_for(self.__class__, sync=True).get(self.name, self.namespace)
 
-    async def async_create(self, namespace: str | None = None) -> Self:
+    async def async_fetch(self) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).create(self, namespace=namespace)
+        if self.name is None:
+            raise ValueError("Resource name is not set")
+        return await config.client_for(self.__class__, sync=False).get(self.name, self.namespace)
+
+    def create(self, dry_run: bool = False) -> Self:
+        config = context.active_config
+        return config.client_for(self.__class__, sync=True).create(self, dry_run=dry_run)
+
+    async def async_create(self, dry_run: bool = False) -> Self:
+        config = context.active_config
+        return await config.client_for(self.__class__, sync=False).create(self, dry_run=dry_run)
+
+    def update(self, dry_run: bool = False) -> Self:
+        config = context.active_config
+        return config.client_for(self.__class__, sync=True).update(self, dry_run=dry_run)
+
+    async def async_update(self, dry_run: bool = False) -> Self:
+        config = context.active_config
+        return await config.client_for(self.__class__, sync=False).update(self, dry_run=dry_run)
 
     @classmethod
     def delete(

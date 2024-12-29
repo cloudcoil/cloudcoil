@@ -45,7 +45,7 @@ class _BaseAPIClient(Generic[T]):
     def _handle_create_response(self, response: httpx.Response) -> T:
         if response.status_code == 409:
             raise ResourceAlreadyExists(response.json()["details"])
-        if response.status_code != 201:
+        if not response.is_success:
             raise APIError(response.json())
         return self.kind.model_validate_json(response.content)  # type: ignore
 
@@ -69,15 +69,29 @@ class APIClient(_BaseAPIClient[T]):
         response = self._client.get(url)
         return self._handle_get_response(response, namespace, name)
 
-    def create(self, body: T, namespace: str | None = None, dry_run: bool = False) -> T:
+    def create(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata must be set for {body=}")
-        namespace = namespace or body.metadata.namespace or self.default_namespace
+        namespace = body.namespace or self.default_namespace
         url = self._build_url(namespace=namespace)
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
         response = self._client.post(
+            url, json=body.model_dump(mode="json", by_alias=True), params=params
+        )
+        return self._handle_create_response(response)
+
+    def update(self, body: T, dry_run: bool = False) -> T:
+        if not (body.metadata):
+            raise ValueError(f"metadata must be set for {body=}")
+        namespace = body.namespace or self.default_namespace
+        name = body.name
+        url = self._build_url(namespace=namespace, name=name)
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        response = self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
         return self._handle_create_response(response)
@@ -141,15 +155,29 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         response = await self._client.get(url)
         return self._handle_get_response(response, namespace, name)
 
-    async def create(self, body: T, namespace: str | None = None, dry_run: bool = False) -> T:
+    async def create(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata.name must be set for {body=}")
-        namespace = namespace or body.metadata.namespace or self.default_namespace
+        namespace = body.namespace or self.default_namespace
         url = self._build_url(namespace=namespace)
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
         response = await self._client.post(
+            url, json=body.model_dump(mode="json", by_alias=True), params=params
+        )
+        return self._handle_create_response(response)
+
+    async def update(self, body: T, dry_run: bool = False) -> T:
+        if not (body.metadata):
+            raise ValueError(f"metadata must be set for {body=}")
+        namespace = body.namespace or self.default_namespace
+        name = body.name
+        url = self._build_url(namespace=namespace, name=name)
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        response = await self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
         return self._handle_create_response(response)
