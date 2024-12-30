@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Literal
+from typing import Annotated, Literal
 
 from cloudcoil.apimachinery import ListMeta, ObjectMeta
 
@@ -8,14 +8,14 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from cloudcoil._pydantic import BaseModel
 from cloudcoil.client._context import context
 
 
 class GVK(BaseModel):
-    api_version: str
+    api_version: Annotated[str, Field(alias="apiVersion")]
     kind: str
     model_config = ConfigDict(frozen=True)
 
@@ -29,8 +29,8 @@ class GVK(BaseModel):
 
 
 class BaseResource(BaseModel):
-    api_version: Any
-    kind: Any
+    api_version: Annotated[str | None, Field(alias="apiVersion")]
+    kind: str | None
 
     @classmethod
     def gvk(cls) -> GVK:

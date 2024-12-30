@@ -28,6 +28,8 @@ uv add cloudcoil
 ## Quick Start
 
 ```python
+from pathlib import Path
+
 # Config is the core way to interact with your Kubernetes API Server
 from cloudcoil.client import Config
 from cloudcoil.client import errors
@@ -77,6 +79,30 @@ with Config(namespace=test_namespace.metadata.name):
 test_namespace.remove().status.phase == "Terminating"
 # You can also delete it using the name/namespace if you wish
 core_v1.Namespace.delete(name=test_namespace.metadata.name)
+
+# You can also parse kubernetes resource easily
+# Let's start by create a default scheme which has all the default kubernetes kinds
+# registered with it
+from cloudcoil.scheme import Scheme
+
+scheme = Scheme.get_default()
+
+# Let's assume we have a hello-world.yaml file that looks like so
+# apiVersion: batch/v1
+# kind: Job
+# metadata:
+#   name: hello-world
+# spec:
+#   template:
+#     spec:
+#       containers:
+#       - name: hello-world
+#         image: ubuntu
+#         command: ["echo", "Hello, World!"]
+#       restartPolicy: Never
+job = scheme.parse_file("hello-world.yaml")
+# You can now create the job
+job.create()
 ```
 
 ### Testing Integration
