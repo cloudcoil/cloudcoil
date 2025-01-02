@@ -37,6 +37,7 @@ from cloudcoil.client import errors
 # with appropriate apiversions as module paths
 from cloudcoil.kinds.apps import v1 as apps_v1
 from cloudcoil.kinds.core import v1 as core_v1
+from cloudcoil.kinds.batch import v1 as batch_v1
 
 
 # Uses the default config based on KUBECONFIG
@@ -83,10 +84,7 @@ core_v1.Namespace.delete(name=test_namespace.metadata.name)
 # You can also parse kubernetes resource easily
 # Let's start by create a default scheme which has all the default kubernetes kinds
 # registered with it
-from cloudcoil.scheme import Scheme
-
-scheme = Scheme.get_default()
-
+from cloudcoil import scheme
 # Let's assume we have a hello-world.yaml file that looks like so
 # apiVersion: batch/v1
 # kind: Job
@@ -101,8 +99,16 @@ scheme = Scheme.get_default()
 #         command: ["echo", "Hello, World!"]
 #       restartPolicy: Never
 job = scheme.parse_file("hello-world.yaml")
+# It is serialized to the correc type
+assert isinstance(job, batch_v1.Job)
 # You can now create the job
 job.create()
+# You can also access different registered types from the scheme
+Job = scheme.get("Job")
+# Now you can parse the file using the from_file classmethod
+job = Job.from_file("hello-world.yaml")
+# the above is correctly typed with mypy if you use the cloudcoil mypy extension
+# even though the class was dynamically loaded from the scheme via a string
 ```
 
 ### Testing Integration
@@ -145,6 +151,37 @@ The `configure_test_cluster` mark accepts these arguments:
 - `k8s_version`: Kubernetes version to use (default: v1.31.4)
 - `k8s_image`: Custom k3s image (default: rancher/k3s:{k8s_version}-k3s1)
 - `remove`: Whether to remove the cluster after tests (default: True)
+
+## mypy Integration
+
+cloudcoil provides a mypy plugin that enables type checking for dynamically loaded kinds from the scheme. To enable the plugin, add this to your pyproject.toml:
+
+```toml
+[tool.mypy]
+plugins = ['cloudcoil.mypy']
+```
+
+This plugin enables full type checking for scheme.get() calls when the kind name is a string literal:
+
+```python
+from cloudcoil import scheme
+
+# This will be correctly typed as batch_v1.Job
+job_class = scheme.get("Job")
+
+# Type checking works on the returned class
+job = job_class(
+    metadata={"name": "test"},  # type checked!
+    spec={
+        "template": {
+            "spec": {
+                "containers": [{"name": "test", "image": "test"}],
+                "restartPolicy": "Never"
+            }
+        }
+    }
+)
+```
 
 ## Documentation
 

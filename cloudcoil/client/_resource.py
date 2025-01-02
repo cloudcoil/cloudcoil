@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 from typing import Annotated, Literal
 
 from cloudcoil.apimachinery import ListMeta, ObjectMeta
@@ -8,6 +9,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
+import yaml
 from pydantic import ConfigDict, Field
 
 from cloudcoil._pydantic import BaseModel
@@ -50,6 +52,11 @@ class ResourceList(BaseResource):
 
 class Resource(BaseResource):
     metadata: ObjectMeta | None = None
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> Self:
+        path = Path(path)
+        return cls.model_validate(yaml.safe_load(path.read_text()))
 
     @property
     def name(self) -> str | None:
