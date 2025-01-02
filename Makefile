@@ -13,6 +13,12 @@ fix-lint:
 	uv run ruff format cloudcoil tests
 	uv run ruff check --fix --unsafe-fixes cloudcoil tests
 
+.PHONY: docs-deploy
+docs-deploy:
+	rm -rf docs/index.md
+	cp README.md docs/index.md
+	uv run mkdocs gh-deploy --force
+
 .PHONY: docs-serve
 docs-serve:
 	rm -rf docs/index.md
