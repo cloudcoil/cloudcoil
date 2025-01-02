@@ -52,7 +52,7 @@ class SchemePlugin(Plugin):
         # If not found by name, try positional
         if kind_arg is None and context.args:
             kind_arg = context.args[0][0]
-        if api_version_arg is None and len(context.args) > 1:
+        if api_version_arg is None and len(context.args) > 1 and context.args[1]:
             api_version_arg = context.args[1][0]
 
         if not kind_arg:
