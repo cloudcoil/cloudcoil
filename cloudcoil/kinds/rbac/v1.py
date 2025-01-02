@@ -8,7 +8,7 @@ from typing import Annotated, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 
@@ -156,49 +156,10 @@ class ClusterRoleBinding(Resource):
     ] = None
 
 
-class ClusterRoleBindingList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["rbac.authorization.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "rbac.authorization.k8s.io/v1"
-    items: Annotated[
-        List[ClusterRoleBinding],
-        Field(description="Items is a list of ClusterRoleBindings"),
-    ]
-    kind: Annotated[
-        Optional[Literal["ClusterRoleBindingList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ClusterRoleBindingList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(description="Standard object's metadata."),
-    ] = None
+ClusterRoleBindingList = ResourceList["ClusterRoleBinding"]
 
 
-class ClusterRoleList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["rbac.authorization.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "rbac.authorization.k8s.io/v1"
-    items: Annotated[List[ClusterRole], Field(description="Items is a list of ClusterRoles")]
-    kind: Annotated[
-        Optional[Literal["ClusterRoleList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ClusterRoleList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(description="Standard object's metadata."),
-    ] = None
+ClusterRoleList = ResourceList["ClusterRole"]
 
 
 class Role(Resource):
@@ -256,43 +217,7 @@ class RoleBinding(Resource):
     ] = None
 
 
-class RoleBindingList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["rbac.authorization.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "rbac.authorization.k8s.io/v1"
-    items: Annotated[List[RoleBinding], Field(description="Items is a list of RoleBindings")]
-    kind: Annotated[
-        Optional[Literal["RoleBindingList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "RoleBindingList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(description="Standard object's metadata."),
-    ] = None
+RoleBindingList = ResourceList["RoleBinding"]
 
 
-class RoleList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["rbac.authorization.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "rbac.authorization.k8s.io/v1"
-    items: Annotated[List[Role], Field(description="Items is a list of Roles")]
-    kind: Annotated[
-        Optional[Literal["RoleList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "RoleList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(description="Standard object's metadata."),
-    ] = None
+RoleList = ResourceList["Role"]

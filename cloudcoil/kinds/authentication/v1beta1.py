@@ -8,7 +8,7 @@ from typing import Annotated, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource
+from cloudcoil.resources import Resource
 
 from ... import apimachinery
 from . import v1

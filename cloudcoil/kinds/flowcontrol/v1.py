@@ -8,7 +8,7 @@ from typing import Annotated, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 
@@ -378,30 +378,7 @@ class PriorityLevelConfiguration(Resource):
     ] = None
 
 
-class PriorityLevelConfigurationList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["flowcontrol.apiserver.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "flowcontrol.apiserver.k8s.io/v1"
-    items: Annotated[
-        List[PriorityLevelConfiguration],
-        Field(description="`items` is a list of request-priorities."),
-    ]
-    kind: Annotated[
-        Optional[Literal["PriorityLevelConfigurationList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "PriorityLevelConfigurationList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="`metadata` is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+PriorityLevelConfigurationList = ResourceList["PriorityLevelConfiguration"]
 
 
 class FlowSchemaSpec(BaseModel):
@@ -468,24 +445,4 @@ class FlowSchema(Resource):
     ] = None
 
 
-class FlowSchemaList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["flowcontrol.apiserver.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "flowcontrol.apiserver.k8s.io/v1"
-    items: Annotated[List[FlowSchema], Field(description="`items` is a list of FlowSchemas.")]
-    kind: Annotated[
-        Optional[Literal["FlowSchemaList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "FlowSchemaList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="`metadata` is the standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+FlowSchemaList = ResourceList["FlowSchema"]

@@ -8,7 +8,7 @@ from typing import Annotated, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 
@@ -76,27 +76,7 @@ class IPAddress(Resource):
     ] = None
 
 
-class IPAddressList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["networking.k8s.io/v1beta1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "networking.k8s.io/v1beta1"
-    items: Annotated[List[IPAddress], Field(description="items is the list of IPAddresses.")]
-    kind: Annotated[
-        Optional[Literal["IPAddressList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "IPAddressList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+IPAddressList = ResourceList["IPAddress"]
 
 
 class ServiceCIDRStatus(BaseModel):
@@ -142,24 +122,4 @@ class ServiceCIDR(Resource):
     ] = None
 
 
-class ServiceCIDRList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["networking.k8s.io/v1beta1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "networking.k8s.io/v1beta1"
-    items: Annotated[List[ServiceCIDR], Field(description="items is the list of ServiceCIDRs.")]
-    kind: Annotated[
-        Optional[Literal["ServiceCIDRList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ServiceCIDRList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+ServiceCIDRList = ResourceList["ServiceCIDR"]

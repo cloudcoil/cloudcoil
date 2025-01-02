@@ -8,7 +8,7 @@ from typing import Annotated, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 
@@ -122,26 +122,4 @@ class StorageVersion(Resource):
     ]
 
 
-class StorageVersionList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["internal.apiserver.k8s.io/v1alpha1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "internal.apiserver.k8s.io/v1alpha1"
-    items: Annotated[
-        List[StorageVersion], Field(description="Items holds a list of StorageVersion")
-    ]
-    kind: Annotated[
-        Optional[Literal["StorageVersionList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "StorageVersionList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+StorageVersionList = ResourceList["StorageVersion"]

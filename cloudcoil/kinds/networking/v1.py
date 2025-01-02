@@ -8,7 +8,7 @@ from typing import Annotated, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 from ..core import v1
@@ -230,24 +230,7 @@ class IngressClass(Resource):
     ] = None
 
 
-class IngressClassList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["networking.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "networking.k8s.io/v1"
-    items: Annotated[List[IngressClass], Field(description="items is the list of IngressClasses.")]
-    kind: Annotated[
-        Optional[Literal["IngressClassList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "IngressClassList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta], Field(description="Standard list metadata.")
-    ] = None
+IngressClassList = ResourceList["IngressClass"]
 
 
 class NetworkPolicyPeer(BaseModel):
@@ -436,27 +419,7 @@ class Ingress(Resource):
     ] = None
 
 
-class IngressList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["networking.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "networking.k8s.io/v1"
-    items: Annotated[List[Ingress], Field(description="items is the list of Ingress.")]
-    kind: Annotated[
-        Optional[Literal["IngressList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "IngressList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+IngressList = ResourceList["Ingress"]
 
 
 class NetworkPolicy(Resource):
@@ -487,24 +450,4 @@ class NetworkPolicy(Resource):
     ] = None
 
 
-class NetworkPolicyList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["networking.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "networking.k8s.io/v1"
-    items: Annotated[List[NetworkPolicy], Field(description="items is a list of schema objects.")]
-    kind: Annotated[
-        Optional[Literal["NetworkPolicyList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "NetworkPolicyList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+NetworkPolicyList = ResourceList["NetworkPolicy"]
