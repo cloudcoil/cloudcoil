@@ -109,6 +109,43 @@ Job = scheme.get("Job")
 job = Job.from_file("hello-world.yaml")
 # the above is correctly typed with mypy if you use the cloudcoil mypy extension
 # even though the class was dynamically loaded from the scheme via a string
+
+# Listing resources
+# cloudcoil provides two ways to list resources:
+
+# 1. Iterator API (Recommended)
+# This automatically handles pagination and provides a clean interface
+for pod in core_v1.Pod.list(all_namespaces=True):
+    print(pod.metadata.name)
+
+# For async code, you can use async iteration
+async for pod in await core_v1.Pod.async_list(all_namespaces=True):
+    print(pod.metadata.name)
+
+# Get total count for all items
+total_pods = len(pods)
+print(f"Total pods: {total_pods}")
+
+
+# 2. Manual Pagination API
+# If you need more control over pagination, you can use the raw API
+# This returns a ResourceList object that contains the first page
+pods = core_v1.Pod.list(namespace="kube-system", limit=10)
+print(f"First page has {len(pods.items)} items")
+
+# Access the items directly using the items attribute
+for pod in pods.items:
+    print(pod.metadata.name)
+
+# Check if there are more pages
+if pods.has_next_page():
+    # Get the next page
+    next_page = pods.get_next_page()
+    # For async code
+    next_page = await pods.async_get_next_page()
+
+# It's recommended to use the Iterator API as it handles pagination
+# automatically and provides a more ergonomic interface
 ```
 
 ### Testing Integration
