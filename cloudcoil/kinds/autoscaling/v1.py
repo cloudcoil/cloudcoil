@@ -3,12 +3,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 
@@ -158,27 +158,7 @@ class HorizontalPodAutoscaler(Resource):
     ] = None
 
 
-class HorizontalPodAutoscalerList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["autoscaling/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "autoscaling/v1"
-    items: Annotated[
-        List[HorizontalPodAutoscaler],
-        Field(description="items is the list of horizontal pod autoscaler objects."),
-    ]
-    kind: Annotated[
-        Optional[Literal["HorizontalPodAutoscalerList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "HorizontalPodAutoscalerList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta], Field(description="Standard list metadata.")
-    ] = None
+HorizontalPodAutoscalerList = ResourceList["HorizontalPodAutoscaler"]
 
 
 class Scale(Resource):

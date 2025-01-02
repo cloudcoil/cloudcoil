@@ -8,7 +8,7 @@ from typing import Annotated, Dict, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 from ..core import v1
@@ -395,27 +395,7 @@ class PodSchedulingContext(Resource):
     ] = None
 
 
-class PodSchedulingContextList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["resource.k8s.io/v1alpha3"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "resource.k8s.io/v1alpha3"
-    items: Annotated[
-        List[PodSchedulingContext],
-        Field(description="Items is the list of PodSchedulingContext objects."),
-    ]
-    kind: Annotated[
-        Optional[Literal["PodSchedulingContextList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "PodSchedulingContextList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta], Field(description="Standard list metadata")
-    ] = None
+PodSchedulingContextList = ResourceList["PodSchedulingContext"]
 
 
 class ResourceSlice(Resource):
@@ -443,27 +423,7 @@ class ResourceSlice(Resource):
     ]
 
 
-class ResourceSliceList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["resource.k8s.io/v1alpha3"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "resource.k8s.io/v1alpha3"
-    items: Annotated[
-        List[ResourceSlice],
-        Field(description="Items is the list of resource ResourceSlices."),
-    ]
-    kind: Annotated[
-        Optional[Literal["ResourceSliceList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ResourceSliceList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta], Field(description="Standard list metadata")
-    ] = None
+ResourceSliceList = ResourceList["ResourceSlice"]
 
 
 class AllocationResult(BaseModel):
@@ -532,24 +492,7 @@ class DeviceClass(Resource):
     ]
 
 
-class DeviceClassList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["resource.k8s.io/v1alpha3"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "resource.k8s.io/v1alpha3"
-    items: Annotated[List[DeviceClass], Field(description="Items is the list of resource classes.")]
-    kind: Annotated[
-        Optional[Literal["DeviceClassList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "DeviceClassList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta], Field(description="Standard list metadata")
-    ] = None
+DeviceClassList = ResourceList["DeviceClass"]
 
 
 class ResourceClaimSpec(BaseModel):
@@ -632,26 +575,7 @@ class ResourceClaim(Resource):
     ] = None
 
 
-class ResourceClaimList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["resource.k8s.io/v1alpha3"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "resource.k8s.io/v1alpha3"
-    items: Annotated[
-        List[ResourceClaim], Field(description="Items is the list of resource claims.")
-    ]
-    kind: Annotated[
-        Optional[Literal["ResourceClaimList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ResourceClaimList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta], Field(description="Standard list metadata")
-    ] = None
+ResourceClaimList = ResourceList["ResourceClaim"]
 
 
 class ResourceClaimTemplate(Resource):
@@ -679,24 +603,4 @@ class ResourceClaimTemplate(Resource):
     ]
 
 
-class ResourceClaimTemplateList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["resource.k8s.io/v1alpha3"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "resource.k8s.io/v1alpha3"
-    items: Annotated[
-        List[ResourceClaimTemplate],
-        Field(description="Items is the list of resource claim templates."),
-    ]
-    kind: Annotated[
-        Optional[Literal["ResourceClaimTemplateList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ResourceClaimTemplateList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta], Field(description="Standard list metadata")
-    ] = None
+ResourceClaimTemplateList = ResourceList["ResourceClaimTemplate"]

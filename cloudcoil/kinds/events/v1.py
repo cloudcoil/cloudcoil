@@ -3,12 +3,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 from ..core import v1
@@ -143,24 +143,4 @@ class Event(Resource):
     ] = None
 
 
-class EventList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["events.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "events.k8s.io/v1"
-    items: Annotated[List[Event], Field(description="items is a list of schema objects.")]
-    kind: Annotated[
-        Optional[Literal["EventList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "EventList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+EventList = ResourceList["Event"]

@@ -105,11 +105,18 @@ def main():
     
     # Add extra template data to mark kubenretes gvk objects witha boolean
     extra_data = {}
+    skipped_definitions = set()
     for prop_name, prop in schema["definitions"].items():
+        extra_prop_data = {
+            "is_gvk": False,
+            "is_list": False,
+        }
         if "x-kubernetes-group-version-kind" in prop:
-            extra_data[prop_name] = {"is_gvk": True}
-        else:
-            extra_data[prop_name] = {"is_gvk": False}
+            extra_prop_data["is_gvk"] = True
+        if prop_name.endswith("List") and set(prop["properties"]) == {"metadata", "items", "apiVersion", "kind"}:
+            extra_prop_data["is_list"] = True
+        extra_data[prop_name] = extra_prop_data
+
     with open("extra_data.json", "w") as f:
         json.dump(extra_data, f, indent=2)
 

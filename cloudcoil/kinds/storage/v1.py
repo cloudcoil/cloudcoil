@@ -8,7 +8,7 @@ from typing import Annotated, Dict, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 from ..core import v1
@@ -175,27 +175,7 @@ class CSIDriver(Resource):
     ]
 
 
-class CSIDriverList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["storage.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "storage.k8s.io/v1"
-    items: Annotated[List[CSIDriver], Field(description="items is the list of CSIDriver")]
-    kind: Annotated[
-        Optional[Literal["CSIDriverList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "CSIDriverList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+CSIDriverList = ResourceList["CSIDriver"]
 
 
 class CSINode(Resource):
@@ -221,27 +201,7 @@ class CSINode(Resource):
     spec: Annotated[CSINodeSpec, Field(description="spec is the specification of CSINode")]
 
 
-class CSINodeList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["storage.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "storage.k8s.io/v1"
-    items: Annotated[List[CSINode], Field(description="items is the list of CSINode")]
-    kind: Annotated[
-        Optional[Literal["CSINodeList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "CSINodeList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+CSINodeList = ResourceList["CSINode"]
 
 
 class CSIStorageCapacity(Resource):
@@ -293,30 +253,7 @@ class CSIStorageCapacity(Resource):
     ]
 
 
-class CSIStorageCapacityList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["storage.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "storage.k8s.io/v1"
-    items: Annotated[
-        List[CSIStorageCapacity],
-        Field(description="items is the list of CSIStorageCapacity objects."),
-    ]
-    kind: Annotated[
-        Optional[Literal["CSIStorageCapacityList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "CSIStorageCapacityList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+CSIStorageCapacityList = ResourceList["CSIStorageCapacity"]
 
 
 class StorageClass(Resource):
@@ -385,27 +322,7 @@ class StorageClass(Resource):
     ] = None
 
 
-class StorageClassList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["storage.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "storage.k8s.io/v1"
-    items: Annotated[List[StorageClass], Field(description="items is the list of StorageClasses")]
-    kind: Annotated[
-        Optional[Literal["StorageClassList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "StorageClassList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+StorageClassList = ResourceList["StorageClass"]
 
 
 class VolumeAttachmentSource(BaseModel):
@@ -509,27 +426,4 @@ class VolumeAttachment(Resource):
     ] = None
 
 
-class VolumeAttachmentList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["storage.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "storage.k8s.io/v1"
-    items: Annotated[
-        List[VolumeAttachment],
-        Field(description="items is the list of VolumeAttachments"),
-    ]
-    kind: Annotated[
-        Optional[Literal["VolumeAttachmentList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "VolumeAttachmentList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+VolumeAttachmentList = ResourceList["VolumeAttachment"]

@@ -8,7 +8,7 @@ from typing import Annotated, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 
@@ -396,30 +396,7 @@ class MutatingWebhookConfiguration(Resource):
     ] = None
 
 
-class MutatingWebhookConfigurationList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["admissionregistration.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "admissionregistration.k8s.io/v1"
-    items: Annotated[
-        List[MutatingWebhookConfiguration],
-        Field(description="List of MutatingWebhookConfiguration."),
-    ]
-    kind: Annotated[
-        Optional[Literal["MutatingWebhookConfigurationList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "MutatingWebhookConfigurationList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = None
+MutatingWebhookConfigurationList = ResourceList["MutatingWebhookConfiguration"]
 
 
 class ParamRef(BaseModel):
@@ -660,30 +637,7 @@ class ValidatingWebhookConfiguration(Resource):
     ] = None
 
 
-class ValidatingWebhookConfigurationList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["admissionregistration.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "admissionregistration.k8s.io/v1"
-    items: Annotated[
-        List[ValidatingWebhookConfiguration],
-        Field(description="List of ValidatingWebhookConfiguration."),
-    ]
-    kind: Annotated[
-        Optional[Literal["ValidatingWebhookConfigurationList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ValidatingWebhookConfigurationList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = None
+ValidatingWebhookConfigurationList = ResourceList["ValidatingWebhookConfiguration"]
 
 
 class ValidatingAdmissionPolicy(Resource):
@@ -748,53 +702,7 @@ class ValidatingAdmissionPolicyBinding(Resource):
     ] = None
 
 
-class ValidatingAdmissionPolicyBindingList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["admissionregistration.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "admissionregistration.k8s.io/v1"
-    items: Annotated[
-        List[ValidatingAdmissionPolicyBinding],
-        Field(description="List of PolicyBinding."),
-    ]
-    kind: Annotated[
-        Optional[Literal["ValidatingAdmissionPolicyBindingList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ValidatingAdmissionPolicyBindingList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = None
+ValidatingAdmissionPolicyBindingList = ResourceList["ValidatingAdmissionPolicyBinding"]
 
 
-class ValidatingAdmissionPolicyList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["admissionregistration.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "admissionregistration.k8s.io/v1"
-    items: Annotated[
-        List[ValidatingAdmissionPolicy],
-        Field(description="List of ValidatingAdmissionPolicy."),
-    ]
-    kind: Annotated[
-        Optional[Literal["ValidatingAdmissionPolicyList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "ValidatingAdmissionPolicyList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = None
+ValidatingAdmissionPolicyList = ResourceList["ValidatingAdmissionPolicy"]

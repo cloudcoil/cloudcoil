@@ -8,7 +8,7 @@ from typing import Annotated, Dict, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 
@@ -149,22 +149,4 @@ class CertificateSigningRequest(Resource):
     ] = None
 
 
-class CertificateSigningRequestList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["certificates.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "certificates.k8s.io/v1"
-    items: Annotated[
-        List[CertificateSigningRequest],
-        Field(description="items is a collection of CertificateSigningRequest objects"),
-    ]
-    kind: Annotated[
-        Optional[Literal["CertificateSigningRequestList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "CertificateSigningRequestList"
-    metadata: Optional[apimachinery.ListMeta] = None
+CertificateSigningRequestList = ResourceList["CertificateSigningRequest"]

@@ -1,12 +1,11 @@
 {% for decorator in decorators -%}
 {{ decorator }}
 {% endfor -%}
-{%- if is_gvk %}
-{%- if class_name.endswith("List") or class_name == "Status" %}
-class {{ class_name }}(ResourceList):{% if comment is defined %}  # {{ comment }}{% endif %}
+{%- if is_list %}
+{{ class_name }} = ResourceList["{{ class_name.replace('List', '') }}"]
 {%- else %}
+{%- if is_gvk %}
 class {{ class_name }}(Resource):{% if comment is defined %}  # {{ comment }}{% endif %}
-{%- endif %}
 {%- else %}
 class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{% endif %}
 {%- endif %}
@@ -45,3 +44,4 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
     {{ method }}
 {%- endfor -%}
 {%- endfor -%}
+{%- endif -%}

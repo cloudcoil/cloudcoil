@@ -2,8 +2,8 @@ from typing import Any, Generic, Literal, Type, TypeVar
 
 import httpx
 
-from cloudcoil.client._resource import Resource
 from cloudcoil.client.errors import APIError, ResourceAlreadyExists, ResourceNotFound
+from cloudcoil.resources import DEFAULT_PAGE_LIMIT, Resource, ResourceList
 
 T = TypeVar("T", bound="Resource")
 
@@ -27,9 +27,16 @@ class _BaseAPIClient(Generic[T]):
         api_base = f"/api/{self.api_version}"
         if "/" in self.api_version:
             api_base = f"/apis/{self.api_version}"
-        if not (name and namespace):
+        if not name and not namespace:
             return f"{api_base}/{self.resource}"
-        if not namespace:
+        # One of namespace or name exists
+        # If name does not exist, then namespace must exist
+        if not name:
+            if self.namespaced:
+                return f"{api_base}/namespaces/{namespace}/{self.resource}"
+            return f"{api_base}/{self.resource}"
+        # name exists
+        if not namespace and self.namespaced:
             raise ValueError("namespace must be provided when name is provided")
         if self.namespaced:
             return f"{api_base}/namespaces/{namespace}/{self.resource}/{name}"
@@ -135,6 +142,43 @@ class APIClient(_BaseAPIClient[T]):
             grace_period_seconds=grace_period_seconds,
         )
 
+    def list(
+        self,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        continue_: None | str = None,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        limit: int = DEFAULT_PAGE_LIMIT,
+    ) -> ResourceList[T]:
+        namespace = namespace or self.default_namespace
+        if all_namespaces:
+            namespace = None
+        url = self._build_url(namespace=namespace)
+        params: dict[str, str | int] = {}
+        if continue_:
+            params["continue"] = continue_
+        if field_selector:
+            params["fieldSelector"] = field_selector
+        if label_selector:
+            params["labelSelector"] = label_selector
+        if limit:
+            params["limit"] = limit
+        response = self._client.get(url, params=params)
+        if not response.is_success:
+            raise APIError(response.json())
+        output = ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
+        assert output.metadata
+        output._next_page_params = {
+            "namespace": namespace,
+            "all_namespaces": all_namespaces,
+            "continue_": output.metadata.continue_,
+            "field_selector": field_selector,
+            "label_selector": label_selector,
+            "limit": limit,
+        }
+        return output
+
 
 class AsyncAPIClient(_BaseAPIClient[T]):
     def __init__(
@@ -220,3 +264,40 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             propagation_policy=propagation_policy,
             grace_period_seconds=grace_period_seconds,
         )
+
+    async def list(
+        self,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        continue_: None | str = None,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        limit: int = DEFAULT_PAGE_LIMIT,
+    ) -> ResourceList[T]:
+        namespace = namespace or self.default_namespace
+        if all_namespaces:
+            namespace = None
+        url = self._build_url(namespace=namespace)
+        params: dict[str, str | int] = {}
+        if continue_:
+            params["continue"] = continue_
+        if field_selector:
+            params["fieldSelector"] = field_selector
+        if label_selector:
+            params["labelSelector"] = label_selector
+        if limit:
+            params["limit"] = limit
+        response = await self._client.get(url, params=params)
+        if not response.is_success:
+            raise APIError(response.json())
+        output = ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
+        assert output.metadata
+        output._next_page_params = {
+            "namespace": namespace,
+            "all_namespaces": all_namespaces,
+            "continue_": output.metadata.continue_,
+            "field_selector": field_selector,
+            "label_selector": label_selector,
+            "limit": limit,
+        }
+        return output

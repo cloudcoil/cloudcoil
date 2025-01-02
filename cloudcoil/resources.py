@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Generic, Literal, TypeVar
 
 from cloudcoil.apimachinery import ListMeta, ObjectMeta
 
@@ -10,10 +10,12 @@ else:
     from typing_extensions import Self
 
 import yaml
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
+from cloudcoil._context import context
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client._context import context
+
+DEFAULT_PAGE_LIMIT = 50
 
 
 class GVK(BaseModel):
@@ -23,10 +25,14 @@ class GVK(BaseModel):
 
     @property
     def group(self) -> str:
+        if self.api_version is None:
+            raise ValueError("api_version is not set")
         return self.api_version.split("/")[0]
 
     @property
     def version(self) -> str:
+        if self.api_version is None:
+            raise ValueError("api_version is not set")
         return self.api_version.split("/")[1]
 
 
@@ -44,10 +50,6 @@ class BaseResource(BaseModel):
         api_version = fields["api_version"].default
         kind = fields["kind"].default
         return GVK(api_version=api_version, kind=kind)
-
-
-class ResourceList(BaseResource):
-    metadata: ListMeta | None = None
 
 
 class Resource(BaseResource):
@@ -185,3 +187,99 @@ class Resource(BaseResource):
             propagation_policy=propagation_policy,
             grace_period_seconds=grace_period_seconds,
         )
+
+    @classmethod
+    def list(
+        cls,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        continue_: None | str = None,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        limit: int = DEFAULT_PAGE_LIMIT,
+    ) -> "ResourceList[Self]":
+        config = context.active_config
+        return config.client_for(cls, sync=True).list(
+            namespace=namespace,
+            all_namespaces=all_namespaces,
+            continue_=continue_,
+            field_selector=field_selector,
+            label_selector=label_selector,
+            limit=limit,
+        )
+
+    @classmethod
+    async def async_list(
+        cls,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        continue_: None | str = None,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        limit: int = DEFAULT_PAGE_LIMIT,
+    ) -> "ResourceList[Self]":
+        config = context.active_config
+        return await config.client_for(cls, sync=False).list(
+            namespace=namespace,
+            all_namespaces=all_namespaces,
+            continue_=continue_,
+            field_selector=field_selector,
+            label_selector=label_selector,
+            limit=limit,
+        )
+
+
+T = TypeVar("T", bound=Resource)
+
+
+class ResourceList(BaseResource, Generic[T]):
+    metadata: ListMeta | None = None
+    items: list[T] = []
+    _next_page_params: dict[str, Any] = {}
+
+    @property
+    def resource_class(self) -> type[T]:
+        return self.__pydantic_generic_metadata__["args"][0]
+
+    @model_validator(mode="after")
+    def _validate_gvk(self):
+        assert issubclass(self.resource_class, Resource)
+        if self.api_version != self.resource_class.gvk().api_version:
+            raise ValueError(f"api_version must be {self.resource_class.gvk().api_version}")
+        if self.kind != self.resource_class.gvk().kind + "List":
+            raise ValueError(f"kind must be {self.resource_class.gvk().kind + 'List'}")
+        return self
+
+    def has_next_page(self) -> bool:
+        return bool(self.metadata and self.metadata.remaining_item_count)
+
+    def get_next_page(self) -> "ResourceList[T]":
+        config = context.active_config
+        return config.client_for(self.resource_class, sync=True).list(**self._next_page_params)
+
+    async def async_get_next_page(self) -> "ResourceList[T]":
+        config = context.active_config
+        return await config.client_for(self.resource_class, sync=False).list(
+            **self._next_page_params
+        )
+
+    def __iter__(self):
+        resource_list = self
+        while True:
+            for item in resource_list.items:
+                yield item
+            if not resource_list.has_next_page():
+                break
+            resource_list = resource_list.get_next_page()
+
+    async def __aiter__(self):
+        resource_list = self
+        while True:
+            for item in resource_list.items:
+                yield item
+            if not resource_list.has_next_page():
+                break
+            resource_list = await resource_list.async_get_next_page()
+
+    def __len__(self):
+        return len(self.items) + self.metadata.remaining_item_count

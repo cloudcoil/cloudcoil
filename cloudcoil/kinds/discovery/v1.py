@@ -8,7 +8,7 @@ from typing import Annotated, Dict, List, Literal, Optional
 from pydantic import Field
 
 from cloudcoil._pydantic import BaseModel
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 from ..core import v1
@@ -168,21 +168,4 @@ class EndpointSlice(Resource):
     ] = None
 
 
-class EndpointSliceList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["discovery.k8s.io/v1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "discovery.k8s.io/v1"
-    items: Annotated[List[EndpointSlice], Field(description="items is the list of endpoint slices")]
-    kind: Annotated[
-        Optional[Literal["EndpointSliceList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "EndpointSliceList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta], Field(description="Standard list metadata.")
-    ] = None
+EndpointSliceList = ResourceList["EndpointSlice"]

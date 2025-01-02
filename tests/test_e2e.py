@@ -18,6 +18,8 @@ def test_e2e(test_config):
         assert output.metadata.annotations == {"test": "test"}
         assert output.remove(dry_run=True).metadata.name == name
         assert corev1.Namespace.delete(name, grace_period_seconds=0).status.phase == "Terminating"
+        assert len(corev1.Pod.list(all_namespaces=True, limit=1)) > 1
+        assert len(corev1.Pod.list(all_namespaces=True, limit=1).items) == 1
 
 
 @pytest.mark.configure_test_cluster(
@@ -38,3 +40,5 @@ async def test_async_e2e(test_config):
         assert (
             await corev1.Namespace.async_delete(name, grace_period_seconds=0)
         ).status.phase == "Terminating"
+        assert len(await corev1.Pod.async_list(all_namespaces=True, limit=1)) > 1
+        assert len((await corev1.Pod.async_list(all_namespaces=True, limit=1)).items) == 1

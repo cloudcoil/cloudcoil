@@ -3,11 +3,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Dict, List, Literal, Optional
+from typing import Annotated, Dict, Literal, Optional
 
 from pydantic import Field
 
-from cloudcoil.client import Resource, ResourceList
+from cloudcoil.resources import Resource, ResourceList
 
 from ... import apimachinery
 
@@ -47,27 +47,4 @@ class VolumeAttributesClass(Resource):
     ] = None
 
 
-class VolumeAttributesClassList(ResourceList):
-    api_version: Annotated[
-        Optional[Literal["storage.k8s.io/v1alpha1"]],
-        Field(
-            alias="apiVersion",
-            description="APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-        ),
-    ] = "storage.k8s.io/v1alpha1"
-    items: Annotated[
-        List[VolumeAttributesClass],
-        Field(description="items is the list of VolumeAttributesClass objects."),
-    ]
-    kind: Annotated[
-        Optional[Literal["VolumeAttributesClassList"]],
-        Field(
-            description="Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
-        ),
-    ] = "VolumeAttributesClassList"
-    metadata: Annotated[
-        Optional[apimachinery.ListMeta],
-        Field(
-            description="Standard list metadata More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
-        ),
-    ] = None
+VolumeAttributesClassList = ResourceList["VolumeAttributesClass"]

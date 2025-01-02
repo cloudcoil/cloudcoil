@@ -9,10 +9,10 @@ from typing import Any, Callable, Literal, Type, TypeVar, overload
 import httpx
 import yaml
 
+from cloudcoil._context import context
 from cloudcoil._version import __version__
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
-from cloudcoil.client._context import context
-from cloudcoil.client._resource import GVK, Resource
+from cloudcoil.resources import GVK, Resource
 
 T = TypeVar("T", bound=Resource)
 

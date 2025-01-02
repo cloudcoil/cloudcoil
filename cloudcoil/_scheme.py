@@ -21,7 +21,7 @@ else:
     from importlib.metadata import entry_points
 
 
-from cloudcoil.client._resource import GVK, Resource
+from cloudcoil.resources import GVK, Resource
 
 
 class _Scheme:

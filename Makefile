@@ -41,12 +41,12 @@ gen-models:
 		--input-file-type jsonschema \
 		--disable-appending-item-suffix \
 		--disable-timestamp \
-		--base-class cloudcoil.client.Resource \
+		--base-class cloudcoil.resources.Resource \
 		--use-annotated \
 		--use-default-kwarg \
 		--custom-template-dir templates \
 		--extra-template-data extra_data.json \
-		--additional-imports cloudcoil._pydantic.BaseModel,cloudcoil.client.ResourceList \
+		--additional-imports cloudcoil._pydantic.BaseModel,cloudcoil.resources.ResourceList \
 		--use-default
 	mv output/kinds cloudcoil/
 	mv output/apimachinery.py cloudcoil/apimachinery.py

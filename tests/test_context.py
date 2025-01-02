@@ -1,7 +1,7 @@
 import pytest
 
+from cloudcoil._context import context
 from cloudcoil.client._config import Config
-from cloudcoil.client._context import context
 
 
 @pytest.fixture
