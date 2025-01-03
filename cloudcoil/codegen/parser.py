@@ -64,6 +64,8 @@ def process_definitions(schema):
                     definition["properties"]["kind"]["default"] = kind
                     if "kind" not in required:
                         required.append("kind")
+                if "metadata" in required:
+                    required.remove("metadata")
         # Convert int-or-string to string
         if "properties" in definition:
             for prop in definition["properties"].values():

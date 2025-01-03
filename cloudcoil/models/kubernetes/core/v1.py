@@ -3910,11 +3910,11 @@ class Event(Resource):
         Field(description="A human-readable description of the status of this operation."),
     ] = None
     metadata: Annotated[
-        apimachinery.ObjectMeta,
+        Optional[apimachinery.ObjectMeta],
         Field(
             description="Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"
         ),
-    ]
+    ] = None
     reason: Annotated[
         Optional[str],
         Field(
