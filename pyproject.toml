@@ -92,7 +92,7 @@ omit = ["cloudcoil/models/**"]
 [[tool.cloudcoil.codegen.models]]
 # Unique name for the models
 # This will be used as the name for the setuptools entrypoints
-name = "kubernetes"
+name = "default"
 # The input OpenAPI spec
 input = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.31.4/api/openapi-spec/swagger.json"
 # Rename the definitions to a more pythonic name
