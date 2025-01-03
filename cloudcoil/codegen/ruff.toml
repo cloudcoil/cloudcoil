@@ -1,0 +1,20 @@
+# Same as Black.
+line-length = 100
+indent-width = 4
+
+# Assume Python 3.10
+target-version = "py310"
+
+# Linting
+[lint]
+select = [
+    "E", # pycodestyle
+    "F", # pyflakes
+    "B", # flake8-bugbear
+    "N", # pep8-naming
+    "I", # isort
+]
+ignore = ["E203", "B008", "N818", "E501", "B904"]
+
+fixable = ["ALL"]
+
