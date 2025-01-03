@@ -10,9 +10,9 @@ import httpx
 import yaml
 
 from cloudcoil._context import context
-from cloudcoil._version import __version__
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
 from cloudcoil.resources import GVK, Resource
+from cloudcoil.version import __version__
 
 T = TypeVar("T", bound=Resource)
 

@@ -7,13 +7,12 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import httpx
+from cloudcoil._pydantic import BaseModel
+from cloudcoil.version import __version__
 from datamodel_code_generator.__main__ import (
     main as generate_code,
 )
 from pydantic import AfterValidator, BeforeValidator, Field
-
-from cloudcoil._pydantic import BaseModel
-from cloudcoil._version import __version__
 
 
 class Substitution(BaseModel):
@@ -25,13 +24,12 @@ class ModelConfig(BaseModel):
     name: str
     input_: Annotated[str, Field(alias="input")]
     mode: Literal["basemodel", "resource"] = "resource"
-    output: str
     substitute: Annotated[
         list[Substitution],
         AfterValidator(
             lambda value: list(
                 map(
-                    lambda subs: Substitution(from_=subs.from_, to="kinds." + subs.to),
+                    lambda subs: Substitution(from_=subs.from_, to="models." + subs.to),
                     value,
                 )
             )
@@ -141,6 +139,9 @@ def generate_extra_data(schema: dict) -> dict:
 
 
 def generate(config: ModelConfig):
+    output_dir = Path("cloudcoil") / "models" / config.name
+    if output_dir.exists():
+        raise ValueError(f"Output directory {output_dir} already exists")
     workdir = Path(tempfile.mkdtemp())
     workdir.mkdir(parents=True, exist_ok=True)
     input_, extra_template_data = process_input(config, workdir)
@@ -231,5 +232,5 @@ def generate(config: ModelConfig):
         str(Path(__file__).parent / "ruff.toml"),
     ]
     subprocess.run(ruff_format_args, check=True)
-    Path(workdir / "kinds" / "__init__.py").unlink(missing_ok=True)
-    shutil.move(workdir / "kinds", Path(config.output))
+    Path(workdir / "models" / "__init__.py").unlink(missing_ok=True)
+    shutil.move(workdir / "models", output_dir)
