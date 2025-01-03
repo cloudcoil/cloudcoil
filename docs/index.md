@@ -33,8 +33,8 @@ from cloudcoil.client import Config
 from cloudcoil.client import errors
 # All default kubernetes types are neatly arranged
 # with appropriate apiversions as module paths
-from cloudcoil.models.kubernetes.apps import v1 as apps_v1
-from cloudcoil.models.kubernetes.core import v1 as core_v1
+from cloudcoil.models.default.apps import v1 as apps_v1
+from cloudcoil.models.default.core import v1 as core_v1
 
 
 # Uses the default config based on KUBECONFIG
@@ -84,7 +84,7 @@ Example usage:
 
 ```python
 import pytest
-from cloudcoil.models.kubernetes.core import v1 as corev1
+from cloudcoil.models.default.core import v1 as corev1
 
 @pytest.mark.configure_test_cluster(
     cluster_name="my-test-cluster",
