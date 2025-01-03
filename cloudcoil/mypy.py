@@ -6,19 +6,20 @@ from mypy.nodes import (
     StrExpr,
     TypeInfo,
 )
-from mypy.plugin import MethodContext, Plugin
+from mypy.plugin import FunctionContext, Plugin
 from mypy.types import Instance, TypeType
 from mypy.types import Type as MypyType
 
-from cloudcoil import scheme
+from cloudcoil import resources
 
 
-class SchemePlugin(Plugin):
+class ResourcePlugin(Plugin):
     def __init__(self, options):
         super().__init__(options)
+        resources._Scheme._initialize()
 
-    def get_method_hook(self, fullname: str) -> Optional[Callable[[MethodContext], MypyType]]:
-        if fullname == "cloudcoil._scheme._Scheme.get":
+    def get_function_hook(self, fullname: str) -> Optional[Callable[[FunctionContext], MypyType]]:
+        if fullname == "cloudcoil.resources.get_model":
             return self._analyze_get
         return None
 
@@ -30,19 +31,16 @@ class SchemePlugin(Plugin):
 
     def get_additional_deps(self, file: mypy.nodes.MypyFile):
         # This is a hack to make sure that mypy knows about all registered modules
-        if file.fullname == "cloudcoil._scheme":
-            return [(10, module_name, -1) for module_name in scheme._registered_modules]
-        return []
+        return [(10, module_name, -1) for module_name in resources._Scheme._registered_modules]
 
-    def _analyze_get(self, context: MethodContext) -> MypyType:
+    def _analyze_get(self, context: FunctionContext) -> MypyType:
         if not context.args:
-            context.api.fail("Scheme.get requires at least one argument", context.context)
+            context.api.fail("resources.get_model requires at least one argument", context.context)
             return context.default_return_type
 
         # Find the kind and api_version arguments based on position or name
         kind_arg = None
         api_version_arg = None
-
         for arg_name, arg_expr in zip(context.arg_names, context.args, strict=False):
             if arg_name == "kind":
                 kind_arg = arg_expr[0]
@@ -62,7 +60,8 @@ class SchemePlugin(Plugin):
         api_version = api_version or ""
         if not kind:
             return context.default_return_type
-        cls = scheme.get(api_version=api_version, kind=kind)
+
+        cls = resources.get_model(api_version=api_version, kind=kind)
         qualname = f"{cls.__module__}.{cls.__qualname__}"
         # Lookup the fully qualified name to get the TypeInfo
         # This is a bit of a hack as we are able to lookup the TypeInfo
@@ -77,4 +76,4 @@ class SchemePlugin(Plugin):
 
 
 def plugin(_: str):
-    return SchemePlugin
+    return ResourcePlugin

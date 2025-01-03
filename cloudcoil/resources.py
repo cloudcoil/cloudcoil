@@ -9,11 +9,31 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
+import importlib
+import inspect
+import pkgutil
+import sys
+from types import ModuleType
+from typing import Type, overload
+
 import yaml
 from pydantic import ConfigDict, Field, model_validator
 
 from cloudcoil._context import context
 from cloudcoil._pydantic import BaseModel
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+import sys
+
+if sys.version_info < (3, 10):
+    pass
+else:
+    pass
+
 
 DEFAULT_PAGE_LIMIT = 50
 
@@ -37,8 +57,8 @@ class GVK(BaseModel):
 
 
 class BaseResource(BaseModel):
-    api_version: Annotated[str | None, Field(alias="apiVersion")]
-    kind: str | None
+    api_version: Annotated[Any | None, Field(alias="apiVersion")]
+    kind: Any | None
 
     @classmethod
     def gvk(cls) -> GVK:
@@ -283,3 +303,104 @@ class ResourceList(BaseResource, Generic[T]):
 
     def __len__(self):
         return len(self.items) + self.metadata.remaining_item_count
+
+
+class _Scheme:
+    _registry: dict[GVK, Type[Resource]] = {}
+    _registered_modules: set[str] = set()
+    _initialized = False
+
+    @classmethod
+    def _register(cls, kind: Type[Resource]) -> None:
+        cls._registry[kind.gvk()] = kind
+        cls._registry[kind.gvk().model_copy(update={"api_version": ""})] = kind
+
+    @classmethod
+    def _register_all(cls, kinds: list[Type[Resource]]) -> None:
+        for kind in kinds:
+            cls._register(kind)
+
+    @classmethod
+    def _discover(cls, module: str | ModuleType) -> None:
+        def import_and_check_module(module_name: str):
+            try:
+                module = importlib.import_module(module_name)
+                for _, obj in inspect.getmembers(module):
+                    if inspect.isclass(obj) and issubclass(obj, Resource) and obj != Resource:
+                        cls._registered_modules.add(module_name)
+                        cls._register(obj)
+            except Exception as e:
+                print(f"Error importing module {module_name}: {e}")
+
+        if isinstance(module, str):
+            package = importlib.import_module(module)
+        else:
+            package = module
+
+        for _, module_name, _ in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
+            import_and_check_module(module_name)
+
+    @classmethod
+    def _get(cls, gvk: GVK) -> Type[Resource]:
+        if gvk not in cls._registry:
+            raise ValueError(f"Resource kind '{gvk}' not registered")
+        return cls._registry[gvk]
+
+    @classmethod
+    def get(cls, kind: str, api_version: str = "") -> Type[Resource]:
+        cls._initialize()
+        return cls._registry[GVK(api_version=api_version, kind=kind)]
+
+    @classmethod
+    def _namespace_packages(cls, base_package: str = "cloudcoil.models") -> set[str]:
+        packages = set()
+        package_paths: set[Path] = set()
+        for path in map(Path, sys.path):
+            if not path.exists():
+                continue
+            package_path = path.joinpath(*base_package.split("."))
+            if package_path.exists():
+                package_paths.add(package_path)
+        for package_path in package_paths:
+            try:
+                subdirs = [d for d in package_path.iterdir() if d.is_dir()]
+            except OSError:
+                continue
+            for subdir in subdirs:
+                packages.add(f"{base_package}.{subdir.name}")
+        return packages
+
+    @classmethod
+    def _initialize(cls) -> None:
+        if cls._initialized:
+            return
+        discovered_kinds = cls._namespace_packages()
+        for discovered_kind in discovered_kinds:
+            cls._discover(discovered_kind)
+        cls._initialized = True
+
+
+@overload
+def parse(obj: list[dict]) -> list[Resource]: ...
+
+
+@overload
+def parse(obj: dict) -> Resource: ...
+
+
+def parse(obj: dict | list[dict]) -> Resource | list[Resource]:
+    if isinstance(obj, list):
+        return [parse(o) for o in obj]
+    resource = Resource.model_validate(obj)
+    if not resource.api_version or not resource.kind:
+        raise ValueError("Missing apiVersion or kind")
+    kind = _Scheme.get(resource.api_version, resource.kind)
+    return kind.model_validate(obj)
+
+
+def parse_file(path: str | Path) -> list[Resource] | Resource:
+    return parse(yaml.safe_load(Path(path).read_text()))
+
+
+def get_model(kind: str, *, api_version: str = "") -> Type[Resource]:
+    return _Scheme.get(kind=kind, api_version=api_version)

@@ -35,9 +35,9 @@ from cloudcoil.client import Config
 from cloudcoil.client import errors
 # All default kubernetes types are neatly arranged
 # with appropriate apiversions as module paths
-from cloudcoil.kinds.apps import v1 as apps_v1
-from cloudcoil.kinds.core import v1 as core_v1
-from cloudcoil.kinds.batch import v1 as batch_v1
+from cloudcoil.models.kubernetes.apps import v1 as apps_v1
+from cloudcoil.models.kubernetes.core import v1 as core_v1
+from cloudcoil.models.kubernetes.batch import v1 as batch_v1
 
 
 # Uses the default config based on KUBECONFIG
@@ -82,9 +82,7 @@ test_namespace.remove().status.phase == "Terminating"
 core_v1.Namespace.delete(name=test_namespace.metadata.name)
 
 # You can also parse kubernetes resource easily
-# Let's start by create a default scheme which has all the default kubernetes kinds
-# registered with it
-from cloudcoil import scheme
+from cloudcoil import resources
 # Let's assume we have a hello-world.yaml file that looks like so
 # apiVersion: batch/v1
 # kind: Job
@@ -98,17 +96,18 @@ from cloudcoil import scheme
 #         image: ubuntu
 #         command: ["echo", "Hello, World!"]
 #       restartPolicy: Never
-job = scheme.parse_file("hello-world.yaml")
+job = resources.parse_file("hello-world.yaml")
 # It is serialized to the correc type
 assert isinstance(job, batch_v1.Job)
 # You can now create the job
 job.create()
-# You can also access different registered types from the scheme
-Job = scheme.get("Job")
+# You can also access different registered models by name
+Job = resources.get_model("Job")
 # Now you can parse the file using the from_file classmethod
 job = Job.from_file("hello-world.yaml")
 # the above is correctly typed with mypy if you use the cloudcoil mypy extension
 # even though the class was dynamically loaded from the scheme via a string
+# reveal_type(job) == cloudcoil.models.kubernetes.batch.v1.Job
 
 # Listing resources
 # cloudcoil provides two ways to list resources:
@@ -165,7 +164,7 @@ Example usage:
 
 ```python
 import pytest
-from cloudcoil.kinds.core import v1 as corev1
+from cloudcoil.models.kubernetes.core import v1 as corev1
 
 @pytest.mark.configure_test_cluster(
     cluster_name="my-test-cluster",

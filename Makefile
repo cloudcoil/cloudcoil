@@ -6,7 +6,7 @@ test:
 lint:
 	uv run ruff check cloudcoil tests
 	uv run ruff format --check cloudcoil tests
-	uv run mypy cloudcoil
+	uv run mypy -p cloudcoil
 
 .PHONY: fix-lint
 fix-lint:
@@ -51,6 +51,6 @@ gen-models:
 		--use-default-kwarg \
 		--use-default
 	mv output/apimachinery.py cloudcoil/apimachinery.py
-	rm -rf cloudcoil/kinds
+	rm -rf cloudcoil/models
 	uv run cloudcoil-model-codegen
 	$(MAKE) fix-lint

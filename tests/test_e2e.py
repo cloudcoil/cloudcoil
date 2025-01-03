@@ -3,7 +3,7 @@
 import pytest
 
 from cloudcoil.apimachinery import ObjectMeta
-from cloudcoil.kinds.core import v1 as corev1
+from cloudcoil.models.kubernetes.core import v1 as corev1
 
 
 @pytest.mark.configure_test_cluster(cluster_name="test-cloudcoil-v1.31", remove=False)

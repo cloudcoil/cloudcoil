@@ -80,23 +80,19 @@ dev = [
 ]
 
 [tool.mypy]
-plugins = ['pydantic.mypy']
+plugins = ['pydantic.mypy', 'cloudcoil.mypy']
 
 # Add the pytest plugin
 [project.entry-points.pytest11]
 cloudcoil = "cloudcoil._testing.plugin"
 
-
-# [project.entry-points.cloudcoil_kinds]
-# default = "cloudcoil.kinds"
-
 [tool.coverage.run]
-omit = ["cloudcoil/kinds/**"]
+omit = ["cloudcoil/models/**"]
 
 [[tool.cloudcoil.codegen.models]]
 # Unique name for the models
 # This will be used as the name for the setuptools entrypoints
-name = "kube"
+name = "kubernetes"
 # The input OpenAPI spec
 input = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.31.4/api/openapi-spec/swagger.json"
 # Rename the definitions to a more pythonic name
@@ -107,3 +103,6 @@ substitute = [
     { from = "^io\\.k8s\\.api\\.(.+)$", to = "\\g<1>"},
     { from = "^io\\.k8s\\.kube-aggregator\\.pkg\\.apis\\.(.+)$", to = "\\g<1>"},
 ]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["cloudcoil"]
