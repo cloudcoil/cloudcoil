@@ -20,8 +20,13 @@ dependencies = [
     "typing_extensions>=4.0.0; python_version <= '3.10'",
 ]
 keywords = ["cloud-native", "kubernetes", "pydantic", "python", "async"]
+
+[project.scripts]
+cloudcoil-model-codegen = "cloudcoil.codegen.generator:main"
+
 [project.optional-dependencies]
 test = ["pytest"]
+codegen = ["tomlkit>=0.13.2; python_version <= '3.10'", "datamodel-code-generator[http]~=0.26.4", "ruff"]
 
 
 [project.urls]
@@ -75,14 +80,30 @@ dev = [
 ]
 
 [tool.mypy]
-plugins = ['pydantic.mypy', 'cloudcoil.mypy']
+plugins = ['pydantic.mypy']
 
 # Add the pytest plugin
 [project.entry-points.pytest11]
 cloudcoil = "cloudcoil._testing.plugin"
 
-[project.entry-points.cloudcoil_kinds]
-default = "cloudcoil.kinds"
+
+# [project.entry-points.cloudcoil_kinds]
+# default = "cloudcoil.kinds"
 
 [tool.coverage.run]
 omit = ["cloudcoil/kinds/**"]
+
+[[tool.cloudcoil.codegen.models]]
+# Unique name for the models
+# This will be used as the name for the setuptools entrypoints
+name = "kube"
+# The input OpenAPI spec
+input = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.31.4/api/openapi-spec/swagger.json"
+# Rename the definitions to a more pythonic name
+# This is a list of regex substitutions
+output = "cloudcoil"
+substitute = [
+    { from = "^io\\.k8s\\.apiextensions-apiserver\\.pkg\\.apis\\.apiextensions\\.(.+)$", to = "apiextensions.\\g<1>"},
+    { from = "^io\\.k8s\\.api\\.(.+)$", to = "\\g<1>"},
+    { from = "^io\\.k8s\\.kube-aggregator\\.pkg\\.apis\\.(.+)$", to = "\\g<1>"},
+]

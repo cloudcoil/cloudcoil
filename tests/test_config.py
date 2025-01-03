@@ -29,11 +29,18 @@ from cloudcoil.client._config import (
                     }
                 ],
                 "clusters": [
-                    {"name": "test-cluster", "cluster": {"server": "https://test-server"}}
+                    {
+                        "name": "test-cluster",
+                        "cluster": {"server": "https://test-server"},
+                    }
                 ],
                 "users": [{"name": "test-user", "user": {"token": "test-token"}}],
             },
-            {"server": "https://test-server", "namespace": "test-ns", "token": "test-token"},
+            {
+                "server": "https://test-server",
+                "namespace": "test-ns",
+                "token": "test-token",
+            },
         ),
         # Test case 2: Kubeconfig with certificate data
         (
@@ -84,8 +91,16 @@ def test_kubeconfig_initialization(kubeconfig_content, expected, tmp_path):
     "params,expected",
     [
         (
-            {"server": "https://custom-server", "namespace": "custom-ns", "token": "custom-token"},
-            {"server": "https://custom-server", "namespace": "custom-ns", "token": "custom-token"},
+            {
+                "server": "https://custom-server",
+                "namespace": "custom-ns",
+                "token": "custom-token",
+            },
+            {
+                "server": "https://custom-server",
+                "namespace": "custom-ns",
+                "token": "custom-token",
+            },
         ),
         (
             {"server": "https://custom-server"},

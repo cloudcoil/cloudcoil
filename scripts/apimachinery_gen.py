@@ -8,7 +8,7 @@ def fetch_swagger_schema():
     response.raise_for_status()
     return response.json()
 
-def process_definition(definition, gvk_info):
+def process_definition(definition):
     if "x-kubernetes-group-version-kind" in definition:
         gvk = definition["x-kubernetes-group-version-kind"][0]
         group = gvk.get("group", "")
@@ -42,47 +42,35 @@ def process_definition(definition, gvk_info):
                 prop.pop("format")
 
 
-
-
 def main():
     # Fetch the swagger schema
     schema = fetch_swagger_schema()
     
     # Process each definition
     for definition_name, definition in schema["definitions"].items():
-        process_definition(definition, definition_name)
+        process_definition(definition)
     # 
-
     renames = {}
     for definition_name, definition in schema["definitions"].items():
         # Remove the io.k8s.api prefix
-        new_name = definition_name
-        if definition_name.startswith("io.k8s.api."):
-            new_name = definition_name[len("io.k8s.api."):]
         # If definition starts with io.k8s.apimachinery, replace the whole thing with just apimachinery
         # except the last part
+
         if definition_name.startswith("io.k8s.apimachinery."):
             *_, version, kind = definition_name.split(".")
             new_name = ["apimachinery"]
             new_name.append(kind)
             new_name = ".".join(new_name)
-            definition.pop("x-kubernetes-group-version-kind", None)
-        # For apiextensions.k8s.io, replace with apiextensions
-        if definition_name.startswith("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions."):
-            new_name = definition_name.replace("io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.", "apiextensions.")
-
-        # for apiregistration.k8s.io, replace with apiregistration
-        if definition_name.startswith("io.k8s.kube-aggregator.pkg.apis."):
-            new_name = definition_name.replace("io.k8s.kube-aggregator.pkg.apis.", "")
-        
-        if not new_name.startswith("apimachinery"):
-            new_name = "kinds." + new_name
-        renames[definition_name] = new_name
+            renames[definition_name] = new_name
     
+
+    for definition in list(schema["definitions"].keys()):
+        if definition not in renames:
+            schema["definitions"].pop(definition)
+
     # Rename the definitions
     for old_name, new_name in renames.items():
         schema["definitions"][new_name] = schema["definitions"].pop(old_name)
-
     # Change IntOrString to int | string
     for definition in schema["definitions"].values():
         if "format" in definition and definition["format"] == "int-or-string":
@@ -102,23 +90,6 @@ def main():
 
     with open("processed_swagger.json", "w") as f:
         f.write(output_schema)
-    
-    # Add extra template data to mark kubenretes gvk objects witha boolean
-    extra_data = {}
-    skipped_definitions = set()
-    for prop_name, prop in schema["definitions"].items():
-        extra_prop_data = {
-            "is_gvk": False,
-            "is_list": False,
-        }
-        if "x-kubernetes-group-version-kind" in prop:
-            extra_prop_data["is_gvk"] = True
-        if prop_name.endswith("List") and set(prop["properties"]) == {"metadata", "items", "apiVersion", "kind"}:
-            extra_prop_data["is_list"] = True
-        extra_data[prop_name] = extra_prop_data
-
-    with open("extra_data.json", "w") as f:
-        json.dump(extra_data, f, indent=2)
 
 
 

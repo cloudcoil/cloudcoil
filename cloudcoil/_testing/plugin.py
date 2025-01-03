@@ -52,7 +52,9 @@ def test_cluster(request):
     # check if the cluster already exists
     try:
         subprocess.run(
-            [k3d_binary, "cluster", "get", cluster_name], check=True, capture_output=True
+            [k3d_binary, "cluster", "get", cluster_name],
+            check=True,
+            capture_output=True,
         )
     except subprocess.CalledProcessError:
         subprocess.run(
@@ -70,7 +72,9 @@ def test_cluster(request):
     # fetch the kubeconfig to a temporary path and yield the path
     with tempfile.NamedTemporaryFile() as kubeconfig_file:
         subprocess.run(
-            [k3d_binary, "kubeconfig", "get", cluster_name], check=True, stdout=kubeconfig_file
+            [k3d_binary, "kubeconfig", "get", cluster_name],
+            check=True,
+            stdout=kubeconfig_file,
         )
         yield kubeconfig_file.name
     if remove:
