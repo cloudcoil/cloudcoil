@@ -198,7 +198,6 @@ def generate_init_imports(root_dir: str | Path):
         return path.is_dir() and (path / "__init__.py").exists()
 
     def process_directory(directory: Path):
-        print(f"Processing {directory}")
         init_file = directory / "__init__.py"
         if not init_file.exists():
             return
