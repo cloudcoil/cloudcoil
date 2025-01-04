@@ -235,4 +235,5 @@ def generate(config: ModelConfig):
     ]
     subprocess.run(ruff_format_args, check=True)
     Path(workdir / "models" / "__init__.py").unlink(missing_ok=True)
+    Path(workdir / "models" / "py.typed").touch()
     shutil.move(workdir / "models", output_dir)

@@ -6,6 +6,10 @@ resolution-markers = [
     "python_full_version < '3.11'",
     "python_full_version >= '4.0'",
 ]
+conflicts = [[
+    { package = "cloudcoil", extra = "kubernetes-1-31" },
+    { package = "cloudcoil", extra = "kubernetes-1-30" },
+]]
 
 [[package]]
 name = "annotated-types"
@@ -105,11 +109,11 @@ resolution-markers = [
     "python_full_version >= '4.0'",
 ]
 dependencies = [
-    { name = "click", marker = "python_full_version >= '4.0'" },
-    { name = "mypy-extensions", marker = "python_full_version >= '4.0'" },
-    { name = "packaging", marker = "python_full_version >= '4.0'" },
-    { name = "pathspec", marker = "python_full_version >= '4.0'" },
-    { name = "platformdirs", marker = "python_full_version >= '4.0'" },
+    { name = "click", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mypy-extensions", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "packaging", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pathspec", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "platformdirs", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/04/b0/46fb0d4e00372f4a86a6f8efa3cb193c9f64863615e39010b1477e010578/black-24.8.0.tar.gz", hash = "sha256:2500945420b6784c38b9ee885af039f5e7471ef284ab03fa35ecdde4688cd83f", size = 644810 }
 wheels = [
@@ -138,13 +142,13 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "click", marker = "python_full_version < '4.0'" },
-    { name = "mypy-extensions", marker = "python_full_version < '4.0'" },
-    { name = "packaging", marker = "python_full_version < '4.0'" },
-    { name = "pathspec", marker = "python_full_version < '4.0'" },
-    { name = "platformdirs", marker = "python_full_version < '4.0'" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "click", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mypy-extensions", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "packaging", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pathspec", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "platformdirs", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d8/0d/cc2fb42b8c50d80143221515dd7e4766995bd07c56c9a3ed30baf080b6dc/black-24.10.0.tar.gz", hash = "sha256:846ea64c97afe3bc677b761787993be4991810ecc7a4a937816dd6bddedc4875", size = 645813 }
 wheels = [
@@ -242,7 +246,7 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593 }
 wheels = [
@@ -251,7 +255,7 @@ wheels = [
 
 [[package]]
 name = "cloudcoil"
-version = "0.0.0"
+version = "100.100.100.dev100"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
@@ -261,10 +265,24 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "cloudcoil-models-kubernetes", version = "1.30.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or extra != 'extra-9-cloudcoil-kubernetes-1-31'" },
+    { name = "cloudcoil-models-kubernetes", version = "1.31.4.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31'" },
+]
 codegen = [
     { name = "datamodel-code-generator", extra = ["http"] },
     { name = "ruff" },
-    { name = "tomlkit", marker = "python_full_version < '3.11'" },
+    { name = "tomlkit", marker = "python_full_version < '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+]
+kubernetes = [
+    { name = "cloudcoil-models-kubernetes", version = "1.30.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or extra != 'extra-9-cloudcoil-kubernetes-1-31'" },
+    { name = "cloudcoil-models-kubernetes", version = "1.31.4.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31'" },
+]
+kubernetes-1-30 = [
+    { name = "cloudcoil-models-kubernetes", version = "1.30.8.0", source = { registry = "https://pypi.org/simple" } },
+]
+kubernetes-1-31 = [
+    { name = "cloudcoil-models-kubernetes", version = "1.31.4.0", source = { registry = "https://pypi.org/simple" } },
 ]
 test = [
     { name = "pytest" },
@@ -273,20 +291,20 @@ test = [
 [package.dev-dependencies]
 dev = [
     { name = "datamodel-code-generator", extra = ["http"] },
-    { name = "ipython", version = "8.12.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "ipython", version = "8.31.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "ipython", version = "8.12.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "ipython", version = "8.31.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "mkdocs" },
     { name = "mkdocs-autorefs" },
     { name = "mkdocs-material" },
-    { name = "mkdocstrings", version = "0.26.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "mkdocstrings", version = "0.27.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
-    { name = "mkdocstrings-python", version = "1.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "mkdocstrings-python", version = "1.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "mkdocstrings", version = "0.26.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocstrings", version = "0.27.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocstrings-python", version = "1.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocstrings-python", version = "1.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
-    { name = "pytest-cov", version = "5.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "pytest-cov", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "pytest-cov", version = "5.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pytest-cov", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "pytest-sugar" },
     { name = "ruff" },
     { name = "types-pyyaml" },
@@ -294,6 +312,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cloudcoil-models-kubernetes", marker = "extra == 'all'" },
+    { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes'" },
+    { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes-1-30'", specifier = "~=1.30.0" },
+    { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes-1-31'", specifier = "~=1.31.0" },
     { name = "datamodel-code-generator", extras = ["http"], marker = "extra == 'codegen'", specifier = "~=0.26.4" },
     { name = "httpx" },
     { name = "pydantic", specifier = ">2.0" },
@@ -321,6 +343,42 @@ dev = [
     { name = "pytest-sugar", specifier = ">=1.0.0" },
     { name = "ruff", specifier = ">=0.8.4" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20241221" },
+]
+
+[[package]]
+name = "cloudcoil-models-kubernetes"
+version = "1.30.8.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and python_full_version < '4.0'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
+    "python_full_version >= '4.0'",
+]
+dependencies = [
+    { name = "cloudcoil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9c/7b/6e0db7d883b2c896da96814c6078af17c45a8983cd181bbe6d1fb6543a1c/cloudcoil_models_kubernetes-1.30.8.0.tar.gz", hash = "sha256:c46b3f7c75e787a91b6232893b7b81ac5e472139bcc1ce434564d7f2a58ef794", size = 208780 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/dd/6382ed5781df6209a4ee71387c32d3707ac89b737ff01fe7f54f7171b409/cloudcoil_models_kubernetes-1.30.8.0-py3-none-any.whl", hash = "sha256:1f2890acdb0d54057709c42d2ffce8d32f49956ac578749bb5720be60e72476d", size = 187321 },
+]
+
+[[package]]
+name = "cloudcoil-models-kubernetes"
+version = "1.31.4.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and python_full_version < '4.0'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
+    "python_full_version >= '4.0'",
+]
+dependencies = [
+    { name = "cloudcoil", marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/69/3b/2157d740626e03e90eb6475e9705627a6b13bf153f8070ec0d57a59a07a9/cloudcoil_models_kubernetes-1.31.4.0.tar.gz", hash = "sha256:7af93ca26d29fb64a4e9baf0f444be3a7d5602e47415f0ad8cf6c9ad781bd993", size = 214358 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/6b/72e7cae01119853280e172780d94a33879485341943ccbd60ede5d0cea0d/cloudcoil_models_kubernetes-1.31.4.0-py3-none-any.whl", hash = "sha256:c3b20c4766631a889b236b000cc0406af94f3a56c81bbd1d65154178392a380a", size = 195136 },
 ]
 
 [[package]]
@@ -460,7 +518,7 @@ wheels = [
 
 [package.optional-dependencies]
 toml = [
-    { name = "tomli", marker = "python_full_version <= '3.11'" },
+    { name = "tomli", marker = "python_full_version <= '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 
 [[package]]
@@ -469,16 +527,16 @@ version = "0.26.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "argcomplete" },
-    { name = "black", version = "24.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "black", version = "24.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "black", version = "24.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "black", version = "24.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "genson" },
     { name = "inflect" },
     { name = "isort" },
     { name = "jinja2" },
     { name = "packaging" },
-    { name = "pydantic", extra = ["email"], marker = "python_full_version < '4.0'" },
+    { name = "pydantic", extra = ["email"], marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "pyyaml" },
-    { name = "toml", marker = "python_full_version < '3.11'" },
+    { name = "toml", marker = "python_full_version < '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0e/d3/4989ef484c41c35f45a16b54ffc25ffb4972d2fefde576a604f1c8c0675d/datamodel_code_generator-0.26.4.tar.gz", hash = "sha256:9881124fec15655a3a635808ea5ded63afb0540c0c402998070ccf60a9dab225", size = 92241 }
 wheels = [
@@ -513,8 +571,8 @@ name = "email-validator"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dnspython", marker = "python_full_version < '4.0'" },
-    { name = "idna", marker = "python_full_version < '4.0'" },
+    { name = "dnspython", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "idna", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/48/ce/13508a1ec3f8bb981ae4ca79ea40384becc868bfae97fd1c942bb3a001b1/email_validator-2.2.0.tar.gz", hash = "sha256:cb690f344c617a714f22e66ae771445a1ceb46821152df8e165c5f9a364582b7", size = 48967 }
 wheels = [
@@ -568,7 +626,7 @@ resolution-markers = [
     "python_full_version >= '4.0'",
 ]
 dependencies = [
-    { name = "colorama", marker = "python_full_version >= '4.0'" },
+    { name = "colorama", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/05/e9/b2c86ad9d69053e497a24ceb25d661094fb321ab4ed39a8b71793dcbae82/griffe-1.4.0.tar.gz", hash = "sha256:8fccc585896d13f1221035d32c50dec65830c87d23f9adb9b1e6f3d63574f7f5", size = 381028 }
 wheels = [
@@ -585,7 +643,7 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "colorama", marker = "python_full_version < '4.0'" },
+    { name = "colorama", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/22/9b/0bc9d53ed6628aae43223dd3c081637da54f66ed17a8c1d9fd36ee5da244/griffe-1.5.4.tar.gz", hash = "sha256:073e78ad3e10c8378c2f798bd4ef87b92d8411e9916e157fd366a17cc4fd4e52", size = 389376 }
 wheels = [
@@ -665,18 +723,18 @@ resolution-markers = [
     "python_full_version >= '4.0'",
 ]
 dependencies = [
-    { name = "appnope", marker = "python_full_version >= '4.0' and sys_platform == 'darwin'" },
-    { name = "backcall", marker = "python_full_version >= '4.0'" },
-    { name = "colorama", marker = "python_full_version >= '4.0' and sys_platform == 'win32'" },
-    { name = "decorator", marker = "python_full_version >= '4.0'" },
-    { name = "jedi", marker = "python_full_version >= '4.0'" },
-    { name = "matplotlib-inline", marker = "python_full_version >= '4.0'" },
-    { name = "pexpect", marker = "python_full_version >= '4.0' and sys_platform != 'win32'" },
-    { name = "pickleshare", marker = "python_full_version >= '4.0'" },
-    { name = "prompt-toolkit", marker = "python_full_version >= '4.0'" },
-    { name = "pygments", marker = "python_full_version >= '4.0'" },
-    { name = "stack-data", marker = "python_full_version >= '4.0'" },
-    { name = "traitlets", marker = "python_full_version >= '4.0'" },
+    { name = "appnope", marker = "(python_full_version >= '4.0' and sys_platform == 'darwin') or (python_full_version < '4.0' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (sys_platform != 'darwin' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "backcall", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "colorama", marker = "(python_full_version >= '4.0' and sys_platform == 'win32') or (python_full_version < '4.0' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (sys_platform != 'win32' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "decorator", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "jedi", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "matplotlib-inline", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pexpect", marker = "(python_full_version >= '4.0' and sys_platform != 'win32') or (python_full_version < '4.0' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (sys_platform == 'win32' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pickleshare", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "prompt-toolkit", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pygments", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "stack-data", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "traitlets", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/9e/6a/44ef299b1762f5a73841e87fae8a73a8cc8aee538d6dc8c77a5afe1fd2ce/ipython-8.12.3.tar.gz", hash = "sha256:3910c4b54543c2ad73d06579aa771041b7d5707b033bd488669b4cf544e3b363", size = 5470171 }
 wheels = [
@@ -693,17 +751,17 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "colorama", marker = "python_full_version < '4.0' and sys_platform == 'win32'" },
-    { name = "decorator", marker = "python_full_version < '4.0'" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
-    { name = "jedi", marker = "python_full_version < '4.0'" },
-    { name = "matplotlib-inline", marker = "python_full_version < '4.0'" },
-    { name = "pexpect", marker = "python_full_version < '4.0' and sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "prompt-toolkit", marker = "python_full_version < '4.0'" },
-    { name = "pygments", marker = "python_full_version < '4.0'" },
-    { name = "stack-data", marker = "python_full_version < '4.0'" },
-    { name = "traitlets", marker = "python_full_version < '4.0'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+    { name = "colorama", marker = "(python_full_version < '4.0' and sys_platform == 'win32') or (python_full_version >= '4.0' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (sys_platform != 'win32' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "decorator", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "jedi", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "matplotlib-inline", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pexpect", marker = "(python_full_version < '4.0' and sys_platform != 'emscripten' and sys_platform != 'win32') or (python_full_version >= '4.0' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (sys_platform == 'emscripten' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (sys_platform == 'win32' and extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "prompt-toolkit", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pygments", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "stack-data", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "traitlets", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.12' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/01/35/6f90fdddff7a08b7b715fccbd2427b5212c9525cd043d26fdc45bee0708d/ipython-8.31.0.tar.gz", hash = "sha256:b6a2274606bec6166405ff05e54932ed6e5cfecaca1fc05f2cacde7bb074d70b", size = 5501011 }
 wheels = [
@@ -736,8 +794,8 @@ name = "jinja2"
 version = "3.1.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "markupsafe", version = "2.1.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "markupsafe", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "markupsafe", version = "2.1.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "markupsafe", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/af/92/b3130cbbf5591acf9ade8708c365f3238046ac7cb8ccba6e81abccb0ccff/jinja2-3.1.5.tar.gz", hash = "sha256:8fefff8dc3034e27bb80d67c671eb8a9bc424c0ef4c0826edbff304cceff43bb", size = 244674 }
 wheels = [
@@ -884,20 +942,20 @@ version = "1.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "ghp-import" },
     { name = "jinja2" },
     { name = "markdown" },
-    { name = "markupsafe", version = "2.1.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "markupsafe", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "markupsafe", version = "2.1.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "markupsafe", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "mergedeep" },
     { name = "mkdocs-get-deps" },
     { name = "packaging" },
     { name = "pathspec" },
     { name = "pyyaml" },
     { name = "pyyaml-env-tag" },
-    { name = "watchdog", version = "4.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "watchdog", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "watchdog", version = "4.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "watchdog", version = "6.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/bc/c6/bbd4f061bd16b378247f12953ffcb04786a618ce5e904b8c5a01a0309061/mkdocs-1.6.1.tar.gz", hash = "sha256:7b432f01d928c084353ab39c57282f29f92136665bdd6abf7c1ec8d822ef86f2", size = 3889159 }
 wheels = [
@@ -910,8 +968,8 @@ version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown" },
-    { name = "markupsafe", version = "2.1.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "markupsafe", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "markupsafe", version = "2.1.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "markupsafe", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "mkdocs" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fb/ae/0f1154c614d6a8b8a36fff084e5b82af3a15f7d2060cf0dcdb1c53297a71/mkdocs_autorefs-1.2.0.tar.gz", hash = "sha256:a86b93abff653521bda71cf3fc5596342b7a23982093915cb74273f67522190f", size = 40262 }
@@ -972,14 +1030,14 @@ resolution-markers = [
     "python_full_version >= '4.0'",
 ]
 dependencies = [
-    { name = "click", marker = "python_full_version >= '4.0'" },
-    { name = "jinja2", marker = "python_full_version >= '4.0'" },
-    { name = "markdown", marker = "python_full_version >= '4.0'" },
-    { name = "markupsafe", version = "2.1.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "mkdocs", marker = "python_full_version >= '4.0'" },
-    { name = "mkdocs-autorefs", marker = "python_full_version >= '4.0'" },
-    { name = "platformdirs", marker = "python_full_version >= '4.0'" },
-    { name = "pymdown-extensions", marker = "python_full_version >= '4.0'" },
+    { name = "click", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "jinja2", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "markdown", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "markupsafe", version = "2.1.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocs", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocs-autorefs", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "platformdirs", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pymdown-extensions", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e6/bf/170ff04de72227f715d67da32950c7b8434449f3805b2ec3dd1085db4d7c/mkdocstrings-0.26.1.tar.gz", hash = "sha256:bb8b8854d6713d5348ad05b069a09f3b79edbc6a0f33a34c6821141adb03fe33", size = 92677 }
 wheels = [
@@ -996,14 +1054,14 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "click", marker = "python_full_version < '4.0'" },
-    { name = "jinja2", marker = "python_full_version < '4.0'" },
-    { name = "markdown", marker = "python_full_version < '4.0'" },
-    { name = "markupsafe", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
-    { name = "mkdocs", marker = "python_full_version < '4.0'" },
-    { name = "mkdocs-autorefs", marker = "python_full_version < '4.0'" },
-    { name = "platformdirs", marker = "python_full_version < '4.0'" },
-    { name = "pymdown-extensions", marker = "python_full_version < '4.0'" },
+    { name = "click", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "jinja2", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "markdown", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "markupsafe", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocs", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocs-autorefs", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "platformdirs", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pymdown-extensions", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e2/5a/5de70538c2cefae7ac3a15b5601e306ef3717290cb2aab11d51cbbc2d1c0/mkdocstrings-0.27.0.tar.gz", hash = "sha256:16adca6d6b0a1f9e0c07ff0b02ced8e16f228a9d65a37c063ec4c14d7b76a657", size = 94830 }
 wheels = [
@@ -1018,9 +1076,9 @@ resolution-markers = [
     "python_full_version >= '4.0'",
 ]
 dependencies = [
-    { name = "griffe", version = "1.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "mkdocs-autorefs", marker = "python_full_version >= '4.0'" },
-    { name = "mkdocstrings", version = "0.26.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
+    { name = "griffe", version = "1.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocs-autorefs", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocstrings", version = "0.26.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fc/ba/534c934cd0a809f51c91332d6ed278782ee4126b8ba8db02c2003f162b47/mkdocstrings_python-1.11.1.tar.gz", hash = "sha256:8824b115c5359304ab0b5378a91f6202324a849e1da907a3485b59208b797322", size = 166890 }
 wheels = [
@@ -1037,9 +1095,9 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "griffe", version = "1.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
-    { name = "mkdocs-autorefs", marker = "python_full_version < '4.0'" },
-    { name = "mkdocstrings", version = "0.27.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "griffe", version = "1.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocs-autorefs", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "mkdocstrings", version = "0.27.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ab/ae/32703e35d74040051c672400fd9f5f2b48a6ea094f5071dd8a0e3be35322/mkdocstrings_python-1.13.0.tar.gz", hash = "sha256:2dbd5757e8375b9720e81db16f52f1856bf59905428fd7ef88005d1370e2f64c", size = 185697 }
 wheels = [
@@ -1052,7 +1110,7 @@ version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mypy-extensions" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8c/7b/08046ef9330735f536a09a2e31b00f42bccdb2795dcd979636ba43bb2d63/mypy-1.14.0.tar.gz", hash = "sha256:822dbd184d4a9804df5a7d5335a68cf7662930e70b8c1bc976645d1509f9a9d6", size = 3215684 }
@@ -1210,7 +1268,7 @@ wheels = [
 
 [package.optional-dependencies]
 email = [
-    { name = "email-validator", marker = "python_full_version < '4.0'" },
+    { name = "email-validator", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 
 [[package]]
@@ -1315,12 +1373,12 @@ name = "pytest"
 version = "8.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/05/35/30e0d83068951d90a01852cb1cef56e5d8a09d20c7f511634cc2f7e0372a/pytest-8.3.4.tar.gz", hash = "sha256:965370d062bce11e73868e0335abac31b4d3de0e82f4007408d242b4f8610761", size = 1445919 }
 wheels = [
@@ -1347,8 +1405,8 @@ resolution-markers = [
     "python_full_version >= '4.0'",
 ]
 dependencies = [
-    { name = "coverage", version = "7.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "pytest", marker = "python_full_version >= '4.0'" },
+    { name = "coverage", version = "7.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pytest", marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/74/67/00efc8d11b630c56f15f4ad9c7f9223f1e5ec275aaae3fa9118c6a223ad2/pytest-cov-5.0.0.tar.gz", hash = "sha256:5837b58e9f6ebd335b0f8060eecce69b662415b16dc503883a02f45dfeb14857", size = 63042 }
 wheels = [
@@ -1365,8 +1423,8 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "coverage", version = "7.6.10", source = { registry = "https://pypi.org/simple" }, extra = ["toml"], marker = "python_full_version < '4.0'" },
-    { name = "pytest", marker = "python_full_version < '4.0'" },
+    { name = "coverage", version = "7.6.10", source = { registry = "https://pypi.org/simple" }, extra = ["toml"], marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "pytest", marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/be/45/9b538de8cef30e17c7b45ef42f538a94889ed6a16f2387a6c89e73220651/pytest-cov-6.0.0.tar.gz", hash = "sha256:fde0b595ca248bb8e2d76f020b465f3b107c9632e6a1d1705f17834c89dcadc0", size = 66945 }
 wheels = [
@@ -1532,8 +1590,8 @@ dependencies = [
     { name = "certifi" },
     { name = "charset-normalizer" },
     { name = "idna" },
-    { name = "urllib3", version = "2.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0'" },
-    { name = "urllib3", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0'" },
+    { name = "urllib3", version = "2.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "urllib3", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '4.0' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218 }
 wheels = [
