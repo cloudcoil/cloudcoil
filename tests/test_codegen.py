@@ -32,11 +32,20 @@ def sample_schema():
 @pytest.fixture
 def model_config(tmp_path):
     return ModelConfig(
-        name="k8s",
+        namespace="test.k8s",
         input_=K8S_OPENAPI_URL,
-        output=tmp_path,
-        substitute=[
-            Substitution(from_="io.k8s.api.(.+)", to="k8s.\\1"),
+        substitutions=[
+            Substitution(
+                from_=r"^io\.k8s\.apimachinery\..*\.(.+)",
+                to=r"apimachinery.\g<1>",
+                namespace="cloudcoil",
+            ),
+            Substitution(
+                from_=r"^io\.k8s\.apiextensions-apiserver\.pkg\.apis\.apiextensions\.(.+)$",
+                to=r"apiextensions.\g<1>",
+            ),
+            Substitution(from_=r"^io\.k8s\.api\.(.+)$", to=r"\g<1>"),
+            Substitution(from_=r"^io\.k8s\.kube-aggregator\.pkg\.apis\.(.+)$", to=r"\g<1>"),
         ],
     )
 
@@ -49,16 +58,21 @@ def test_substitution():
 
 def test_model_config_validation():
     config = ModelConfig(
-        name="test",
+        namespace="test",
         input_="test.json",
-        substitute=[
+        substitutions=[
             Substitution(from_="test", to="replaced"),
         ],
     )
-    assert config.name == "test"
+    assert config.namespace == "test"
     assert config.input_ == "test.json"
-    assert len(config.substitute) == 1
-    assert config.substitute[0].to == "models.replaced"
+    assert len(config.substitutions) == 2
+    assert config.substitutions[0].from_.pattern == "test"
+    assert config.substitutions[0].to == "replaced"
+    assert config.substitutions[0].namespace == "test"
+    assert config.substitutions[1].from_.pattern == "^(.*)$"
+    assert config.substitutions[1].to == r"\g<1>"
+    assert config.substitutions[1].namespace == "test"
 
 
 def test_process_definitions(sample_schema):
@@ -69,10 +83,10 @@ def test_process_definitions(sample_schema):
     assert "metadata" not in deployment.get("required", [])
 
 
-@pytest.mark.integration
 def test_generate_k8s_models(model_config, tmp_path):
+    model_config.output = tmp_path
     generate(model_config)
-    output_dir = tmp_path / "k8s"
+    output_dir = tmp_path / "test" / "k8s"
 
     # Check if output directory exists and contains py.typed file
     assert output_dir.exists()
@@ -95,11 +109,6 @@ def test_generate_k8s_models(model_config, tmp_path):
     # Verify imports are correct (no relative imports for apimachinery)
     assert "from .. import apimachinery" not in content
     assert "from ... import apimachinery" not in content
-
-    # Clean up to avoid interfering with other tests
-    import shutil
-
-    shutil.rmtree(output_dir)
 
 
 def test_int_or_string_conversion(sample_schema):

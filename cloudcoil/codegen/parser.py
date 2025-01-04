@@ -9,33 +9,35 @@ from typing import Annotated
 
 import httpx
 from cloudcoil._pydantic import BaseModel
+from cloudcoil.codegen.import_rewriter import rewrite_imports
 from cloudcoil.version import __version__
 from datamodel_code_generator.__main__ import (
     main as generate_code,
 )
-from pydantic import AfterValidator, BeforeValidator, Field
+from pydantic import BeforeValidator, Field, model_validator
 
 
 class Substitution(BaseModel):
     from_: Annotated[str | re.Pattern, Field(alias="from"), BeforeValidator(re.compile)]
     to: str
+    namespace: str | None = None
 
 
 class ModelConfig(BaseModel):
-    name: str
+    namespace: str
     input_: Annotated[str, Field(alias="input")]
-    output: Path = Path("cloudcoil/models")
-    substitute: Annotated[
-        list[Substitution],
-        AfterValidator(
-            lambda value: list(
-                map(
-                    lambda subs: Substitution(from_=subs.from_, to="models." + subs.to),
-                    value,
-                )
-            )
-        ),
-    ] = []
+    output: Path | None = None
+    substitutions: list[Substitution] = []
+
+    @model_validator(mode="after")
+    def _add_namespace(self):
+        for substitution in self.substitutions:
+            if not substitution.namespace:
+                substitution.namespace = self.namespace
+        self.substitutions.append(
+            Substitution(from_=re.compile(r"^(.*)$"), to=r"\g<1>", namespace=self.namespace)
+        )
+        return self
 
 
 def process_definitions(schema):
@@ -81,10 +83,17 @@ def process_definitions(schema):
 
 def process_substitutions(substitutions: list[Substitution], schema: dict) -> dict:
     renames = {}
-    for definition_name in schema["definitions"]:
-        new_name = definition_name
+
+    def _new_name(definition_name):
         for substitution in substitutions:
-            new_name = re.sub(substitution.from_, substitution.to, new_name)
+            if substitution.from_.match(definition_name):
+                return substitution.from_.sub(
+                    f"{substitution.namespace}.{substitution.to}", definition_name
+                )
+        return definition_name
+
+    for definition_name in schema["definitions"]:
+        new_name = _new_name(definition_name)
         renames[definition_name] = new_name
     for old_name, new_name in renames.items():
         schema["definitions"][new_name] = schema["definitions"].pop(old_name)
@@ -110,10 +119,7 @@ def process_input(config: ModelConfig, workdir: Path):
         with open(config.input_, "r") as f:
             content = f.read()
         schema = json.loads(content)
-    apimachinery_substitution = Substitution(
-        from_=re.compile(r"io\.k8s\.apimachinery\..*\.(.+)"), to=r"apimachinery.\g<1>"
-    )
-    schema = process_substitutions([apimachinery_substitution] + config.substitute, schema)
+    schema = process_substitutions(config.substitutions, schema)
     process_definitions(schema)
     extra_data = generate_extra_data(schema)
     schema_file.write_text(json.dumps(schema, indent=2))
@@ -247,10 +253,12 @@ def generate_init_imports(root_dir: str | Path):
 
 
 def generate(config: ModelConfig):
-    output_dir = config.output / config.name
-    config.output.mkdir(parents=True, exist_ok=True)
-    if output_dir.exists():
-        raise ValueError(f"Output directory {output_dir} already exists")
+    ruff = shutil.which("ruff")
+    if not ruff:
+        raise ValueError("ruff executable not found")
+    generated_path = Path(config.namespace.replace(".", "/"))
+    if generated_path.exists():
+        raise ValueError(f"Output directory {generated_path} already exists")
     workdir = Path(tempfile.mkdtemp())
     workdir.mkdir(parents=True, exist_ok=True)
     input_, extra_template_data = process_input(config, workdir)
@@ -279,7 +287,9 @@ def generate(config: ModelConfig):
             "jsonschema",
             "--disable-appending-item-suffix",
             "--disable-timestamp",
+            "--collapse-root-models",
             "--use-annotated",
+            "--wrap-string-literal",
             "--use-default-kwarg",
             "--extra-template-data",
             str(extra_template_data),
@@ -292,39 +302,10 @@ def generate(config: ModelConfig):
             header,
         ]
     )
-    # For every file in the models directory
-    # rename the apimachinery import to import from cloudcoil
-    # For eg from ... import apimachinery
-    # should be renamed to from cloudcoil import apimachinery
-    # Do it for every level of import
-    # For eg from ..... import apimachinery
-    # For eg from .... import apimachinery
-    # For eg from .. import apimachinery
-    # For eg from . import apimachinery
-    apimachinery_regex = re.compile(r"(from\s+)(\.\.+\s+)?(import\s+)(apimachinery)")
-    for file in workdir.glob("models/**/*.py"):
-        with open(file, "r") as f:
-            content = f.read()
-        # Use a regex replace
-        content = apimachinery_regex.sub(
-            r"from cloudcoil import apimachinery",
-            content,
-        )
-        with open(file, "w") as f:
-            f.write(content)
-
-    # Invoke ruff to generate the final code
-    # Find the ruff executable
-    ruff = shutil.which("ruff")
-    if not ruff:
-        raise ValueError("ruff executable not found")
-    # uv run ruff format cloudcoil tests
-    # uv run ruff check --fix --unsafe-fixes cloudcoil tests
-
+    rewrite_imports(config.namespace, workdir)
     ruff_check_fix_args = [
         ruff,
         "check",
-        "--silent",
         "--fix",
         "--preview",
         str(workdir),
@@ -335,12 +316,13 @@ def generate(config: ModelConfig):
     ruff_format_args = [
         ruff,
         "format",
-        "--silent",
         str(workdir),
         "--config",
         str(Path(__file__).parent / "ruff.toml"),
     ]
     subprocess.run(ruff_format_args, check=True)
-    Path(workdir / "models" / "py.typed").touch()
-    generate_init_imports(workdir / "models")
-    shutil.move(workdir / "models", output_dir)
+    Path(workdir / generated_path / "py.typed").touch()
+    Path(workdir / generated_path / "__init__.py").touch()
+    generate_init_imports(workdir / generated_path)
+    output_dir = config.output or Path(".")
+    shutil.move(workdir / generated_path, output_dir / generated_path)

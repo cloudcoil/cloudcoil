@@ -63,6 +63,7 @@ addopts = "-ra -q --import-mode=importlib --cov=cloudcoil --cov-report=xml --cov
 testpaths = ["tests"]
 markers = ["configure_test_cluster: Configure cloudcoil test cluster"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [dependency-groups]
 dev = [
