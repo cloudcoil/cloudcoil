@@ -398,12 +398,22 @@ def parse(obj: dict | list[dict]) -> Resource | list[Resource]:
     resource = Resource.model_validate(obj)
     if not resource.api_version or not resource.kind:
         raise ValueError("Missing apiVersion or kind")
-    kind = _Scheme.get(resource.api_version, resource.kind)
+    kind = _Scheme.get(api_version=resource.api_version, kind=resource.kind)
     return kind.model_validate(obj)
 
 
-def parse_file(path: str | Path) -> list[Resource] | Resource:
-    return parse(yaml.safe_load(Path(path).read_text()))
+@overload
+def parse_file(path: str | Path, load_all: Literal[True]) -> list[Resource]: ...
+
+
+@overload
+def parse_file(path: str | Path, load_all: Literal[False]) -> Resource: ...
+
+
+def parse_file(path: str | Path, load_all: bool = False) -> list[Resource] | Resource:
+    if not load_all:
+        return parse(yaml.safe_load(Path(path).read_text()))
+    return parse(list(yaml.safe_load_all(Path(path).read_text())))
 
 
 def get_model(kind: str, *, api_version: str = "") -> Type[Resource]:
