@@ -3,10 +3,10 @@ from pathlib import Path
 
 from cloudcoil.codegen.parser import ModelConfig, generate
 
-if sys.version_info >= (3, 11):
+if sys.version_info > (3, 11):
     import tomllib
 else:
-    import tomlkit as tomllib
+    from . import _tomllib as tomllib
 
 
 def main():

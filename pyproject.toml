@@ -26,7 +26,7 @@ cloudcoil-model-codegen = "cloudcoil.codegen.generator:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
-codegen = ["tomlkit>=0.13.2; python_version <= '3.10'", "datamodel-code-generator[http]~=0.26.4", "ruff"]
+codegen = ["datamodel-code-generator[http]~=0.26.4", "ruff"]
 kubernetes = ["cloudcoil.models.kubernetes"]
 kubernetes-1-31 = ["cloudcoil.models.kubernetes~=1.31.0"]
 kubernetes-1-30 = ["cloudcoil.models.kubernetes~=1.30.0"]
@@ -85,7 +85,6 @@ dev = [
 
 [tool.mypy]
 plugins = ['pydantic.mypy', 'cloudcoil.mypy']
-ignore_missing_imports = true
 
 # Add the pytest plugin
 [project.entry-points.pytest11]
@@ -100,7 +99,7 @@ only-include = ["cloudcoil"]
 [tool.uv]
 conflicts = [
     [
-      { extra = "kubernetes-1-31" },
       { extra = "kubernetes-1-30" },
+      { extra = "kubernetes-1-31" },
     ],
 ]
