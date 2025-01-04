@@ -1,4 +1,5 @@
 import sys
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Annotated, Any, Generic, Literal, TypeVar
 
@@ -374,9 +375,12 @@ class _Scheme:
     def _initialize(cls) -> None:
         if cls._initialized:
             return
-        discovered_kinds = cls._namespace_packages()
-        for discovered_kind in discovered_kinds:
-            cls._discover(discovered_kind)
+        packages = cls._namespace_packages()
+        for package in sorted(packages, key=lambda p: (p != "cloudcoil.models.default", p)):
+            cls._discover(package)
+        entrypoints = entry_points(group="cloudcoil_models")
+        for entrypoint in entrypoints:
+            cls._discover(entrypoint.value)
         cls._initialized = True
 
 
