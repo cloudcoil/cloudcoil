@@ -51,6 +51,4 @@ gen-models:
 		--use-default-kwarg \
 		--use-default
 	mv output/apimachinery.py cloudcoil/apimachinery.py
-	rm -rf cloudcoil/models
-	uv run cloudcoil-model-codegen
 	$(MAKE) fix-lint

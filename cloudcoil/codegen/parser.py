@@ -1,3 +1,4 @@
+import ast
 import json
 import re
 import shutil
@@ -140,8 +141,116 @@ def generate_extra_data(schema: dict) -> dict:
     return extra_data
 
 
+def get_file_header(content: str) -> tuple[str, str]:
+    """
+    Extract header (comments and docstrings) from Python file content.
+    Returns tuple of (header, rest_of_content)
+    """
+    # Parse the content into an AST
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        # If there's a syntax error, return content as-is
+        return "", content
+
+    header_lines = []
+    rest_lines = content.split("\n")
+
+    # Get leading comments
+    for line in rest_lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            header_lines.append(line)
+        elif not stripped:
+            header_lines.append(line)
+        else:
+            break
+
+    # Check for module docstring
+    if tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Str):
+        # Get the docstring node
+        docstring_node = tree.body[0]
+        # Find where the docstring ends in the original content
+        docstring_end = docstring_node.end_lineno
+        # Add all lines up to and including the docstring
+        header_lines.extend(rest_lines[len(header_lines) : docstring_end])
+        rest_lines = rest_lines[docstring_end:]
+    else:
+        rest_lines = rest_lines[len(header_lines) :]
+
+    header = "\n".join(header_lines)
+    rest = "\n".join(rest_lines)
+
+    return header.strip(), rest.strip()
+
+
+def generate_init_imports(root_dir: str | Path):
+    """
+    Recursively process a package directory and update __init__.py files
+    with imports of all submodules and subpackages.
+    """
+    root_dir = Path(root_dir)
+
+    def is_python_file(path: Path) -> bool:
+        return path.is_file() and path.suffix == ".py" and path.stem != "__init__"
+
+    def is_package(path: Path) -> bool:
+        return path.is_dir() and (path / "__init__.py").exists()
+
+    def process_directory(directory: Path):
+        print(f"Processing {directory}")
+        init_file = directory / "__init__.py"
+        if not init_file.exists():
+            return
+
+        # Get all immediate Python files and subpackages
+        contents = []
+        for item in directory.iterdir():
+            # Skip __pycache__ and other hidden directories
+            if item.name.startswith("_"):
+                continue
+
+            if is_python_file(item):
+                # Add import for Python modules
+                contents.append(f"from . import {item.stem} as {item.stem}")
+            elif is_package(item):
+                # Add import for subpackages
+                contents.append(f"from . import {item.name} as {item.name}")
+                # Recursively process subpackage
+                process_directory(item)
+
+        if contents:
+            # Sort imports for consistency
+            contents.sort()
+
+            # Read existing content
+            existing_content = init_file.read_text() if init_file.exists() else ""
+
+            # Extract header (comments and docstring) and rest of content
+            header, rest = get_file_header(existing_content)
+
+            # Prepare new imports
+            new_imports = "\n".join(contents) + "\n\n"
+
+            # Combine all parts
+            new_content = []
+            if header:
+                new_content.append(header)
+                new_content.append("")  # Empty line after header
+            new_content.append(new_imports.rstrip())
+            if rest:
+                new_content.append(rest)
+
+            # Write the updated content
+            init_file.write_text("\n".join(new_content))
+            print(f"Updated {init_file}")
+
+    process_directory(root_dir)
+
+
 def generate(config: ModelConfig):
     output_dir = config.output / config.name
+    config.output.mkdir(parents=True, exist_ok=True)
     if output_dir.exists():
         raise ValueError(f"Output directory {output_dir} already exists")
     workdir = Path(tempfile.mkdtemp())
@@ -234,6 +343,6 @@ def generate(config: ModelConfig):
         str(Path(__file__).parent / "ruff.toml"),
     ]
     subprocess.run(ruff_format_args, check=True)
-    Path(workdir / "models" / "__init__.py").unlink(missing_ok=True)
     Path(workdir / "models" / "py.typed").touch()
+    generate_init_imports(workdir / "models")
     shutil.move(workdir / "models", output_dir)
