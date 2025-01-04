@@ -242,7 +242,6 @@ def generate_init_imports(root_dir: str | Path):
 
             # Write the updated content
             init_file.write_text("\n".join(new_content))
-            print(f"Updated {init_file}")
 
     process_directory(root_dir)
 
