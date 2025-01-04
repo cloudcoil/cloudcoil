@@ -22,7 +22,16 @@ Cloud native made easy with Python
 ```bash
 # Minimal dependencies
 # pydantic, httpx and pyyaml
-uv add cloudcoil
+uv add cloudcoil[kubernetes]
+```
+
+### Pinning Kubernetes Model Versions
+
+```bash
+# Install Kubernetes 1.31 compatible models
+uv add cloudcoil[kubernetes-1-31]
+# Install Kubernetes 1.30 compatible models
+uv add cloudcoil[kubernetes-1-30]
 ```
 
 ## Quick Start
@@ -35,9 +44,9 @@ from cloudcoil.client import Config
 from cloudcoil.client import errors
 # All default kubernetes types are neatly arranged
 # with appropriate apiversions as module paths
-from cloudcoil.models.default.apps import v1 as apps_v1
-from cloudcoil.models.default.core import v1 as core_v1
-from cloudcoil.models.default.batch import v1 as batch_v1
+from cloudcoil.models.kubernetes.apps import v1 as apps_v1
+from cloudcoil.models.kubernetes.core import v1 as core_v1
+from cloudcoil.models.kubernetes.batch import v1 as batch_v1
 
 
 # Uses the default config based on KUBECONFIG
@@ -107,7 +116,7 @@ Job = resources.get_model("Job")
 job = Job.from_file("hello-world.yaml")
 # the above is correctly typed with mypy if you use the cloudcoil mypy extension
 # even though the class was dynamically loaded from the scheme via a string
-# reveal_type(job) == cloudcoil.models.default.batch.v1.Job
+# reveal_type(job) == cloudcoil.models.kubernetes.batch.v1.Job
 
 # Listing resources
 # cloudcoil provides two ways to list resources:
@@ -164,7 +173,7 @@ Example usage:
 
 ```python
 import pytest
-from cloudcoil.models.default.core import v1 as corev1
+from cloudcoil.models.kubernetes.core import v1 as corev1
 
 @pytest.mark.configure_test_cluster(
     cluster_name="my-test-cluster",

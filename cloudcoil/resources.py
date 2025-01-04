@@ -376,7 +376,7 @@ class _Scheme:
         if cls._initialized:
             return
         packages = cls._namespace_packages()
-        for package in sorted(packages, key=lambda p: (p != "cloudcoil.models.default", p)):
+        for package in sorted(packages, key=lambda p: (p != "cloudcoil.models.kubernetes", p)):
             cls._discover(package)
         entrypoints = entry_points(group="cloudcoil_models")
         for entrypoint in entrypoints:
