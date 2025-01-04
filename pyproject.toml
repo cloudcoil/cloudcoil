@@ -95,6 +95,8 @@ cloudcoil = "cloudcoil._testing.plugin"
 [tool.coverage.run]
 omit = [
     "cloudcoil/models/**",
+    "cloudcoil/mypy.py",
+    "cloudcoil/_testing/**",
     "cloudcoil/codegen/_tomllib/**",
     "cloudcoil/apimachinery.py",
     "cloudcoil/_pydantic.py",
