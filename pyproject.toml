@@ -85,7 +85,6 @@ dev = [
 
 [tool.mypy]
 plugins = ['pydantic.mypy', 'cloudcoil.mypy']
-ignore_missing_imports = true
 
 # Add the pytest plugin
 [project.entry-points.pytest11]
@@ -100,7 +99,7 @@ only-include = ["cloudcoil"]
 [tool.uv]
 conflicts = [
     [
-      { extra = "kubernetes-1-31" },
       { extra = "kubernetes-1-30" },
+      { extra = "kubernetes-1-31" },
     ],
 ]
