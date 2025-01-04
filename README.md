@@ -44,26 +44,24 @@ from cloudcoil.client import Config
 from cloudcoil.client import errors
 # All default kubernetes types are neatly arranged
 # with appropriate apiversions as module paths
-from cloudcoil.models.kubernetes.apps import v1 as apps_v1
-from cloudcoil.models.kubernetes.core import v1 as core_v1
-from cloudcoil.models.kubernetes.batch import v1 as batch_v1
+import cloudcoil.models.kubernetes as k8s
 
 
 # Uses the default config based on KUBECONFIG
 # Feels just as natural as kubectl
 # But comes with full pydantic validation
-kubernetes_service = core_v1.Service.get("kubernetes")
+kubernetes_service = k8s.core.v1.Service.get("kubernetes")
 
 # You can create temporary config contexts
 # This is similar to doing kubens kube-system
 with Config(namespace="kube-system"):
     # This searches for deployments in the kube-system namespace
-    core_dns_deployment = apps_v1.Deployment.get("core-dns")
+    core_dns_deployment = k8s.apps.v1.Deployment.get("core-dns")
     # Also comes with async client out of the box!
-    kube_dns_service = await core_v1.Service.async_get("kube-dns")
+    kube_dns_service = await k8s.core.v1.Service.async_get("kube-dns")
 
 # Create new objects with generate name easily
-test_namespace = core_v1.Namespace(metadata=dict(generate_name="test-")).create()
+test_namespace = k8s.core.v1.Namespace(metadata=dict(generate_name="test-")).create()
 # You can also modify the object and update it
 test_namespace.metadata.labels = {"test": "true"}
 # Get the new value of the test namespace back from the server
@@ -71,7 +69,7 @@ test_namespace.metadata.labels = {"test": "true"}
 test_namespace = test_namespace.update()
 
 # You can also easily fetch namespace using
-kube_system_namespace = core_v1.Namespace()
+kube_system_namespace = k8s.core.v1.Namespace()
 kube_system_namespace.name = "kube-system"
 # Fetch the latest version of the namespace from the server
 kube_system_namespace = kube_system_namespace.fetch()
@@ -80,7 +78,7 @@ kube_system_namespace = kube_system_namespace.fetch()
 # Switch to the new namespace
 with Config(namespace=test_namespace.metadata.name):
     try:
-        core_dns_deployment = apps_v1.Deployment.get("core-dns")
+        core_dns_deployment = k8s.apps.v1.Deployment.get("core-dns")
     except errors.ResourceNotFound:
         pass
 
@@ -88,7 +86,7 @@ with Config(namespace=test_namespace.metadata.name):
 # And also inspect the output to ensure it is terminating
 test_namespace.remove().status.phase == "Terminating"
 # You can also delete it using the name/namespace if you wish
-core_v1.Namespace.delete(name=test_namespace.metadata.name)
+k8s.core.v1.Namespace.delete(name=test_namespace.metadata.name)
 
 # You can also parse kubernetes resource easily
 from cloudcoil import resources
@@ -107,7 +105,7 @@ from cloudcoil import resources
 #       restartPolicy: Never
 job = resources.parse_file("hello-world.yaml")
 # It is serialized to the correc type
-assert isinstance(job, batch_v1.Job)
+assert isinstance(job, k8s.batch.v1.Job)
 # You can now create the job
 job.create()
 # You can also access different registered models by name
@@ -123,11 +121,11 @@ job = Job.from_file("hello-world.yaml")
 
 # 1. Iterator API (Recommended)
 # This automatically handles pagination and provides a clean interface
-for pod in core_v1.Pod.list(all_namespaces=True):
+for pod in k8s.core.v1.Pod.list(all_namespaces=True):
     print(pod.metadata.name)
 
 # For async code, you can use async iteration
-async for pod in await core_v1.Pod.async_list(all_namespaces=True):
+async for pod in await k8s.core.v1.Pod.async_list(all_namespaces=True):
     print(pod.metadata.name)
 
 # Get total count for all items
@@ -138,7 +136,7 @@ print(f"Total pods: {total_pods}")
 # 2. Manual Pagination API
 # If you need more control over pagination, you can use the raw API
 # This returns a ResourceList object that contains the first page
-pods = core_v1.Pod.list(namespace="kube-system", limit=10)
+pods = k8s.core.v1.Pod.list(namespace="kube-system", limit=10)
 print(f"First page has {len(pods.items)} items")
 
 # Access the items directly using the items attribute
@@ -211,7 +209,7 @@ This plugin enables full type checking for scheme.get() calls when the kind name
 ```python
 from cloudcoil import scheme
 
-# This will be correctly typed as batch_v1.Job
+# This will be correctly typed as k8s.batch.v1.Job
 job_class = scheme.get("Job")
 
 # Type checking works on the returned class

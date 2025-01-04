@@ -191,22 +191,22 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
-    { name = "cloudcoil-models-kubernetes", version = "1.30.8.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or extra != 'extra-9-cloudcoil-kubernetes-1-31'" },
-    { name = "cloudcoil-models-kubernetes", version = "1.31.4.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31'" },
+    { name = "cloudcoil-models-kubernetes", version = "1.30.8.2", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30'" },
+    { name = "cloudcoil-models-kubernetes", version = "1.31.4.2", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31' or extra != 'extra-9-cloudcoil-kubernetes-1-30'" },
 ]
 codegen = [
     { name = "datamodel-code-generator", extra = ["http"] },
     { name = "ruff" },
 ]
 kubernetes = [
-    { name = "cloudcoil-models-kubernetes", version = "1.30.8.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or extra != 'extra-9-cloudcoil-kubernetes-1-31'" },
-    { name = "cloudcoil-models-kubernetes", version = "1.31.4.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31'" },
+    { name = "cloudcoil-models-kubernetes", version = "1.30.8.2", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30'" },
+    { name = "cloudcoil-models-kubernetes", version = "1.31.4.2", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31' or extra != 'extra-9-cloudcoil-kubernetes-1-30'" },
 ]
 kubernetes-1-30 = [
-    { name = "cloudcoil-models-kubernetes", version = "1.30.8.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "cloudcoil-models-kubernetes", version = "1.30.8.2", source = { registry = "https://pypi.org/simple" } },
 ]
 kubernetes-1-31 = [
-    { name = "cloudcoil-models-kubernetes", version = "1.31.4.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "cloudcoil-models-kubernetes", version = "1.31.4.2", source = { registry = "https://pypi.org/simple" } },
 ]
 test = [
     { name = "pytest" },
@@ -266,7 +266,25 @@ dev = [
 
 [[package]]
 name = "cloudcoil-models-kubernetes"
-version = "1.30.8.1"
+version = "1.30.8.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and python_full_version < '4.0'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
+    "python_full_version >= '4.0'",
+]
+dependencies = [
+    { name = "cloudcoil", marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f6/e2/3b4199a41e2e53700f616b7eb5eb7fa8181311904c8c2d49b167bb974ee8/cloudcoil_models_kubernetes-1.30.8.2.tar.gz", hash = "sha256:23302527edc6655a62f104fb0ef2e7deef7206d75014ffa530114044ebe2b242", size = 209061 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2b/65/3b10c57e94da1e16e7af06de6b25ef625da331c3e1ef4ee1778691c73242/cloudcoil_models_kubernetes-1.30.8.2-py3-none-any.whl", hash = "sha256:ad90ef0b1ecad612e23f6aad3f37bca7072e82f89aa96234a6d834a8c3d5ef1a", size = 188887 },
+]
+
+[[package]]
+name = "cloudcoil-models-kubernetes"
+version = "1.31.4.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.12' and python_full_version < '4.0'",
@@ -277,27 +295,9 @@ resolution-markers = [
 dependencies = [
     { name = "cloudcoil" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4b/c2/71045087383cdb56131aaaf2912b25e22dc62447d812a6a5c7c8bc7a0572/cloudcoil_models_kubernetes-1.30.8.1.tar.gz", hash = "sha256:dfdda3c8e000b896d2fa622752e2b98c34825532c5190d3f7283d4bb228160f5", size = 214444 }
+sdist = { url = "https://files.pythonhosted.org/packages/06/f8/c0cfcaba144cf604fb7ac20b3aae8be0faa1c3e3850888359019026dfd93/cloudcoil_models_kubernetes-1.31.4.2.tar.gz", hash = "sha256:d85b581115e1e6f612bc90d3881b7f6d0244e7169c62dd441b2c53433bd877b7", size = 214656 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1b/97/5900c621dc4dcf3f2bcb0c4b3e09a2b76e260541c82239a27f1b1607564b/cloudcoil_models_kubernetes-1.30.8.1-py3-none-any.whl", hash = "sha256:613756d1dfc0b863af7d71379453525c6b9dd2e4b6343407f79bf5fa1bb72aba", size = 195333 },
-]
-
-[[package]]
-name = "cloudcoil-models-kubernetes"
-version = "1.31.4.1"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.12' and python_full_version < '4.0'",
-    "python_full_version == '3.11.*'",
-    "python_full_version < '3.11'",
-    "python_full_version >= '4.0'",
-]
-dependencies = [
-    { name = "cloudcoil", marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/2e/69/9f1ef92a06a036ec9648d0c23ce866c20ae1423e26f503dae31a2615577d/cloudcoil_models_kubernetes-1.31.4.1.tar.gz", hash = "sha256:fff665e42a81877dd5d21fb1e63c902daf2c74c1592ecba7f5040855acdd5116", size = 214436 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/90/33/7f12b1a6afb2332e72d3b22e6d659def68717f4ea2c5e2a7ab3c95204ffd/cloudcoil_models_kubernetes-1.31.4.1-py3-none-any.whl", hash = "sha256:d8e7f296894db2178291c27e0d07dec661ee2da4ef5bd5bc3f3b5f38b7707add", size = 195334 },
+    { url = "https://files.pythonhosted.org/packages/3c/c8/ea6b0ecc6b8c0174bdd727f61a4bea8086c356a448135b782f85f34b5e46/cloudcoil_models_kubernetes-1.31.4.2-py3-none-any.whl", hash = "sha256:30acace0687aa7397749b19d2a8c9b3ba92129c7d600e65074e9938d90fd7d3c", size = 196758 },
 ]
 
 [[package]]
