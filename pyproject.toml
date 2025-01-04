@@ -1,6 +1,6 @@
 [project]
 name = "cloudcoil"
-version = "100.100.100dev100"
+version = "0.1.0dev0"
 description = "Cloud native made easy with Python"
 authors = [{ name = "Sambhav Kothari", email = "sambhavs.email@gmail.com" }]
 maintainers = [{ name = "Sambhav Kothari", email = "sambhavs.email@gmail.com" }]
@@ -59,7 +59,7 @@ select = [
 ignore = ["E203", "B008", "N818", "E501", "B904"]
 
 [tool.pytest.ini_options]
-addopts = "-ra -q --cov=cloudcoil --cov-report=xml --cov-report=term -vvv --junitxml=junit.xml -o junit_family=legacy"
+addopts = "-ra -q --import-mode=importlib --cov=cloudcoil --cov-report=xml --cov-report=term -vvv --junitxml=junit.xml -o junit_family=legacy"
 testpaths = ["tests"]
 markers = ["configure_test_cluster: Configure cloudcoil test cluster"]
 asyncio_mode = "auto"
@@ -91,15 +91,15 @@ plugins = ['pydantic.mypy', 'cloudcoil.mypy']
 cloudcoil = "cloudcoil._testing.plugin"
 
 [tool.coverage.run]
-omit = ["cloudcoil/models/**"]
+omit = [
+    "cloudcoil/models/**",
+    "cloudcoil/codegen/_tomllib/**",
+    "cloudcoil/apimachinery.py",
+    "cloudcoil/_pydantic.py",
+]
 
 [tool.hatch.build.targets.wheel]
 only-include = ["cloudcoil"]
 
 [tool.uv]
-conflicts = [
-    [
-      { extra = "kubernetes-1-30" },
-      { extra = "kubernetes-1-31" },
-    ],
-]
+conflicts = [[{ extra = "kubernetes-1-30" }, { extra = "kubernetes-1-31" }]]

@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import httpx
 from cloudcoil._pydantic import BaseModel
@@ -23,7 +23,7 @@ class Substitution(BaseModel):
 class ModelConfig(BaseModel):
     name: str
     input_: Annotated[str, Field(alias="input")]
-    mode: Literal["basemodel", "resource"] = "resource"
+    output: Path = Path("cloudcoil/models")
     substitute: Annotated[
         list[Substitution],
         AfterValidator(
@@ -141,7 +141,7 @@ def generate_extra_data(schema: dict) -> dict:
 
 
 def generate(config: ModelConfig):
-    output_dir = Path("cloudcoil") / "models" / config.name
+    output_dir = config.output / config.name
     if output_dir.exists():
         raise ValueError(f"Output directory {output_dir} already exists")
     workdir = Path(tempfile.mkdtemp())
