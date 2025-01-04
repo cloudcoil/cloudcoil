@@ -4,11 +4,6 @@ from collections import deque
 from pathlib import Path
 
 
-def count_dots(dots_str: str) -> int:
-    """Count the number of dots."""
-    return len(dots_str)
-
-
 def get_package_from_path(file_path: str, base_dir: str) -> str:
     """Convert a file path to a package path relative to base_dir."""
     abs_base_dir = os.path.abspath(base_dir)
@@ -31,43 +26,41 @@ def process_file(file_path: str, base_package: str, base_dir: str) -> None:
         base_package: The base package being processed
         base_dir: The base working directory
     """
-    try:
-        current_package = get_package_from_path(file_path, base_dir)
-        current_parts = current_package.split(".")
-        base_parts = base_package.split(".")
+    current_package = get_package_from_path(file_path, base_dir)
+    current_parts = current_package.split(".")
+    base_parts = base_package.split(".")
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
+    with open(file_path, "r", encoding="utf-8") as f:
+        content = f.read()
 
-        pattern = r"(from\s+)(\.+)([a-zA-Z0-9_.]*)(\s+)(import.*)"
+    pattern = r"(from\s+)(\.+)([a-zA-Z0-9_.]*)(\s+)(import.*)"
 
-        modifications = []
-        modified_content = content
+    modifications = []
+    modified_content = content
 
-        for match in re.finditer(pattern, content):
-            from_part = match.group(1)
-            dots = match.group(2)
-            module = match.group(3)
-            space = match.group(4)
-            import_part = match.group(5)
+    for match in re.finditer(pattern, content):
+        from_part = match.group(1)
+        dots = match.group(2)
+        module = match.group(3)
+        space = match.group(4)
+        import_part = match.group(5)
 
-            if len(dots) > len(current_parts) - len(base_parts):
-                root_pkg = ".".join(current_parts[: len(current_parts) - len(dots)])
-                if module:
-                    new_module = f"{root_pkg}.{module}" if root_pkg else module
-                else:
-                    new_module = root_pkg
-                new_import = f"{from_part}{new_module}{space}{import_part}"
-                old_import = match.group(0)
-                modified_content = modified_content.replace(old_import, new_import)
-                modifications.append((old_import, new_import))
+        if len(dots) > len(current_parts):
+            raise ValueError(f"Invalid import in {file_path}: {match.group(0)}")
+        if len(dots) > len(current_parts) - len(base_parts):
+            root_pkg = ".".join(current_parts[: len(current_parts) - len(dots)])
+            if module:
+                new_module = f"{root_pkg}.{module}" if root_pkg else module
+            else:
+                new_module = root_pkg
+            new_import = f"{from_part}{new_module}{space}{import_part}"
+            old_import = match.group(0)
+            modified_content = modified_content.replace(old_import, new_import)
+            modifications.append((old_import, new_import))
 
-        if modifications:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(modified_content)
-
-    except Exception:
-        pass
+    if modifications:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(modified_content)
 
 
 def rewrite_imports(base_package: str, base_dir: str | Path) -> None:

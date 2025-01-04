@@ -59,7 +59,7 @@ select = [
 ignore = ["E203", "B008", "N818", "E501", "B904"]
 
 [tool.pytest.ini_options]
-addopts = "-ra -q --import-mode=importlib --cov=cloudcoil --cov-report=xml --cov-report=term -vvv --junitxml=junit.xml -o junit_family=legacy"
+addopts = "-n auto -ra -q --import-mode=importlib --cov=cloudcoil --cov-report=xml --cov-report=term -vvv --junitxml=junit.xml -o junit_family=legacy"
 testpaths = ["tests"]
 markers = ["configure_test_cluster: Configure cloudcoil test cluster"]
 asyncio_mode = "auto"
@@ -82,6 +82,7 @@ dev = [
     "ipython>=8.12.3",
     "pytest-sugar>=1.0.0",
     "pytest-asyncio>=0.25.0",
+    "pytest-xdist>=3.6.1",
 ]
 
 [tool.mypy]
@@ -104,3 +105,19 @@ only-include = ["cloudcoil"]
 
 [tool.uv]
 conflicts = [[{ extra = "kubernetes-1-30" }, { extra = "kubernetes-1-31" }]]
+
+[[tool.cloudcoil.codegen.models]]
+# Unique name for the models
+# This will be used as the name for the setuptools entrypoints
+namespace = "cloudcoil"
+# The input OpenAPI spec
+input = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.31.4/api/openapi-spec/swagger.json"
+mode = "base"
+generate-init = false
+generate-py-typed = false
+# Rename the definitions to a more pythonic name
+# This is a list of regex substitutions
+transformations = [
+    { match = "^io\\.k8s\\.apimachinery\\..*\\.(.+)", replace = "apimachinery.\\g<1>"},
+    { match = "^(.+)$", exclude = true },
+]

@@ -1,4 +1,5 @@
 import random
+import shutil
 import string
 import tempfile
 
@@ -45,8 +46,21 @@ def test_cluster(request):
         )
         response = httpx.get(url, follow_redirects=True)
         response.raise_for_status()
-        k3d_binary_path.write_bytes(response.content)
-        k3d_binary_path.chmod(0o755)
+
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            tmp_file.write(response.content)
+            tmp_path = Path(tmp_file.name)
+
+        tmp_path.chmod(0o755)
+        try:
+            tmp_path.rename(k3d_binary_path)
+        except OSError:
+            # In case another process created the file first
+            if not k3d_binary_path.exists():
+                shutil.move(str(tmp_path), str(k3d_binary_path))
+            else:
+                tmp_path.unlink()
+
     k3d_binary = str(k3d_binary_path)
     # Create the cluster
     # check if the cluster already exists

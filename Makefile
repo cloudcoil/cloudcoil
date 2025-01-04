@@ -35,20 +35,5 @@ prepare-for-pr: fix-lint lint test
 .PHONY: gen-models
 gen-models:
 	rm -rf cloudcoil/apimachinery.py
-	uv run python scripts/apimachinery_gen.py
-	uv run datamodel-codegen \
-		--input processed_swagger.json \
-		--snake-case-field \
-		--target-python-version 3.10 \
-		--output output \
-		--output-model-type pydantic_v2.BaseModel \
-		--enum-field-as-literal all \
-		--input-file-type jsonschema \
-		--disable-appending-item-suffix \
-		--disable-timestamp \
-		--base-class cloudcoil._pydantic.BaseModel \
-		--use-annotated \
-		--use-default-kwarg \
-		--use-default
-	mv output/apimachinery.py cloudcoil/apimachinery.py
+	uv run cloudcoil-model-codegen
 	$(MAKE) fix-lint
