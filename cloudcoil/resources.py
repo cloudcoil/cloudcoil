@@ -303,7 +303,7 @@ class ResourceList(BaseResource, Generic[T]):
             resource_list = await resource_list.async_get_next_page()
 
     def __len__(self):
-        return len(self.items) + self.metadata.remaining_item_count
+        return len(self.items) + (self.metadata.remaining_item_count or 0)
 
 
 class _Scheme:

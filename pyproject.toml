@@ -18,6 +18,7 @@ dependencies = [
     "httpx",
     "pyyaml>=6.0.2",
     "typing_extensions>=4.0.0; python_version <= '3.10'",
+    "cloudcoil-models-kubernetes>=1.29.12.0",
 ]
 keywords = ["cloud-native", "kubernetes", "pydantic", "python", "async"]
 
@@ -28,8 +29,10 @@ cloudcoil-model-codegen = "cloudcoil.codegen.generator:main"
 test = ["pytest"]
 codegen = ["datamodel-code-generator[http]~=0.26.4", "ruff"]
 kubernetes = ["cloudcoil.models.kubernetes"]
+kubernetes-1-32 = ["cloudcoil.models.kubernetes~=1.32.0"]
 kubernetes-1-31 = ["cloudcoil.models.kubernetes~=1.31.0"]
 kubernetes-1-30 = ["cloudcoil.models.kubernetes~=1.30.0"]
+kubernetes-1-29 = ["cloudcoil.models.kubernetes~=1.29.0"]
 all = ["cloudcoil.models.kubernetes"]
 
 
@@ -106,7 +109,14 @@ omit = [
 only-include = ["cloudcoil"]
 
 [tool.uv]
-conflicts = [[{ extra = "kubernetes-1-30" }, { extra = "kubernetes-1-31" }]]
+conflicts = [
+    [
+        { extra = "kubernetes-1-29" },
+        { extra = "kubernetes-1-30" },
+        { extra = "kubernetes-1-31" },
+        { extra = "kubernetes-1-32" },
+    ],
+]
 
 [[tool.cloudcoil.codegen.models]]
 # Unique name for the models
@@ -120,6 +130,6 @@ generate-py-typed = false
 # Rename the definitions to a more pythonic name
 # This is a list of regex substitutions
 transformations = [
-    { match = "^io\\.k8s\\.apimachinery\\..*\\.(.+)", replace = "apimachinery.\\g<1>"},
+    { match = "^io\\.k8s\\.apimachinery\\..*\\.(.+)", replace = "apimachinery.\\g<1>" },
     { match = "^(.+)$", exclude = true },
 ]

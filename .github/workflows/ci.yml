@@ -10,7 +10,7 @@ on:
     branches:
       - main
 jobs:
-  test:
+  test-python:
     strategy:
       fail-fast: false
       matrix:
@@ -39,7 +39,6 @@ jobs:
         run: make -j8 lint test
 
       - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -50,4 +49,75 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-  
+
+  test-k8s:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: ["1-29", "1-30", "1-31", "1-32"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: '3.13'
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --extra "kubernetes-${{ matrix.k8s-version }}" --dev
+
+      - name: Run Checks
+        run: make -j8 lint test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: cloudcoil/cloudcoil
+    
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  test-provider:
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster-provider: [k3d, kind]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: '3.13'
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --extra all --dev
+
+      - name: Run Checks
+        run: make -j8 lint test
+        env:
+          CLUSTER_PROVIDER: ${{ matrix.cluster-provider }}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: cloudcoil/cloudcoil
+    
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

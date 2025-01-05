@@ -17,6 +17,7 @@
 - 🧪 **Testing Ready** - Built-in pytest fixtures for K8s integration tests
 - 📦 **Zero Config** - Works with your existing kubeconfig
 
+
 ## 🔧 Installation
 
 Using [uv](https://github.com/astral-sh/uv) (recommended):
@@ -26,9 +27,10 @@ Using [uv](https://github.com/astral-sh/uv) (recommended):
 uv add cloudcoil[kubernetes]
 
 # Install with specific Kubernetes version compatibility
+uv add cloudcoil[kubernetes-1-29]
 uv add cloudcoil[kubernetes-1-30]
-# or 
 uv add cloudcoil[kubernetes-1-31]
+uv add cloudcoil[kubernetes-1-32]
 ```
 
 Using pip:
