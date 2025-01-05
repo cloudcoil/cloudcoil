@@ -140,18 +140,25 @@ class Config:
         self._rest_mapping: dict[GVK, Any] = {}
 
     def _create_rest_mapper(self):
-        # Check if version if greater than 1.30
+        # Check kubernetes version first
         version_response = self.client.get("/version")
         if version_response.status_code != 200:
             raise ValueError(f"Failed to get version: {version_response.text}")
         version_data = version_response.json()
-        major, minor = version_data["major"], version_data["minor"]
-        if major == 1 and minor < 30:
-            raise ValueError(f"Kubernetes version {major}.{minor} is not supported")
+        major, minor = int(version_data["major"]), int(version_data["minor"])
 
-        # Use the discovery client to get the API endpoints
-        # and map the gvk to the correct endpoint
-        # We will be getting the aggregated discovery information
+        # Try aggregated discovery for 1.30+
+        if major > 1 or (major == 1 and minor >= 30):
+            try:
+                if self._try_aggregated_discovery():
+                    return
+            except Exception:
+                pass  # Fall back to traditional discovery
+
+        # Traditional discovery for older versions or fallback
+        self._traditional_discovery()
+
+    def _try_aggregated_discovery(self) -> bool:
         api_response = self.client.get(
             "/api",
             headers={
@@ -159,9 +166,8 @@ class Config:
             },
         )
         if api_response.status_code != 200:
-            raise ValueError(f"Failed to get API: {api_response.text}")
-        api_data = api_response.json()
-        self._process_api_discovery(api_data)
+            return False
+        self._process_api_discovery(api_response.json())
 
         apis_response = self.client.get(
             "/apis",
@@ -170,9 +176,32 @@ class Config:
             },
         )
         if apis_response.status_code != 200:
+            return False
+        self._process_api_discovery(apis_response.json())
+        return True
+
+    def _traditional_discovery(self):
+        # Get core API resources
+        api_response = self.client.get("/api")
+        if api_response.status_code == 200:
+            for version in api_response.json().get("versions", []):
+                version_response = self.client.get(f"/api/{version}")
+                if version_response.status_code == 200:
+                    self._process_api_resources("", version, version_response.json())
+
+        # Get API groups and all their versions
+        apis_response = self.client.get("/apis")
+        if apis_response.status_code != 200:
             raise ValueError(f"Failed to get APIs: {apis_response.text}")
-        apis_data = apis_response.json()
-        self._process_api_discovery(apis_data)
+
+        for group in apis_response.json().get("groups", []):
+            group_name = group["name"]
+            # Process all versions instead of just preferred
+            for version_data in group["versions"]:
+                version = version_data["version"]
+                group_response = self.client.get(f"/apis/{group_name}/{version}")
+                if group_response.status_code == 200:
+                    self._process_api_resources(group_name, version, group_response.json())
 
     def _process_api_discovery(self, api_discovery):
         if not isinstance(api_discovery, dict) or "items" not in api_discovery:
@@ -180,9 +209,7 @@ class Config:
 
         for api in api_discovery["items"]:
             group = api.get("metadata", {}).get("name", "")
-            versions = api.get("versions", [])
-
-            for version_data in versions:
+            for version_data in api.get("versions", []):
                 version = version_data.get("version")
                 if not version:
                     continue
@@ -196,12 +223,28 @@ class Config:
                         continue
 
                     namespaced = scope == "Namespaced"
-                    # construct api_version using group and version
                     api_version = f"{group}/{version}" if group != "" else version
                     self._rest_mapping[GVK(api_version=api_version, kind=kind)] = {
                         "namespaced": namespaced,
                         "resource": resource,
                     }
+
+    def _process_api_resources(self, group: str, version: str, data: dict):
+        api_version = f"{group}/{version}" if group else version
+
+        for resource in data.get("resources", []):
+            # Skip sub-resources like pods/status
+            if "/" in resource["name"]:
+                continue
+
+            kind = resource["kind"]
+            namespaced = resource["namespaced"]
+            resource_name = resource["name"]
+
+            self._rest_mapping[GVK(api_version=api_version, kind=kind)] = {
+                "namespaced": namespaced,
+                "resource": resource_name,
+            }
 
     # Overload to allow for both sync and async clients
     @overload
