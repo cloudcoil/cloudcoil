@@ -1,12 +1,22 @@
 """Tests for cloudcoil package."""
 
+import os
+from importlib.metadata import version
+
 import pytest
 
 import cloudcoil.models.kubernetes as k8s
 from cloudcoil.apimachinery import ObjectMeta
 
+k8s_version = ".".join(version("cloudcoil.models.kubernetes").split(".")[:3])
+cluster_provider = os.environ.get("CLUSTER_PROVIDER", "kind")
 
-@pytest.mark.configure_test_cluster(cluster_name="test-cloudcoil-v1.31", remove=False)
+
+@pytest.mark.configure_test_cluster(
+    cluster_name=f"test-cloudcoil-sync-v{k8s_version}",
+    version=f"v{k8s_version}",
+    provider=cluster_provider,
+)
 def test_e2e(test_config):
     with test_config:
         assert k8s.core.v1.Service.get("kubernetes", "default").metadata.name == "kubernetes"
@@ -25,27 +35,9 @@ def test_e2e(test_config):
 
 
 @pytest.mark.configure_test_cluster(
-    cluster_name="test-cloudcoil-v1.29", remove=True, version="v1.29.12"
-)
-def test_e2e_traditional(test_config):
-    with test_config:
-        assert k8s.core.v1.Service.get("kubernetes", "default").metadata.name == "kubernetes"
-        output = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
-        name = output.metadata.name
-        assert k8s.core.v1.Namespace.get(name).metadata.name == name
-        output.metadata.annotations = {"test": "test"}
-        output = output.update()
-        assert output.metadata.annotations == {"test": "test"}
-        assert output.remove(dry_run=True).metadata.name == name
-        assert (
-            k8s.core.v1.Namespace.delete(name, grace_period_seconds=0).status.phase == "Terminating"
-        )
-        assert len(k8s.core.v1.Pod.list(all_namespaces=True, limit=1)) > 1
-        assert len(k8s.core.v1.Pod.list(all_namespaces=True, limit=1).items) == 1
-
-
-@pytest.mark.configure_test_cluster(
-    cluster_name="test-cloudcoil-v1.30", remove=False, version="v1.30.8"
+    cluster_name=f"test-cloudcoil-async-v{k8s_version}",
+    version=f"v{k8s_version}",
+    provider=cluster_provider,
 )
 async def test_async_e2e(test_config):
     with test_config:
