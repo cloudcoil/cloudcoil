@@ -1,12 +1,11 @@
 import re
+from pathlib import Path
 
 import pytest
 
 from cloudcoil.codegen.generator import ModelConfig, Substitution, generate, process_definitions
 
-K8S_OPENAPI_URL = (
-    "https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/swagger.json"
-)
+K8S_OPENAPI_URL = str(Path(__file__).parent / "data" / "k8s-swagger.json")
 
 
 @pytest.fixture

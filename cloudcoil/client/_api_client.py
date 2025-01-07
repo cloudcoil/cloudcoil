@@ -1,7 +1,9 @@
 from typing import Any, Generic, Literal, Type, TypeVar
 
 import httpx
+from pydantic import TypeAdapter
 
+from cloudcoil.apimachinery import Status
 from cloudcoil.client.errors import APIError, ResourceAlreadyExists, ResourceNotFound
 from cloudcoil.resources import DEFAULT_PAGE_LIMIT, Resource, ResourceList
 
@@ -48,6 +50,15 @@ class _BaseAPIClient(Generic[T]):
                 f"Resource kind='{self.kind.__name__}', {namespace=}, {name=} not found"
             )
         return self.kind.model_validate_json(response.content)  # type: ignore
+
+    def _handle_delete_response(
+        self, response: httpx.Response, namespace: str, name: str
+    ) -> T | Status:
+        if response.status_code == 404:
+            raise ResourceNotFound(
+                f"Resource kind='{self.kind.__name__}', {namespace=}, {name=} not found"
+            )
+        return TypeAdapter(Status | self.kind).validate_json(response.content)
 
     def _handle_create_response(self, response: httpx.Response) -> T:
         if response.status_code == 409:
@@ -110,7 +121,7 @@ class APIClient(_BaseAPIClient[T]):
         dry_run: bool = True,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
-    ) -> T:
+    ) -> T | Status:
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
         params: dict[str, Any] = {}
@@ -121,7 +132,7 @@ class APIClient(_BaseAPIClient[T]):
         if grace_period_seconds:
             params["gracePeriodSeconds"] = grace_period_seconds
         response = self._client.delete(url, params=params)
-        return self._handle_get_response(response, namespace, name)
+        return self._handle_delete_response(response, namespace, name)
 
     def remove(
         self,
@@ -129,7 +140,7 @@ class APIClient(_BaseAPIClient[T]):
         dry_run: bool = True,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
-    ) -> T:
+    ) -> T | Status:
         if not (body.metadata and body.metadata.name):
             raise ValueError(f"metadata.name must be set for {body=}")
         namespace = body.metadata.namespace or self.default_namespace
@@ -178,6 +189,33 @@ class APIClient(_BaseAPIClient[T]):
             "limit": limit,
         }
         return output
+
+    def delete_all(  # renamed from delete_collection
+        self,
+        namespace: str | None = None,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+        label_selector: str | None = None,
+        field_selector: str | None = None,
+    ) -> ResourceList[T]:
+        namespace = namespace or self.default_namespace
+        url = self._build_url(namespace=namespace)
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        if propagation_policy:
+            params["propagationPolicy"] = propagation_policy.capitalize()
+        if grace_period_seconds:
+            params["gracePeriodSeconds"] = grace_period_seconds
+        if label_selector:
+            params["labelSelector"] = label_selector
+        if field_selector:
+            params["fieldSelector"] = field_selector
+        response = self._client.delete(url, params=params)
+        if not response.is_success:
+            raise APIError(response.json())
+        return ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
 
 
 class AsyncAPIClient(_BaseAPIClient[T]):
@@ -233,7 +271,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         dry_run: bool = True,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
-    ) -> T:
+    ) -> T | Status:
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
         params: dict[str, Any] = {}
@@ -244,7 +282,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         if grace_period_seconds:
             params["gracePeriodSeconds"] = grace_period_seconds
         response = await self._client.delete(url, params=params)
-        return self._handle_get_response(response, namespace, name)
+        return self._handle_delete_response(response, namespace, name)
 
     async def remove(
         self,
@@ -252,7 +290,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         dry_run: bool = True,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
-    ) -> T:
+    ) -> T | Status:
         if not (body.metadata and body.metadata.name):
             raise ValueError(f"metadata.name must be set for {body=}")
         namespace = body.metadata.namespace or self.default_namespace
@@ -301,3 +339,30 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             "limit": limit,
         }
         return output
+
+    async def delete_all(  # renamed from delete_collection
+        self,
+        namespace: str | None = None,
+        dry_run: bool = True,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+        label_selector: str | None = None,
+        field_selector: str | None = None,
+    ) -> ResourceList[T]:
+        namespace = namespace or self.default_namespace
+        url = self._build_url(namespace=namespace)
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        if propagation_policy:
+            params["propagationPolicy"] = propagation_policy.capitalize()
+        if grace_period_seconds:
+            params["gracePeriodSeconds"] = grace_period_seconds
+        if label_selector:
+            params["labelSelector"] = label_selector
+        if field_selector:
+            params["fieldSelector"] = field_selector
+        response = await self._client.delete(url, params=params)
+        if not response.is_success:
+            raise APIError(response.json())
+        return ResourceList[self.kind].model_validate_json(response.content)  # type: ignore

@@ -3,7 +3,7 @@ from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Annotated, Any, Generic, Literal, TypeVar
 
-from cloudcoil.apimachinery import ListMeta, ObjectMeta
+from cloudcoil.apimachinery import ListMeta, ObjectMeta, Status
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -150,10 +150,10 @@ class Resource(BaseResource):
         cls,
         name: str,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
-    ) -> Self:
+    ) -> Self | Status:
         config = context.active_config
         return config.client_for(cls, sync=True).delete(
             name,
@@ -168,10 +168,10 @@ class Resource(BaseResource):
         cls,
         name: str,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
-    ) -> Self:
+    ) -> Self | Status:
         config = context.active_config
         return await config.client_for(cls, sync=False).delete(
             name,
@@ -183,10 +183,10 @@ class Resource(BaseResource):
 
     def remove(
         self,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
-    ) -> Self:
+    ) -> Self | Status:
         config = context.active_config
         return config.client_for(self.__class__, sync=True).remove(
             self,
@@ -197,10 +197,10 @@ class Resource(BaseResource):
 
     async def async_remove(
         self,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
-    ) -> Self:
+    ) -> Self | Status:
         config = context.active_config
         return await config.client_for(self.__class__, sync=False).remove(
             self,
@@ -247,6 +247,46 @@ class Resource(BaseResource):
             field_selector=field_selector,
             label_selector=label_selector,
             limit=limit,
+        )
+
+    @classmethod
+    def delete_all(
+        cls,
+        namespace: str | None = None,
+        dry_run: bool = False,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+        label_selector: str | None = None,
+        field_selector: str | None = None,
+    ) -> "ResourceList[Self]":
+        config = context.active_config
+        return config.client_for(cls, sync=True).delete_all(
+            namespace=namespace,
+            dry_run=dry_run,
+            propagation_policy=propagation_policy,
+            grace_period_seconds=grace_period_seconds,
+            label_selector=label_selector,
+            field_selector=field_selector,
+        )
+
+    @classmethod
+    async def async_delete_all(
+        cls,
+        namespace: str | None = None,
+        dry_run: bool = False,
+        propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
+        grace_period_seconds: int | None = None,
+        label_selector: str | None = None,
+        field_selector: str | None = None,
+    ) -> "ResourceList[Self]":
+        config = context.active_config
+        return await config.client_for(cls, sync=False).delete_all(
+            namespace=namespace,
+            dry_run=dry_run,
+            propagation_policy=propagation_policy,
+            grace_period_seconds=grace_period_seconds,
+            label_selector=label_selector,
+            field_selector=field_selector,
         )
 
 
