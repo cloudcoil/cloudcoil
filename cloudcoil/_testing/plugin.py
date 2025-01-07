@@ -16,6 +16,7 @@ from cloudcoil.client import Config
 
 @pytest.fixture
 def test_cluster(request):
+    parameters = {}
     if "configure_test_cluster" in request.keywords:
         parameters = dict(request.keywords["configure_test_cluster"].kwargs)
 
