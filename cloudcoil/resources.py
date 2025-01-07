@@ -1,39 +1,23 @@
-import sys
-from importlib.metadata import entry_points
-from pathlib import Path
-from typing import Annotated, Any, Generic, Literal, TypeVar
-
-from cloudcoil.apimachinery import ListMeta, ObjectMeta, Status
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 import importlib
 import inspect
 import pkgutil
 import sys
+from importlib.metadata import entry_points
+from pathlib import Path
 from types import ModuleType
-from typing import Type, overload
+from typing import Annotated, Any, Generic, Literal, Type, TypeVar, overload
 
 import yaml
 from pydantic import ConfigDict, Field, model_validator
 
 from cloudcoil._context import context
 from cloudcoil._pydantic import BaseModel
+from cloudcoil.apimachinery import ListMeta, ObjectMeta, Status
 
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-
-import sys
-
-if sys.version_info < (3, 10):
-    pass
-else:
-    pass
 
 
 DEFAULT_PAGE_LIMIT = 50

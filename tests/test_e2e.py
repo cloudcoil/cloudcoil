@@ -27,6 +27,21 @@ def test_e2e(test_config):
         output = output.update()
         assert output.metadata.annotations == {"test": "test"}
         assert output.remove(dry_run=True).metadata.name == name
+        for i in range(3):
+            k8s.core.v1.ConfigMap(
+                metadata=dict(
+                    name=f"test-list-{i}", namespace=output.name, labels={"test": "true"}
+                ),
+                data={"key": f"value{i}"},
+            ).create()
+
+        # Test list with label selector
+        cms = k8s.core.v1.ConfigMap.list(namespace=output.name, label_selector="test=true")
+        assert len(cms.items) == 3
+        k8s.core.v1.ConfigMap.delete_all(namespace=output.name, label_selector="test=true")
+        assert not k8s.core.v1.ConfigMap.list(
+            namespace=output.name, label_selector="test=true"
+        ).items
         assert (
             k8s.core.v1.Namespace.delete(name, grace_period_seconds=0).status.phase == "Terminating"
         )
@@ -53,6 +68,28 @@ async def test_async_e2e(test_config):
         output = await output.async_update()
         assert output.metadata.annotations == {"test": "test"}
         assert (await output.async_remove(dry_run=True)).metadata.name == name
+        for i in range(3):
+            await k8s.core.v1.ConfigMap(
+                metadata=dict(
+                    name=f"test-list-{i}", namespace=output.name, labels={"test": "true"}
+                ),
+                data={"key": f"value{i}"},
+            ).async_create()
+
+        # Test list with label selector
+        cms = await k8s.core.v1.ConfigMap.async_list(
+            namespace=output.name, label_selector="test=true"
+        )
+        assert len(cms.items) == 3
+        await k8s.core.v1.ConfigMap.async_delete_all(
+            namespace=output.name, label_selector="test=true"
+        )
+        assert not (
+            await k8s.core.v1.ConfigMap.async_list(
+                namespace=output.name, label_selector="test=true"
+            )
+        ).items
+
         assert (
             await k8s.core.v1.Namespace.async_delete(name, grace_period_seconds=0)
         ).status.phase == "Terminating"
