@@ -34,7 +34,7 @@ jobs:
         run: uv sync --extra all --dev
 
       - name: Run Checks
-        run: make -j8 lint test
+        run: make lint test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
