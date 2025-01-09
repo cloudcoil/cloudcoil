@@ -16,7 +16,7 @@
 - 🛡️ **Type Safe** - Full mypy support and runtime validation
 - 🧪 **Testing Ready** - Built-in pytest fixtures for K8s integration tests
 - 📦 **Zero Config** - Works with your existing kubeconfig
-
+- 🪶 **Minimal Dependencies** - Only requires httpx, pydantic, and pyyaml
 
 ## 🔧 Installation
 
@@ -92,6 +92,21 @@ k8s.core.v1.Pod.delete("nginx", namespace="default")
 # Or remove the resource instance
 pod = k8s.core.v1.Pod.get("nginx")
 pod.remove()
+```
+
+### Watching Resources
+
+```python
+for event_type, resource in k8s.core.v1.Pod.watch(field_selector="metadata.name=mypod"):
+    # Wait for the pod to be deleted
+    if event_type == "DELETED":
+        break
+
+# You can also use the async watch
+async for event_type, resource in await k8s.core.v1.Pod.async_watch(field_selector="metadata.name=mypod"):
+    # Wait for the pod to be deleted
+    if event_type == "DELETED":
+        break
 ```
 
 ### Context Management

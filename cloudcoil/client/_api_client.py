@@ -1,4 +1,9 @@
-from typing import Any, Generic, Literal, Type, TypeVar
+import asyncio
+import json
+import logging
+import random
+import time
+from typing import Any, AsyncGenerator, Generic, Iterator, Literal, Type, TypeVar
 
 import httpx
 from pydantic import TypeAdapter
@@ -8,6 +13,14 @@ from cloudcoil.client.errors import APIError, ResourceAlreadyExists, ResourceNot
 from cloudcoil.resources import DEFAULT_PAGE_LIMIT, Resource, ResourceList
 
 T = TypeVar("T", bound="Resource")
+
+logger = logging.getLogger(__name__)
+
+WATCH_TIMEOUT_SECONDS = 300
+
+
+class WatchError(Exception):
+    pass
 
 
 class _BaseAPIClient(Generic[T]):
@@ -66,6 +79,38 @@ class _BaseAPIClient(Generic[T]):
         if not response.is_success:
             raise APIError(response.json())
         return self.kind.model_validate_json(response.content)  # type: ignore
+
+    def _build_watch_params(
+        self,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        resource_version: str | None = None,
+        timeout: int = WATCH_TIMEOUT_SECONDS,
+    ) -> tuple[str, dict[str, Any]]:
+        namespace = namespace or self.default_namespace
+        if all_namespaces:
+            namespace = None
+        url = self._build_url(namespace=namespace)
+        params = {
+            "watch": "true",
+            "timeoutSeconds": timeout,
+            "allowWatchBookmarks": "true",
+        }
+        if resource_version:
+            params["resourceVersion"] = resource_version
+        if field_selector:
+            params["fieldSelector"] = field_selector
+        if label_selector:
+            params["labelSelector"] = label_selector
+        return url, params
+
+    def _get_backoff_time(self, retry_count: int) -> float:
+        """Calculate exponential backoff with jitter."""
+        backoff = min(10.0, 0.1 * (2**retry_count))  # Cap at 10 seconds
+        jitter = random.uniform(0, 0.1 * backoff)  # 10% jitter
+        return backoff + jitter
 
 
 class APIClient(_BaseAPIClient[T]):
@@ -217,6 +262,71 @@ class APIClient(_BaseAPIClient[T]):
             raise APIError(response.json())
         return ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
 
+    def watch(
+        self,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        resource_version: str | None = None,
+    ) -> Iterator[tuple[Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"], T]]:
+        retry_count = 0
+        curr_resource_version = resource_version
+
+        while True:
+            try:
+                url, params = self._build_watch_params(
+                    namespace=namespace,
+                    all_namespaces=all_namespaces,
+                    field_selector=field_selector,
+                    label_selector=label_selector,
+                    resource_version=curr_resource_version,
+                )
+
+                with self._client.stream(
+                    "GET", url, params=params, timeout=WATCH_TIMEOUT_SECONDS + 5
+                ) as response:
+                    if response.status_code == 410:  # Gone
+                        curr_resource_version = None
+                        continue
+
+                    response.raise_for_status()
+                    retry_count = 0  # Reset retry counter on successful connection
+
+                    for line in response.iter_lines():
+                        if not line:
+                            continue
+                        event = json.loads(line)
+                        type_ = event["type"]
+                        obj = self.kind.model_validate(event["object"])
+
+                        if type_ == "ERROR":
+                            if "status" in event["object"]:
+                                status = event["object"]["status"]
+                                if status == "Failure":
+                                    reason = event["object"].get("reason", "")
+                                    if reason == "Expired":
+                                        curr_resource_version = None
+                                        break
+                            raise WatchError(f"Watch error: {event}")
+
+                        if obj.metadata and obj.metadata.resource_version:
+                            curr_resource_version = obj.metadata.resource_version
+                        yield type_, obj
+
+            except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
+                if isinstance(e, httpx.HTTPStatusError):
+                    if e.response.status_code == 410:  # Gone
+                        curr_resource_version = None
+                        continue
+                    if e.response.status_code == 404:  # Not Found
+                        raise ResourceNotFound("Watch endpoint not found") from e
+
+                retry_count += 1
+                backoff = self._get_backoff_time(retry_count)
+                logger.warning(f"Watch connection failed, retrying in {backoff:.1f}s: {e}")
+                time.sleep(backoff)
+
 
 class AsyncAPIClient(_BaseAPIClient[T]):
     def __init__(
@@ -366,3 +476,70 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         if not response.is_success:
             raise APIError(response.json())
         return ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
+
+    async def watch(
+        self,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        resource_version: str | None = None,
+    ) -> AsyncGenerator[
+        tuple[Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"], T], None
+    ]:
+        retry_count = 0
+        curr_resource_version = resource_version
+
+        while True:
+            try:
+                url, params = self._build_watch_params(
+                    namespace=namespace,
+                    all_namespaces=all_namespaces,
+                    field_selector=field_selector,
+                    label_selector=label_selector,
+                    resource_version=curr_resource_version,
+                )
+
+                async with self._client.stream(
+                    "GET", url, params=params, timeout=WATCH_TIMEOUT_SECONDS + 5
+                ) as response:
+                    if response.status_code == 410:  # Gone
+                        curr_resource_version = None
+                        continue
+
+                    response.raise_for_status()
+                    retry_count = 0  # Reset retry counter on successful connection
+
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                        event = json.loads(line)
+                        type_ = event["type"]
+                        obj = self.kind.model_validate(event["object"])
+
+                        if type_ == "ERROR":
+                            if "status" in event["object"]:
+                                status = event["object"]["status"]
+                                if status == "Failure":
+                                    reason = event["object"].get("reason", "")
+                                    if reason == "Expired":
+                                        curr_resource_version = None
+                                        break
+                            raise WatchError(f"Watch error: {event}")
+
+                        if obj.metadata and obj.metadata.resource_version:
+                            curr_resource_version = obj.metadata.resource_version
+                        yield type_, obj
+
+            except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
+                if isinstance(e, httpx.HTTPStatusError):
+                    if e.response.status_code == 410:  # Gone
+                        curr_resource_version = None
+                        continue
+                    if e.response.status_code == 404:  # Not Found
+                        raise ResourceNotFound("Watch endpoint not found") from e
+
+                retry_count += 1
+                backoff = self._get_backoff_time(retry_count)
+                logger.warning(f"Watch connection failed, retrying in {backoff:.1f}s: {e}")
+                await asyncio.sleep(backoff)

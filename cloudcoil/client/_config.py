@@ -284,6 +284,12 @@ class Config:
         if not self._rest_mapping:
             self._create_rest_mapper()
 
+    def activate(self):
+        self.__enter__()
+
+    def deactivate(self):
+        self.__exit__()
+
     def __enter__(self):
         self.initialize()
         context._enter(self)

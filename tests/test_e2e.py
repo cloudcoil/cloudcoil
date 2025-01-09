@@ -1,6 +1,9 @@
 """Tests for cloudcoil package."""
 
+import asyncio
 import os
+import threading
+import time
 from importlib.metadata import version
 
 import pytest
@@ -16,6 +19,7 @@ cluster_provider = os.environ.get("CLUSTER_PROVIDER", "kind")
     cluster_name=f"test-cloudcoil-sync-v{k8s_version}",
     version=f"v{k8s_version}",
     provider=cluster_provider,
+    remove=False,
 )
 def test_e2e(test_config):
     with test_config:
@@ -42,6 +46,29 @@ def test_e2e(test_config):
         assert not k8s.core.v1.ConfigMap.list(
             namespace=output.name, label_selector="test=true"
         ).items
+
+        # Setup watch before deletion
+        events = []
+
+        def watch_func():
+            with test_config:  # Ensure config is active in the thread
+                events.extend(k8s.core.v1.Namespace.watch(field_selector=f"metadata.name={name}"))
+
+        watch_thread = threading.Thread(target=watch_func)
+        watch_thread.start()
+        time.sleep(1)  # Give the watch time to establish
+
+        # Delete the namespace and observe events
+        assert (
+            k8s.core.v1.Namespace.delete(name, grace_period_seconds=0).status.phase == "Terminating"
+        )
+
+        # Wait for the watch thread to receive events
+        time.sleep(2)
+        assert any(
+            event[0] == "MODIFIED" and event[1].status.phase == "Terminating" for event in events
+        )
+
         assert (
             k8s.core.v1.Namespace.delete(name, grace_period_seconds=0).status.phase == "Terminating"
         )
@@ -53,6 +80,7 @@ def test_e2e(test_config):
     cluster_name=f"test-cloudcoil-async-v{k8s_version}",
     version=f"v{k8s_version}",
     provider=cluster_provider,
+    remove=False,
 )
 async def test_async_e2e(test_config):
     with test_config:
@@ -89,6 +117,30 @@ async def test_async_e2e(test_config):
                 namespace=output.name, label_selector="test=true"
             )
         ).items
+
+        # Setup watch before deletion
+        events = []
+
+        async def watch_func():
+            with test_config:  # Ensure config is active in the thread
+                async for event in await k8s.core.v1.Namespace.async_watch(  # async_watch returns AsyncGenerator directly
+                    field_selector=f"metadata.name={name}"
+                ):
+                    events.append(event)
+
+        asyncio.create_task(watch_func())
+        await asyncio.sleep(1)  # Give the watch time to establish
+
+        # Delete the namespace and observe events
+        assert (
+            await k8s.core.v1.Namespace.async_delete(name, grace_period_seconds=0)
+        ).status.phase == "Terminating"
+
+        # Wait for events
+        await asyncio.sleep(2)
+        assert any(
+            event[0] == "MODIFIED" and event[1].status.phase == "Terminating" for event in events
+        )
 
         assert (
             await k8s.core.v1.Namespace.async_delete(name, grace_period_seconds=0)
