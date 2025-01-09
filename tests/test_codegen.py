@@ -1,9 +1,13 @@
-import re
 from pathlib import Path
 
 import pytest
 
-from cloudcoil.codegen.generator import ModelConfig, Substitution, generate, process_definitions
+from cloudcoil.codegen.generator import (
+    ModelConfig,
+    Transformation,
+    generate,
+    process_definitions,
+)
 
 K8S_OPENAPI_URL = str(Path(__file__).parent / "data" / "k8s-swagger.json")
 
@@ -33,34 +37,24 @@ def model_config(tmp_path):
     return ModelConfig(
         namespace="test.k8s",
         input_=K8S_OPENAPI_URL,
-        substitutions=[
-            Substitution(
-                from_=r"^io\.k8s\.apimachinery\..*\.(.+)",
-                to=r"apimachinery.\g<1>",
+        transformations=[
+            Transformation(
+                match_=r"^io\.k8s\.apimachinery\..*\.(.+)",
+                replace=r"apimachinery.\g<1>",
                 namespace="cloudcoil",
             ),
-            Substitution(
-                from_=r"^io\.k8s\.apiextensions-apiserver\.pkg\.apis\.apiextensions\.(.+)$",
-                to=r"apiextensions.\g<1>",
-            ),
-            Substitution(from_=r"^io\.k8s\.api\.(.+)$", to=r"\g<1>"),
-            Substitution(from_=r"^io\.k8s\.kube-aggregator\.pkg\.apis\.(.+)$", to=r"\g<1>"),
+            Transformation(match_=r"^io\.k8s\.api\.(core|apps.*)$", replace=r"\g<1>"),
+            Transformation(match_=r"^,*$", exclude=True),
         ],
     )
-
-
-def test_substitution():
-    subs = Substitution(from_="io.k8s.api.(.+)", to="k8s.\\1")
-    assert isinstance(subs.from_, re.Pattern)
-    assert subs.to == "k8s.\\1"
 
 
 def test_model_config_validation():
     config = ModelConfig(
         namespace="test",
         input_="test.json",
-        substitutions=[
-            Substitution(from_="test", to="replaced"),
+        transformations=[
+            Transformation(match_="test", replace="replaced"),
         ],
     )
     assert config.namespace == "test"
@@ -200,14 +194,6 @@ def test_generate_without_init_files(tmp_path):
 
 
 def test_model_config_validation_errors():
-    with pytest.raises(ValueError, match="Only transformations can be used"):
-        ModelConfig(
-            namespace="test",
-            input_="test.json",
-            substitutions=[Substitution(from_="test", to="replaced")],
-            transformations=[{"match": "test", "replace": "other"}],
-        )
-
     with pytest.raises(ValueError, match="replace is required"):
         ModelConfig(
             namespace="test",
