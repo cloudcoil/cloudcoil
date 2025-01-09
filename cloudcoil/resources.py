@@ -5,7 +5,17 @@ import sys
 from importlib.metadata import entry_points
 from pathlib import Path
 from types import ModuleType
-from typing import Annotated, Any, Generic, Literal, Type, TypeVar, overload
+from typing import (
+    Annotated,
+    Any,
+    AsyncGenerator,
+    Generic,
+    Iterator,
+    Literal,
+    Type,
+    TypeVar,
+    overload,
+)
 
 import yaml
 from pydantic import ConfigDict, Field, model_validator
@@ -271,6 +281,44 @@ class Resource(BaseResource):
             grace_period_seconds=grace_period_seconds,
             label_selector=label_selector,
             field_selector=field_selector,
+        )
+
+    @classmethod
+    def watch(
+        cls,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        resource_version: str | None = None,
+    ) -> Iterator[tuple[Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"], "Self"]]:
+        config = context.active_config
+        return config.client_for(cls, sync=True).watch(
+            namespace=namespace,
+            all_namespaces=all_namespaces,
+            field_selector=field_selector,
+            label_selector=label_selector,
+            resource_version=resource_version,
+        )
+
+    @classmethod
+    async def async_watch(
+        cls,
+        namespace: str | None = None,
+        all_namespaces: bool = False,
+        field_selector: str | None = None,
+        label_selector: str | None = None,
+        resource_version: str | None = None,
+    ) -> AsyncGenerator[
+        tuple[Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"], "Self"], None
+    ]:
+        config = context.active_config
+        return config.client_for(cls, sync=False).watch(
+            namespace=namespace,
+            all_namespaces=all_namespaces,
+            field_selector=field_selector,
+            label_selector=label_selector,
+            resource_version=resource_version,
         )
 
 
