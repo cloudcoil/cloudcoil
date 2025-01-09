@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from cloudcoil.codegen.generator import ModelConfig, Substitution, generate, process_definitions
+from cloudcoil.codegen.generator import (
+    ModelConfig,
+    Substitution,
+    Transformation,
+    generate,
+    process_definitions,
+)
 
 K8S_OPENAPI_URL = str(Path(__file__).parent / "data" / "k8s-swagger.json")
 
@@ -33,18 +39,14 @@ def model_config(tmp_path):
     return ModelConfig(
         namespace="test.k8s",
         input_=K8S_OPENAPI_URL,
-        substitutions=[
-            Substitution(
-                from_=r"^io\.k8s\.apimachinery\..*\.(.+)",
-                to=r"apimachinery.\g<1>",
+        transformations=[
+            Transformation(
+                match_=r"^io\.k8s\.apimachinery\..*\.(.+)",
+                replace=r"apimachinery.\g<1>",
                 namespace="cloudcoil",
             ),
-            Substitution(
-                from_=r"^io\.k8s\.apiextensions-apiserver\.pkg\.apis\.apiextensions\.(.+)$",
-                to=r"apiextensions.\g<1>",
-            ),
-            Substitution(from_=r"^io\.k8s\.api\.(.+)$", to=r"\g<1>"),
-            Substitution(from_=r"^io\.k8s\.kube-aggregator\.pkg\.apis\.(.+)$", to=r"\g<1>"),
+            Transformation(match_=r"^io\.k8s\.api\.(core|apps.*)$", replace=r"\g<1>"),
+            Transformation(match_=r"^,*$", exclude=True),
         ],
     )
 
