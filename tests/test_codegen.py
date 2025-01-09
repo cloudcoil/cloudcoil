@@ -1,11 +1,9 @@
-import re
 from pathlib import Path
 
 import pytest
 
 from cloudcoil.codegen.generator import (
     ModelConfig,
-    Substitution,
     Transformation,
     generate,
     process_definitions,
@@ -51,18 +49,12 @@ def model_config(tmp_path):
     )
 
 
-def test_substitution():
-    subs = Substitution(from_="io.k8s.api.(.+)", to="k8s.\\1")
-    assert isinstance(subs.from_, re.Pattern)
-    assert subs.to == "k8s.\\1"
-
-
 def test_model_config_validation():
     config = ModelConfig(
         namespace="test",
         input_="test.json",
-        substitutions=[
-            Substitution(from_="test", to="replaced"),
+        transformations=[
+            Transformation(match_="test", replace="replaced"),
         ],
     )
     assert config.namespace == "test"
@@ -202,14 +194,6 @@ def test_generate_without_init_files(tmp_path):
 
 
 def test_model_config_validation_errors():
-    with pytest.raises(ValueError, match="Only transformations can be used"):
-        ModelConfig(
-            namespace="test",
-            input_="test.json",
-            substitutions=[Substitution(from_="test", to="replaced")],
-            transformations=[{"match": "test", "replace": "other"}],
-        )
-
     with pytest.raises(ValueError, match="replace is required"):
         ModelConfig(
             namespace="test",

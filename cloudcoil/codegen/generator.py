@@ -25,12 +25,6 @@ else:
     from . import _tomllib as tomllib
 
 
-class Substitution(BaseModel):
-    from_: Annotated[str | re.Pattern, Field(alias="from"), BeforeValidator(re.compile)]
-    to: str
-    namespace: str | None = None
-
-
 class Transformation(BaseModel):
     match_: Annotated[str | re.Pattern, Field(alias="match"), BeforeValidator(re.compile)]
     replace: str | None = None
@@ -43,7 +37,6 @@ class ModelConfig(BaseModel):
     input_: Annotated[str, Field(alias="input")]
     output: Path | None = None
     mode: Literal["resource", "base"] = "resource"
-    substitutions: list[Substitution] = []
     transformations: list[Transformation] = []
     generate_init: Annotated[bool, Field(alias="generate-init")] = True
     generate_py_typed: Annotated[bool, Field(alias="generate-py-typed")] = True
@@ -53,19 +46,6 @@ class ModelConfig(BaseModel):
 
     @model_validator(mode="after")
     def _add_namespace(self):
-        if self.substitutions and self.transformations:
-            raise ValueError("Only transformations can be used, please remove substitutions")
-
-        if self.substitutions and not self.transformations:
-            for substitution in self.substitutions:
-                self.transformations.append(
-                    Transformation(
-                        match_=substitution.from_,
-                        replace=substitution.to,
-                        namespace=substitution.namespace,
-                    )
-                )
-            self.substitutions = []
         for transformation in self.transformations:
             if transformation.exclude:
                 if transformation.replace or transformation.namespace:
