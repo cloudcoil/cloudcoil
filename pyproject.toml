@@ -61,6 +61,10 @@ select = [
 ]
 ignore = ["E203", "B008", "N818", "E501", "B904"]
 
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names = ["Dynamic*"]
+
+
 [tool.pytest.ini_options]
 addopts = "-n 4 -ra -q --import-mode=importlib --cov=cloudcoil --cov-report=xml --cov-report=term -vvv --junitxml=junit.xml -o junit_family=legacy"
 testpaths = ["tests"]

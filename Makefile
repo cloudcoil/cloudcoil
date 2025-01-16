@@ -1,29 +1,29 @@
 .PHONY: test
 test:
-	uv run pytest
+	uv run --frozen pytest
 
 .PHONY: lint
 lint:
-	uv run ruff check cloudcoil tests
-	uv run ruff format --check cloudcoil tests
-	uv run mypy -p cloudcoil
+	uv run --frozen ruff check cloudcoil tests
+	uv run --frozen ruff format --check cloudcoil tests
+	uv run --frozen mypy -p cloudcoil
 
 .PHONY: fix-lint
 fix-lint:
-	uv run ruff format cloudcoil tests
-	uv run ruff check --fix --unsafe-fixes cloudcoil tests
+	uv run --frozen ruff format cloudcoil tests
+	uv run --frozen ruff check --fix --unsafe-fixes cloudcoil tests
 
 .PHONY: docs-deploy
 docs-deploy:
 	rm -rf docs/index.md
 	cp README.md docs/index.md
-	uv run mkdocs gh-deploy --force
+	uv run --frozen mkdocs gh-deploy --force
 
 .PHONY: docs-serve
 docs-serve:
 	rm -rf docs/index.md
 	cp README.md docs/index.md
-	uv run mkdocs serve
+	uv run --frozen mkdocs serve
 
 .PHONY: prepare-for-pr
 prepare-for-pr: fix-lint lint test
@@ -35,5 +35,5 @@ prepare-for-pr: fix-lint lint test
 .PHONY: gen-models
 gen-models:
 	rm -rf cloudcoil/apimachinery.py
-	uv run cloudcoil-model-codegen
+	uv run --frozen cloudcoil-model-codegen
 	$(MAKE) fix-lint

@@ -22,6 +22,8 @@ cluster_provider = os.environ.get("CLUSTER_PROVIDER", "kind")
     remove=False,
 )
 def test_e2e(test_config):
+    from cloudcoil.resources import get_dynamic_resource
+
     with test_config:
         assert k8s.core.v1.Service.get("kubernetes", "default").metadata.name == "kubernetes"
         output = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
@@ -46,6 +48,24 @@ def test_e2e(test_config):
         assert not k8s.core.v1.ConfigMap.list(
             namespace=output.name, label_selector="test=true"
         ).items
+
+        # Test dynamic ConfigMap
+        DynamicConfigMap = get_dynamic_resource("ConfigMap", "v1")
+        cm = DynamicConfigMap(
+            metadata={"name": "test-cm", "namespace": output.name}, data={"key": "value"}
+        )
+
+        created = cm.create()
+        assert created["data"]["key"] == "value"
+
+        fetched = DynamicConfigMap.get("test-cm", output.name)
+        assert fetched.raw.get("data", {}).get("key") == "value"
+
+        fetched["data"]["new_key"] = "new_value"
+        updated = fetched.update()
+        assert updated.raw.get("data", {}).get("new_key") == "new_value"
+
+        DynamicConfigMap.delete("test-cm", output.name)
 
         # Setup watch before deletion
         events = []
@@ -83,6 +103,8 @@ def test_e2e(test_config):
     remove=False,
 )
 async def test_async_e2e(test_config):
+    from cloudcoil.resources import get_dynamic_resource
+
     with test_config:
         assert (
             await k8s.core.v1.Service.async_get("kubernetes", "default")
@@ -117,6 +139,23 @@ async def test_async_e2e(test_config):
                 namespace=output.name, label_selector="test=true"
             )
         ).items
+
+        # Test dynamic resources
+        DynamicConfigMap = get_dynamic_resource("ConfigMap", "v1")
+        cm = DynamicConfigMap(
+            metadata={"name": "test-cm", "namespace": output.name}, data={"key": "value"}
+        )
+
+        created = await cm.async_create()
+        assert created["data"]["key"] == "value"
+        fetched = DynamicConfigMap.get("test-cm", output.name)
+        assert fetched.raw.get("data", {}).get("key") == "value"
+
+        fetched["data"]["new_key"] = "new_value"
+        updated = await fetched.async_update()
+        assert updated.raw.get("data", {}).get("new_key") == "new_value"
+
+        await DynamicConfigMap.async_delete("test-cm", output.name)
 
         # Setup watch before deletion
         events = []
