@@ -1,10 +1,14 @@
 import base64
+import json
 import os
 import platform
 import ssl
+import subprocess
 import tempfile
+import time
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Literal, Type, TypeVar, overload
+from typing import Any, Callable, Dict, Generator, Literal, Optional, Type, TypeVar, overload
 
 import httpx
 import yaml
@@ -14,7 +18,64 @@ from cloudcoil.client._api_client import APIClient, AsyncAPIClient
 from cloudcoil.resources import GVK, Resource
 from cloudcoil.version import __version__
 
+
+class ExecAuthenticator(httpx.Auth):
+    def __init__(self, exec_config: Dict[str, Any]):
+        self.exec_config = exec_config
+        self._token_cache: Optional[Dict[str, Any]] = None
+        self._token_expiry: Optional[float] = None
+
+    def _execute_command(self) -> Dict[str, Any]:
+        cmd = [self.exec_config["command"]]
+        if "args" in self.exec_config:
+            cmd.extend(self.exec_config["args"])
+
+        env = {}
+        if "env" in self.exec_config:
+            for env_var in self.exec_config["env"]:
+                env[env_var["name"]] = env_var["value"]
+
+        result = subprocess.run(
+            cmd,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return json.loads(result.stdout)
+
+    def _get_token(self) -> Dict[str, Any]:
+        now = time.time()
+
+        if self._token_cache is not None and self._token_expiry is not None:
+            # Add 30-second buffer to prevent edge cases
+            if now < self._token_expiry - 30:
+                return self._token_cache
+
+        status = self._execute_command()
+        self._token_cache = status
+
+        if "expirationTimestamp" in status:
+            expiry = datetime.strptime(status["expirationTimestamp"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
+            self._token_expiry = expiry.timestamp()
+        else:
+            self._token_expiry = None
+
+        return status
+
+    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+        status = self._get_token()
+
+        if "token" in status:
+            token = status["token"]
+            request.headers["Authorization"] = f"Bearer {token}"
+        yield request
+
+
 T = TypeVar("T", bound=Resource)
+Auth = Callable[[httpx.Request], httpx.Request] | httpx.Auth | None
 
 DEFAULT_KUBECONFIG = Path.home() / ".kube" / "config"
 INCLUSTER_TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
@@ -29,7 +90,7 @@ class Config:
         server: str | None = None,
         namespace: str | None = None,
         token: str | None = None,
-        auth: Callable[[httpx.Request], httpx.Request] | None = None,
+        auth: Auth = None,
         cafile: Path | None = None,
         certfile: Path | None = None,
         keyfile: Path | None = None,
@@ -37,7 +98,7 @@ class Config:
     ) -> None:
         self.server = None
         self.namespace = "default"
-        self.auth = None
+        self.auth: Auth = None
         self.cafile = None
         self.certfile = None
         self.keyfile = None
@@ -94,7 +155,9 @@ class Config:
 
             if "namespace" in context_data:
                 self.namespace = context_data["namespace"]
-            if "token" in user_data:
+            if "exec" in user_data:
+                self.auth = ExecAuthenticator(user_data["exec"])
+            elif "token" in user_data:
                 self.token = user_data["token"]
             elif "client-certificate" in user_data and "client-key" in user_data:
                 self.certfile = user_data["client-certificate"]

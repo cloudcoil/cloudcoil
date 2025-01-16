@@ -1,10 +1,12 @@
 """Tests for config"""
 
+import json
 import os
 from unittest.mock import patch
 
 import pytest
 import yaml
+from httpx import Response
 
 from cloudcoil.client._config import (
     Config,
@@ -159,3 +161,78 @@ def test_incluster_initialization(tmp_path):
         assert client.server == "https://kubernetes.default.svc"
         assert client.namespace == "test-namespace"
         assert client.token == "test-token"
+
+
+class MockTransport:
+    def handle_request(self, request):
+        return Response(200)
+
+
+@pytest.mark.parametrize(
+    "kubeconfig_content,exec_output,expected_headers",
+    [
+        # Test exec auth with token output
+        (
+            {
+                "current-context": "test-context",
+                "contexts": [
+                    {
+                        "name": "test-context",
+                        "context": {"cluster": "test-cluster", "user": "test-user"},
+                    }
+                ],
+                "clusters": [
+                    {
+                        "name": "test-cluster",
+                        "cluster": {"server": "https://test-server"},
+                    }
+                ],
+                "users": [
+                    {
+                        "name": "test-user",
+                        "user": {
+                            "exec": {
+                                "command": "aws",
+                                "args": ["eks", "get-token", "--cluster-name", "test-cluster"],
+                                "env": [{"name": "AWS_PROFILE", "value": "test"}],
+                            }
+                        },
+                    }
+                ],
+            },
+            {
+                "kind": "ExecCredential",
+                "apiVersion": "client.authentication.k8s.io/v1beta1",
+                "status": {
+                    "token": "test-exec-token",
+                    "expirationTimestamp": "2024-12-31T23:59:59Z",
+                },
+            },
+            {"Authorization": "Bearer test-exec-token"},
+        ),
+    ],
+)
+def test_exec_auth(kubeconfig_content, exec_output, expected_headers, tmp_path):
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text(yaml.dump(kubeconfig_content))
+
+    mock_transport = MockTransport()
+
+    with (
+        patch.dict(os.environ, {"KUBECONFIG": str(kubeconfig)}),
+        patch("cloudcoil.client._config.subprocess.run") as mock_run,
+    ):
+        # Setup mock subprocess.run
+        mock_run.return_value.stdout = json.dumps(exec_output)
+        mock_run.return_value.check = True
+
+        config = Config()
+        config.client._transport = mock_transport
+        config.client.get("/")
+
+        # Verify subprocess was called correctly
+        mock_run.assert_called_once()
+        args, kwargs = mock_run.call_args
+        assert args[0][0] == "aws"  # Command
+        assert "eks" in args[0]  # Args
+        assert kwargs["env"].get("AWS_PROFILE") == "test"  # Environment
