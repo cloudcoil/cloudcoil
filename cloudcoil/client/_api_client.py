@@ -60,7 +60,7 @@ class _BaseAPIClient(Generic[T]):
     def _handle_get_response(self, response: httpx.Response, namespace: str, name: str) -> T:
         if response.status_code == 404:
             raise ResourceNotFound(
-                f"Resource kind='{self.kind.__name__}', {namespace=}, {name=} not found"
+                f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
             )
         return self.kind.model_validate_json(response.content)  # type: ignore
 
@@ -69,7 +69,7 @@ class _BaseAPIClient(Generic[T]):
     ) -> T | Status:
         if response.status_code == 404:
             raise ResourceNotFound(
-                f"Resource kind='{self.kind.__name__}', {namespace=}, {name=} not found"
+                f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
             )
         return TypeAdapter(Status | self.kind).validate_json(response.content)
 

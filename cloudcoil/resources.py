@@ -18,7 +18,7 @@ from typing import (
 )
 
 import yaml
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import ConfigDict, Field, create_model, model_validator
 
 from cloudcoil._context import context
 from cloudcoil._pydantic import BaseModel
@@ -490,3 +490,35 @@ def parse_file(path: str | Path, load_all: bool = False) -> list[Resource] | Res
 
 def get_model(kind: str, *, api_version: str = "") -> Type[Resource]:
     return _Scheme.get(kind=kind, api_version=api_version)
+
+
+class Unstructured(Resource):
+    model_config = ConfigDict(extra="allow")
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self._data = data
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._data[key] = value
+        # Also update the model data
+        object.__setattr__(self, key, value)
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._data
+
+    @property
+    def raw(self) -> dict:
+        return self._data
+
+
+def get_dynamic_resource(kind: str, api_version: str) -> Type[Unstructured]:
+    return create_model(
+        f"Dynamic{kind}",
+        api_version=(Literal[api_version], Field(alias="apiVersion", default=api_version)),
+        kind=(Literal[kind], Field(default=kind)),
+        __base__=Unstructured,
+    )
