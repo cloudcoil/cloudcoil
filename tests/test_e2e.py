@@ -67,6 +67,41 @@ def test_e2e(test_config):
 
         DynamicConfigMap.delete("test-cm", output.name)
 
+        # Test save method
+        cm = k8s.core.v1.ConfigMap(
+            metadata=dict(name="test-save", namespace=output.name), data={"key": "value"}
+        )
+
+        # First save should create
+        saved = cm.save()
+        assert saved.metadata.name == "test-save"
+        assert saved.data["key"] == "value"
+
+        # Modify and save again should update
+        saved.data["key"] = "new-value"
+        updated = saved.save()
+        assert updated.data["key"] == "new-value"
+
+        # Clean up
+        saved.remove()
+
+        # Test save with dynamic resources
+        DynamicConfigMap = get_dynamic_resource("ConfigMap", "v1")
+        dynamic_cm = DynamicConfigMap(
+            metadata={"name": "test-dynamic-save", "namespace": output.name}, data={"key": "value"}
+        )
+
+        # First save creates
+        saved_dynamic = dynamic_cm.save()
+        assert saved_dynamic["data"]["key"] == "value"
+
+        # Second save updates
+        saved_dynamic["data"]["key"] = "updated"
+        updated_dynamic = saved_dynamic.save()
+        assert updated_dynamic.raw["data"]["key"] == "updated"
+
+        DynamicConfigMap.delete("test-dynamic-save", output.name)
+
         # Setup watch before deletion
         events = []
 
@@ -156,6 +191,41 @@ async def test_async_e2e(test_config):
         assert updated.raw.get("data", {}).get("new_key") == "new_value"
 
         await DynamicConfigMap.async_delete("test-cm", output.name)
+
+        # Test async save method
+        cm = k8s.core.v1.ConfigMap(
+            metadata=dict(name="test-save", namespace=output.name), data={"key": "value"}
+        )
+
+        # First save should create
+        saved = await cm.async_save()
+        assert saved.metadata.name == "test-save"
+        assert saved.data["key"] == "value"
+
+        # Modify and save again should update
+        saved.data["key"] = "new-value"
+        updated = await saved.async_save()
+        assert updated.data["key"] == "new-value"
+
+        # Clean up
+        await saved.async_remove()
+
+        # Test save with dynamic resources
+        DynamicConfigMap = get_dynamic_resource("ConfigMap", "v1")
+        dynamic_cm = DynamicConfigMap(
+            metadata={"name": "test-dynamic-save", "namespace": output.name}, data={"key": "value"}
+        )
+
+        # First save creates
+        saved_dynamic = await dynamic_cm.async_save()
+        assert saved_dynamic["data"]["key"] == "value"
+
+        # Second save updates
+        saved_dynamic["data"]["key"] = "updated"
+        updated_dynamic = await saved_dynamic.async_save()
+        assert updated_dynamic.raw["data"]["key"] == "updated"
+
+        await DynamicConfigMap.async_delete("test-dynamic-save", output.name)
 
         # Setup watch before deletion
         events = []

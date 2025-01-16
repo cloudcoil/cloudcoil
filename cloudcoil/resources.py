@@ -23,6 +23,7 @@ from pydantic import ConfigDict, Field, create_model, model_validator
 from cloudcoil._context import context
 from cloudcoil._pydantic import BaseModel
 from cloudcoil.apimachinery import ListMeta, ObjectMeta, Status
+from cloudcoil.errors import ResourceNotFound
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -138,6 +139,22 @@ class Resource(BaseResource):
     async def async_update(self, dry_run: bool = False) -> Self:
         config = context.active_config
         return await config.client_for(self.__class__, sync=False).update(self, dry_run=dry_run)
+
+    def save(self, dry_run: bool = False) -> Self:
+        try:
+            self.fetch()
+        except ResourceNotFound:
+            return self.create(dry_run=dry_run)
+        else:
+            return self.update(dry_run=dry_run)
+
+    async def async_save(self, dry_run: bool = False) -> Self:
+        try:
+            await self.async_fetch()
+        except ResourceNotFound:
+            return await self.async_create(dry_run=dry_run)
+        else:
+            return await self.async_update(dry_run=dry_run)
 
     @classmethod
     def delete(

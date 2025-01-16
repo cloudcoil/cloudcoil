@@ -9,7 +9,7 @@ import httpx
 from pydantic import TypeAdapter
 
 from cloudcoil.apimachinery import Status
-from cloudcoil.client.errors import APIError, ResourceAlreadyExists, ResourceNotFound
+from cloudcoil.errors import APIError, ResourceAlreadyExists, ResourceNotFound
 from cloudcoil.resources import DEFAULT_PAGE_LIMIT, Resource, ResourceList
 
 T = TypeVar("T", bound="Resource")
