@@ -81,6 +81,16 @@ test_ns = k8s.core.v1.Namespace(
 deployment = k8s.apps.v1.Deployment.get("web")
 deployment.spec.replicas = 3
 deployment.update()
+
+# Or use the save method which handles both create and update
+configmap = k8s.core.v1.ConfigMap(
+    metadata=dict(name="config"),
+    data={"key": "value"}
+)
+configmap.save()  # Creates the ConfigMap
+
+configmap.data["key"] = "new-value"
+configmap.save()  # Updates the ConfigMap
 ```
 
 ### Deleting Resources
@@ -134,6 +144,26 @@ resources = resources.parse_file("k8s-manifests.yaml", load_all=True)
 
 # Get resource types dynamically
 Job = resources.get_model("Job", api_version="batch/v1")
+```
+
+### Waiting for Resources
+
+```python
+# Wait for a resource to reach a desired state
+pod = k8s.core.v1.Pod.get("nginx")
+pod.wait_for(lambda _, pod: pod.status.phase == "Running", timeout=300)
+
+# You can also check of the resource to be deleted
+await pod.async_wait_for(lambda event, _: event == "DELETED", timeout=300)
+
+# You can also supply multiple conditions. The wait will end when the first condition is met.
+# It will also return the key of the condition that was met.
+test_pod = k8s.core.v1.Pod.get("tests")
+status = await test_pod.async_wait_for({
+    "succeeded": lambda _, pod: pod.status.phase == "Succeeded",
+    "failed": lambda _, pod: pod.status.phase == "Failed"
+    }, timeout=300)
+assert status == "succeeded"
 ```
 
 ## 🧪 Testing Integration

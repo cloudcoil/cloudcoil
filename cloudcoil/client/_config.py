@@ -343,6 +343,9 @@ class Config:
             client=self.async_client,
         )
 
+    def set_default(self) -> None:
+        context.set_default(self)
+
     def initialize(self):
         if not self._rest_mapping:
             self._create_rest_mapper()

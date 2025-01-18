@@ -5,6 +5,7 @@ if TYPE_CHECKING:
     from cloudcoil.client._config import Config
 
 _configs = ContextVar("_configs", default=None)
+_default_config = None
 
 
 class _Context:
@@ -17,12 +18,16 @@ class _Context:
         if self.configs:
             self.configs.pop()
 
+    def set_default(self, config: "Config") -> None:
+        global _default_config
+        _default_config = config
+
     @property
     def active_config(self) -> "Config":
         if not self.configs:
             from cloudcoil.client._config import Config
 
-            config = Config()
+            config = _default_config or Config()
             self.configs = [config]
         return self.configs[-1]
 

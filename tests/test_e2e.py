@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import random
 import threading
 import time
 from importlib.metadata import version
@@ -10,6 +11,7 @@ import pytest
 
 import cloudcoil.models.kubernetes as k8s
 from cloudcoil.apimachinery import ObjectMeta
+from cloudcoil.errors import WaitTimeout
 
 k8s_version = ".".join(version("cloudcoil.models.kubernetes").split(".")[:3])
 cluster_provider = os.environ.get("CLUSTER_PROVIDER", "kind")
@@ -101,7 +103,34 @@ def test_e2e(test_config):
         assert updated_dynamic.raw["data"]["key"] == "updated"
 
         DynamicConfigMap.delete("test-dynamic-save", output.name)
+        # Test wait_for method
+        cm = k8s.core.v1.ConfigMap(
+            metadata=dict(name="test-wait", namespace=output.name), data={"key": "initial"}
+        ).create()
 
+        # Start a thread to update the configmap after a delay
+        def update_cm():
+            with test_config:
+                time.sleep(random.randint(1, 3))
+                cm.data["key"] = "updated"
+                cm.update()
+
+        update_thread = threading.Thread(target=update_cm)
+        update_thread.start()
+
+        # Wait for the update
+        def check_updated(event_type, obj):
+            if event_type != "MODIFIED":
+                return None
+            return obj.data.get("key") == "updated"
+
+        cm.wait_for(check_updated, timeout=5)
+        update_thread.join()
+        start_time = time.time()
+        with pytest.raises(WaitTimeout):
+            cm.wait_for(lambda event_type, _: event_type == "DELETED", timeout=1)
+        assert time.time() - start_time < 2
+        cm.remove()
         # Setup watch before deletion
         events = []
 
@@ -226,7 +255,33 @@ async def test_async_e2e(test_config):
         assert updated_dynamic.raw["data"]["key"] == "updated"
 
         await DynamicConfigMap.async_delete("test-dynamic-save", output.name)
+        # Test async_wait_for method
+        cm = await k8s.core.v1.ConfigMap(
+            metadata=dict(name="test-wait", namespace=output.name), data={"key": "initial"}
+        ).async_create()
 
+        # Schedule an update
+        async def update_cm():
+            with test_config:
+                await asyncio.sleep(random.randint(1, 3))
+                cm.data["key"] = "updated"
+                await cm.async_update()
+
+        update_task = asyncio.create_task(update_cm())
+
+        # Wait for the update
+        def check_updated(event_type, obj):
+            if event_type != "MODIFIED":
+                return None
+            return obj.data.get("key") == "updated"
+
+        await cm.async_wait_for(check_updated, timeout=5)
+        start_time = time.time()
+        with pytest.raises(WaitTimeout):
+            await cm.async_wait_for(lambda event_type, _: event_type == "DELETED", timeout=1)
+        assert time.time() - start_time < 2
+        await update_task
+        await cm.async_remove()
         # Setup watch before deletion
         events = []
 
