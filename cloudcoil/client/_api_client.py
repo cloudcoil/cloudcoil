@@ -2,25 +2,34 @@ import asyncio
 import json
 import logging
 import random
+import threading
 import time
-from typing import Any, AsyncGenerator, Generic, Iterator, Literal, Type, TypeVar
+from typing import Any, AsyncGenerator, Callable, Generic, Iterator, Literal, Type, TypeVar
 
 import httpx
 from pydantic import TypeAdapter
 
 from cloudcoil.apimachinery import Status
-from cloudcoil.errors import APIError, ResourceAlreadyExists, ResourceNotFound
-from cloudcoil.resources import DEFAULT_PAGE_LIMIT, Resource, ResourceList
+from cloudcoil.errors import (
+    APIError,
+    ResourceAlreadyExists,
+    ResourceNotFound,
+    WaitTimeout,
+    WatchError,
+)
+from cloudcoil.resources import (
+    DEFAULT_PAGE_LIMIT,
+    Resource,
+    ResourceList,
+    WaitPredicate,
+    WatchEvent,
+)
 
 T = TypeVar("T", bound="Resource")
 
 logger = logging.getLogger(__name__)
 
-WATCH_TIMEOUT_SECONDS = 300
-
-
-class WatchError(Exception):
-    pass
+_WATCH_TIMEOUT_SECONDS = 300
 
 
 class _BaseAPIClient(Generic[T]):
@@ -87,7 +96,7 @@ class _BaseAPIClient(Generic[T]):
         field_selector: str | None = None,
         label_selector: str | None = None,
         resource_version: str | None = None,
-        timeout: int = WATCH_TIMEOUT_SECONDS,
+        timeout: int = _WATCH_TIMEOUT_SECONDS,
     ) -> tuple[str, dict[str, Any]]:
         namespace = namespace or self.default_namespace
         if all_namespaces:
@@ -269,7 +278,7 @@ class APIClient(_BaseAPIClient[T]):
         field_selector: str | None = None,
         label_selector: str | None = None,
         resource_version: str | None = None,
-    ) -> Iterator[tuple[Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"], T]]:
+    ) -> Iterator[tuple[WatchEvent, T]]:
         retry_count = 0
         curr_resource_version = resource_version
 
@@ -284,7 +293,7 @@ class APIClient(_BaseAPIClient[T]):
                 )
 
                 with self._client.stream(
-                    "GET", url, params=params, timeout=WATCH_TIMEOUT_SECONDS + 5
+                    "GET", url, params=params, timeout=_WATCH_TIMEOUT_SECONDS + 5
                 ) as response:
                     if response.status_code == 410:  # Gone
                         curr_resource_version = None
@@ -326,6 +335,63 @@ class APIClient(_BaseAPIClient[T]):
                 backoff = self._get_backoff_time(retry_count)
                 logger.warning(f"Watch connection failed, retrying in {backoff:.1f}s: {e}")
                 time.sleep(backoff)
+
+    def wait_for(
+        self,
+        resource: T,
+        predicates: dict[str, WaitPredicate],
+        timeout: float | None = None,
+    ) -> str:
+        class WatchResult:
+            def __init__(self) -> None:
+                self.predicate_name: str | None = None
+                self.error: Exception | None = None
+
+        result = WatchResult()
+        stop_event = threading.Event()
+
+        def watch_and_evaluate() -> None:
+            try:
+                for event_type, obj in self.watch(
+                    namespace=resource.namespace,
+                    field_selector=f"metadata.name={resource.name}",
+                    resource_version=resource.resource_version,
+                ):
+                    if stop_event.is_set():
+                        return
+
+                    for name, predicate in predicates.items():
+                        if predicate(event_type, obj):
+                            result.predicate_name = name
+                            return
+
+            except Exception as e:
+                result.error = e
+
+        # Start the watch in a separate thread
+        watch_thread = threading.Thread(target=watch_and_evaluate)
+        watch_thread.start()
+
+        try:
+            # Wait for the thread to complete or timeout
+            watch_thread.join(timeout=timeout)
+
+            # Handle timeout case
+            if watch_thread.is_alive():
+                raise WaitTimeout("Timeout waiting for condition")
+
+            # Handle error case
+            if result.error is not None:
+                raise result.error
+
+            # Handle unexpected termination
+            if result.predicate_name is None:
+                raise RuntimeError("Watch ended unexpectedly")
+
+            return result.predicate_name
+        finally:
+            # Ensure stop_event is set in case we hit an error before setting it
+            stop_event.set()
 
 
 class AsyncAPIClient(_BaseAPIClient[T]):
@@ -501,7 +567,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                 )
 
                 async with self._client.stream(
-                    "GET", url, params=params, timeout=WATCH_TIMEOUT_SECONDS + 5
+                    "GET", url, params=params, timeout=_WATCH_TIMEOUT_SECONDS + 5
                 ) as response:
                     if response.status_code == 410:  # Gone
                         curr_resource_version = None
@@ -543,3 +609,28 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                 backoff = self._get_backoff_time(retry_count)
                 logger.warning(f"Watch connection failed, retrying in {backoff:.1f}s: {e}")
                 await asyncio.sleep(backoff)
+
+    async def wait_for(
+        self,
+        resource: T,
+        predicates: dict[str, Callable[[WatchEvent, T], bool | None]],
+        timeout: float | None = None,
+    ) -> str:
+        """Async version of wait_for that uses asyncio for timing out the watch."""
+
+        async def watch_and_evaluate() -> str:
+            async for event_type, obj in self.watch(
+                namespace=resource.namespace,
+                field_selector=f"metadata.name={resource.name}",
+                resource_version=resource.resource_version,
+            ):
+                for name, predicate in predicates.items():
+                    result = predicate(event_type, obj)
+                    if result:
+                        return name
+            raise RuntimeError("Watch ended unexpectedly")
+
+        try:
+            return await asyncio.wait_for(watch_and_evaluate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            raise WaitTimeout("Timeout waiting for condition")

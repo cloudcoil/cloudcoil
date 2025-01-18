@@ -9,6 +9,7 @@ from typing import (
     Annotated,
     Any,
     AsyncGenerator,
+    Callable,
     Generic,
     Iterator,
     Literal,
@@ -32,6 +33,8 @@ else:
 
 
 DEFAULT_PAGE_LIMIT = 50
+WatchEvent = Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"]
+WaitPredicate = Callable[[WatchEvent, "Resource"], bool]
 
 
 class GVK(BaseModel):
@@ -101,6 +104,12 @@ class Resource(BaseResource):
             self.metadata = ObjectMeta(namespace=value)
         else:
             self.metadata.namespace = value
+
+    @property
+    def resource_version(self) -> str | None:
+        if self.metadata is None:
+            return None
+        return self.metadata.resource_version
 
     @classmethod
     def get(cls, name: str, namespace: str | None = None) -> Self:
@@ -308,7 +317,7 @@ class Resource(BaseResource):
         field_selector: str | None = None,
         label_selector: str | None = None,
         resource_version: str | None = None,
-    ) -> Iterator[tuple[Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"], "Self"]]:
+    ) -> Iterator[tuple[WatchEvent, "Self"]]:
         config = context.active_config
         return config.client_for(cls, sync=True).watch(
             namespace=namespace,
@@ -326,9 +335,7 @@ class Resource(BaseResource):
         field_selector: str | None = None,
         label_selector: str | None = None,
         resource_version: str | None = None,
-    ) -> AsyncGenerator[
-        tuple[Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"], "Self"], None
-    ]:
+    ) -> AsyncGenerator[tuple[WatchEvent, "Self"], None]:
         config = context.active_config
         return config.client_for(cls, sync=False).watch(
             namespace=namespace,
@@ -337,6 +344,70 @@ class Resource(BaseResource):
             label_selector=label_selector,
             resource_version=resource_version,
         )
+
+    @overload
+    def wait_for(
+        self,
+        predicate: WaitPredicate,
+        /,
+        timeout: float | None = None,
+    ) -> None: ...
+
+    @overload
+    def wait_for(
+        self,
+        predicate: dict[
+            str,
+            WaitPredicate,
+        ],
+        /,
+        timeout: float | None = None,
+    ) -> str: ...
+
+    def wait_for(self, predicate, timeout=None):
+        config = context.active_config
+        client = config.client_for(self.__class__, sync=True)
+        if not self.name:
+            raise ValueError("Resource name must be set to wait for it")
+        if isinstance(predicate, dict):
+            return client.wait_for(self, predicate, timeout=timeout)
+        assert isinstance(predicate, Callable)
+        client.wait_for(self, {"predicate": predicate}, timeout=timeout)
+        return None
+
+    @overload
+    async def async_wait_for(
+        self,
+        predicate: WaitPredicate,
+        /,
+        timeout: float | None = None,
+    ) -> None: ...
+
+    @overload
+    async def async_wait_for(
+        self,
+        predicate: dict[
+            str,
+            WaitPredicate,
+        ],
+        /,
+        timeout: float | None = None,
+    ) -> str: ...
+
+    async def async_wait_for(
+        self,
+        predicate,
+        timeout=None,
+    ):
+        config = context.active_config
+        client = config.client_for(self.__class__, sync=False)
+        if not self.name:
+            raise ValueError("Resource name must be set to wait for it")
+        if isinstance(predicate, dict):
+            return await client.wait_for(self, predicate, timeout=timeout)
+        assert isinstance(predicate, Callable)
+        await client.wait_for(self, {"predicate": predicate}, timeout=timeout)
+        return None
 
 
 T = TypeVar("T", bound=Resource)
