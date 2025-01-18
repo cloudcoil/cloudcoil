@@ -119,16 +119,24 @@ async for event_type, resource in await k8s.core.v1.Pod.async_watch(field_select
         break
 ```
 
-### Context Management
+### Waiting for Resources
 
 ```python
-# Temporarily switch namespace
-with Config(namespace="kube-system"):
-    pods = k8s.core.v1.Pod.list()
+# Wait for a resource to reach a desired state
+pod = k8s.core.v1.Pod.get("nginx")
+pod.wait_for(lambda _, pod: pod.status.phase == "Running", timeout=300)
 
-# Custom configs
-with Config(kubeconfig="dev-cluster.yaml"):
-    services = k8s.core.v1.Service.list()
+# You can also check of the resource to be deleted
+await pod.async_wait_for(lambda event, _: event == "DELETED", timeout=300)
+
+# You can also supply multiple conditions. The wait will end when the first condition is met.
+# It will also return the key of the condition that was met.
+test_pod = k8s.core.v1.Pod.get("tests")
+status = await test_pod.async_wait_for({
+    "succeeded": lambda _, pod: pod.status.phase == "Succeeded",
+    "failed": lambda _, pod: pod.status.phase == "Failed"
+    }, timeout=300)
+assert status == "succeeded"
 ```
 
 ### Dynamic Resources
@@ -181,25 +189,18 @@ resources = resources.parse_file("k8s-manifests.yaml", load_all=True)
 Job = resources.get_model("Job", api_version="batch/v1")
 ```
 
-### Waiting for Resources
+### Context Management
 
 ```python
-# Wait for a resource to reach a desired state
-pod = k8s.core.v1.Pod.get("nginx")
-pod.wait_for(lambda _, pod: pod.status.phase == "Running", timeout=300)
+# Temporarily switch namespace
+with Config(namespace="kube-system"):
+    pods = k8s.core.v1.Pod.list()
 
-# You can also check of the resource to be deleted
-await pod.async_wait_for(lambda event, _: event == "DELETED", timeout=300)
-
-# You can also supply multiple conditions. The wait will end when the first condition is met.
-# It will also return the key of the condition that was met.
-test_pod = k8s.core.v1.Pod.get("tests")
-status = await test_pod.async_wait_for({
-    "succeeded": lambda _, pod: pod.status.phase == "Succeeded",
-    "failed": lambda _, pod: pod.status.phase == "Failed"
-    }, timeout=300)
-assert status == "succeeded"
+# Custom configs
+with Config(kubeconfig="dev-cluster.yaml"):
+    services = k8s.core.v1.Service.list()
 ```
+
 
 ## 🧪 Testing Integration
 
