@@ -9,6 +9,31 @@
 
 > Modern, async-first Kubernetes client with elegant Pythonic syntax and full type safety
 
+- [cloudcoil](#cloudcoil)
+  - [✨ Features](#-features)
+  - [🔧 Installation](#-installation)
+  - [💡 Examples](#-examples)
+    - [Reading Resources](#reading-resources)
+    - [Creating Resources](#creating-resources)
+    - [Modifying Resources](#modifying-resources)
+    - [Deleting Resources](#deleting-resources)
+    - [Watching Resources](#watching-resources)
+    - [Context Management](#context-management)
+    - [Dynamic Resources](#dynamic-resources)
+    - [Resource Parsing](#resource-parsing)
+    - [Waiting for Resources](#waiting-for-resources)
+  - [🧪 Testing Integration](#-testing-integration)
+    - [Installation](#installation)
+    - [Basic Usage](#basic-usage)
+    - [Advanced Configuration](#advanced-configuration)
+    - [Shared Clusters](#shared-clusters)
+    - [Parallel Testing](#parallel-testing)
+    - [Testing Fixtures API](#testing-fixtures-api)
+  - [🛡️ MyPy Integration](#️-mypy-integration)
+  - [📚 Documentation](#-documentation)
+  - [📜 License](#-license)
+
+
 ## ✨ Features
 
 - 🔥 **Elegant, Pythonic API** - Feels natural to Python developers
