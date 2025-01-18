@@ -131,6 +131,41 @@ with Config(kubeconfig="dev-cluster.yaml"):
     services = k8s.core.v1.Service.list()
 ```
 
+### Dynamic Resources
+
+```python
+from cloudcoil.resources import get_dynamic_resource
+
+# Get a dynamic resource class for any CRD or resource without a model
+DynamicJob = get_dynamic_resource("Job", "batch/v1")
+
+# Create using dictionary syntax
+job = DynamicJob(
+    metadata={"name": "dynamic-job"},
+    spec={
+        "template": {
+            "spec": {
+                "containers": [{"name": "job", "image": "busybox"}],
+                "restartPolicy": "Never"
+            }
+        }
+    }
+)
+
+# Create on the cluster
+created = job.create()
+
+# Access fields using dict-like syntax
+assert created["spec"]["template"]["spec"]["containers"][0]["image"] == "busybox"
+
+# Update fields
+created["spec"]["template"]["spec"]["containers"][0]["image"] = "alpine"
+updated = created.update()
+
+# Get raw dictionary representation
+raw_dict = updated.raw
+```
+
 ### Resource Parsing
 
 ```python
@@ -142,7 +177,7 @@ deployment = resources.parse_file("deployment.yaml")
 # Parse multiple resources
 resources = resources.parse_file("k8s-manifests.yaml", load_all=True)
 
-# Get resource types dynamically
+# Get resource class by GVK if its an existing resource model class
 Job = resources.get_model("Job", api_version="batch/v1")
 ```
 
@@ -272,10 +307,10 @@ plugins = ['cloudcoil.mypy']
 This plugin enables full type checking for scheme.get() calls when the kind name is a string literal:
 
 ```py
-from cloudcoil import scheme
+from cloudcoil import resources
 
 # This will be correctly typed as k8s.batch.v1.Job
-job_class = scheme.get("Job")
+job_class = resources.get_model("Job")
 
 # Type checking works on the returned class
 job = job_class(
