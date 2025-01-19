@@ -13,12 +13,11 @@ from typing import Annotated, Any, Dict, Iterator, List, Literal
 import httpx
 import yaml
 from cloudcoil.codegen.import_rewriter import rewrite_imports
-from cloudcoil.pydantic import BaseModel
 from cloudcoil.version import __version__
 from datamodel_code_generator.__main__ import (
     main as generate_code,
 )
-from pydantic import BeforeValidator, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
 if sys.version_info > (3, 11):
     import tomllib
@@ -27,6 +26,10 @@ else:
 
 
 class Transformation(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+        validate_default=True,
+    )
     match_: Annotated[str | re.Pattern, Field(alias="match"), BeforeValidator(re.compile)]
     replace: str | None = None
     namespace: str | None = None
@@ -34,6 +37,10 @@ class Transformation(BaseModel):
 
 
 class ModelConfig(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+        validate_default=True,
+    )
     crd_namespace: Annotated[str | None, Field(alias="crd-namespace")] = None
     namespace: str
     input_: Annotated[str, Field(alias="input")]
@@ -42,6 +49,7 @@ class ModelConfig(BaseModel):
     transformations: list[Transformation] = []
     generate_init: Annotated[bool, Field(alias="generate-init")] = True
     generate_py_typed: Annotated[bool, Field(alias="generate-py-typed")] = True
+    exclude_unknown: Annotated[bool, Field(alias="exclude-unknown")] = False
     additional_datamodel_codegen_args: Annotated[
         list[str], Field(alias="additional-datamodel-codegen-args")
     ] = []
@@ -49,22 +57,23 @@ class ModelConfig(BaseModel):
     @model_validator(mode="after")
     def _add_namespace(self):
         if self.crd_namespace:
-            self.transformations.append(
+            crd_regex = self.crd_namespace.replace(".", r"\.")
+            group_regex = r"\.(.*)"
+            crd_transformations = [
                 Transformation(
                     match_=re.compile(r"^io\.k8s\.apimachinery\..*\.(.+)"),
                     replace=r"apimachinery.\g<1>",
                     namespace="cloudcoil",
-                )
-            )
-            crd_regex = self.crd_namespace.replace(".", r"\.")
-            group_regex = r"\.(.*)"
-            self.transformations.append(
+                ),
                 Transformation(
                     match_=re.compile(f"^{crd_regex}{group_regex}$"),
                     replace=r"\g<1>",
                     namespace=self.namespace,
-                )
-            )
+                ),
+            ]
+            self.transformations = crd_transformations + self.transformations
+        if self.exclude_unknown:
+            self.transformations.append(Transformation(match_=re.compile(r"^.*$"), exclude=True))
         for transformation in self.transformations:
             if transformation.exclude:
                 if transformation.replace or transformation.namespace:
@@ -624,6 +633,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Don't generate __init__.py files",
     )
     parser.add_argument(
+        "--exclude-unknown",
+        action="store_true",
+        help="Exclude unknown definitions",
+        default=False,
+    )
+    parser.add_argument(
         "--no-py-typed",
         action="store_true",
         help="Don't generate py.typed file",
@@ -689,6 +704,7 @@ def create_model_config_from_args(args: argparse.Namespace) -> ModelConfig | Non
         generate_py_typed=not args.no_py_typed,
         crd_namespace=args.crd_namespace,
         additional_datamodel_codegen_args=args.additional_datamodel_codegen_args,
+        exclude_unknown=args.exclude_unknown,
     )
 
 
