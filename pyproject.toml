@@ -106,6 +106,7 @@ omit = [
     "cloudcoil/_testing/**",
     "cloudcoil/codegen/_tomllib/**",
     "cloudcoil/apimachinery.py",
+    "cloudcoil/pydantic.py",
     "cloudcoil/_pydantic.py",
 ]
 

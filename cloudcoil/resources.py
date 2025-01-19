@@ -22,9 +22,9 @@ import yaml
 from pydantic import ConfigDict, Field, create_model, model_validator
 
 from cloudcoil._context import context
-from cloudcoil._pydantic import BaseModel
 from cloudcoil.apimachinery import ListMeta, ObjectMeta, Status
 from cloudcoil.errors import ResourceNotFound
+from cloudcoil.pydantic import BaseModel
 
 if sys.version_info >= (3, 11):
     from typing import Self

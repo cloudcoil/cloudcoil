@@ -8,7 +8,7 @@ from typing import Annotated, Dict, List, Literal, Optional, Union
 
 from pydantic import Field, RootModel
 
-from cloudcoil._pydantic import BaseModel
+from cloudcoil.pydantic import BaseModel
 
 
 class Quantity(RootModel[str]):

@@ -220,3 +220,37 @@ def test_model_config_with_additional_args(tmp_path):
             continue
         content = py_file.read_text()
         assert "RootModel" not in content
+
+
+def test_generate_fluxcd_models(tmp_path, monkeypatch):
+    # Process the config file
+    generate(
+        ModelConfig(
+            namespace="cloudcoil.models.fluxcd",
+            input_="https://github.com/fluxcd/flux2/releases/download/v2.4.0/install.yaml",
+            crd_namespace="io.fluxcd.toolkit",
+            output=tmp_path,
+        )
+    )
+
+    # Verify generated files
+    output_dir = tmp_path / "cloudcoil" / "models" / "fluxcd"
+    assert output_dir.exists()
+
+    # Check for some expected FluxCD CRD models
+    expected_models = [
+        "helmrelease",
+        "kustomization",
+        "gitrepository",
+    ]
+
+    python_files = list(output_dir.rglob("*.py"))
+    file_contents = [f.read_text() for f in python_files]
+    content = "\n".join(file_contents)
+
+    for model in expected_models:
+        assert f"class {model}(resource):" in content.lower(), f"Expected model {model} not found"
+
+    # Verify imports and structure
+    assert "from cloudcoil.resources import Resource" in content
+    assert "from cloudcoil.pydantic import BaseModel" in content

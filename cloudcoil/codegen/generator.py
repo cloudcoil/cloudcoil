@@ -8,11 +8,12 @@ import sys
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Annotated, List, Literal
+from typing import Annotated, Any, Dict, Iterator, List, Literal
 
 import httpx
-from cloudcoil._pydantic import BaseModel
+import yaml
 from cloudcoil.codegen.import_rewriter import rewrite_imports
+from cloudcoil.pydantic import BaseModel
 from cloudcoil.version import __version__
 from datamodel_code_generator.__main__ import (
     main as generate_code,
@@ -33,6 +34,7 @@ class Transformation(BaseModel):
 
 
 class ModelConfig(BaseModel):
+    crd_namespace: Annotated[str | None, Field(alias="crd-namespace")] = None
     namespace: str
     input_: Annotated[str, Field(alias="input")]
     output: Path | None = None
@@ -46,6 +48,23 @@ class ModelConfig(BaseModel):
 
     @model_validator(mode="after")
     def _add_namespace(self):
+        if self.crd_namespace:
+            self.transformations.append(
+                Transformation(
+                    match_=re.compile(r"^io\.k8s\.apimachinery\..*\.(.+)"),
+                    replace=r"apimachinery.\g<1>",
+                    namespace="cloudcoil",
+                )
+            )
+            crd_regex = self.crd_namespace.replace(".", r"\.")
+            group_regex = r"\.(.*)"
+            self.transformations.append(
+                Transformation(
+                    match_=re.compile(f"^{crd_regex}{group_regex}$"),
+                    replace=r"\g<1>",
+                    namespace=self.namespace,
+                )
+            )
         for transformation in self.transformations:
             if transformation.exclude:
                 if transformation.replace or transformation.namespace:
@@ -63,49 +82,83 @@ class ModelConfig(BaseModel):
         return self
 
 
-def process_definitions(schema):
-    for definition in schema["definitions"].values():
-        if "x-kubernetes-group-version-kind" in definition:
-            gvk = definition["x-kubernetes-group-version-kind"][0]
-            group = gvk.get("group", "")
-            version = gvk["version"]
-            kind = gvk["kind"]
+def detect_schema_type(schema: dict) -> Literal["openapi", "jsonschema"]:
+    """Detect if the schema is OpenAPI v3 or JSONSchema."""
+    if "openapi" in schema and schema["openapi"].startswith("3."):
+        return "openapi"
+    return "jsonschema"
 
-            # Construct apiVersion
-            if group:
-                api_version = f"{group}/{version}"
-            else:
-                api_version = version
 
-            # Replace apiVersion and kind with constants
-            if "properties" in definition:
-                required = definition.setdefault("required", [])
-                if "apiVersion" in definition["properties"]:
-                    definition["properties"]["apiVersion"]["enum"] = [api_version]
-                    definition["properties"]["apiVersion"]["default"] = api_version
-                    if "apiVersion" not in required:
-                        required.append("apiVersion")
-                if "kind" in definition["properties"]:
-                    definition["properties"]["kind"]["enum"] = [kind]
-                    definition["properties"]["kind"]["default"] = kind
-                    if "kind" not in required:
-                        required.append("kind")
-                if "metadata" in required:
-                    required.remove("metadata")
-        # Convert int-or-string to string
+def get_schema_definitions(schema: dict) -> dict:
+    """Get the definitions section based on schema type."""
+    if detect_schema_type(schema) == "openapi":
+        return schema.get("components", {}).get("schemas", {})
+    return schema.get("definitions", {})
+
+
+def set_schema_definitions(schema: dict, definitions: dict) -> None:
+    """Set the definitions section based on schema type."""
+    if detect_schema_type(schema) == "openapi":
+        if "components" not in schema:
+            schema["components"] = {}
+        schema["components"]["schemas"] = definitions
+    else:
+        schema["definitions"] = definitions
+
+
+def process_definitions(schema: dict) -> None:
+    """Process definitions in either JSONSchema or OpenAPI format."""
+    definitions = get_schema_definitions(schema)
+
+    for definition in definitions.values():
+        # Convert int-or-string format
+        def convert_int_or_string(obj):
+            if isinstance(obj, dict):
+                if obj.get("format") == "int-or-string":
+                    obj["type"] = ["integer", "string"]
+                    obj.pop("format")
+                for value in obj.values():
+                    if isinstance(value, dict):
+                        convert_int_or_string(value)
+
+        convert_int_or_string(definition)
+
+        # Handle both OpenAPI and JSONSchema GVK metadata
+        gvk = definition.get("x-kubernetes-group-version-kind", [{}])[0]
+        if not gvk:
+            continue
+
+        group = gvk.get("group", "")
+        version = gvk.get("version")
+        kind = gvk.get("kind")
+
+        if not (version and kind):
+            continue
+
+        # Construct apiVersion
+        api_version = f"{group}/{version}" if group else version
+
+        # Replace apiVersion and kind with constants
         if "properties" in definition:
-            for prop in definition["properties"].values():
-                if prop.get("format") == "int-or-string":
-                    prop["type"] = ["integer", "string"]
-                    prop.pop("format")
-        if "format" in definition:
-            if definition["format"] == "int-or-string":
-                definition["type"] = ["integer", "string"]
-                definition.pop("format")
+            required = definition.setdefault("required", [])
+            if "apiVersion" in definition["properties"]:
+                definition["properties"]["apiVersion"]["enum"] = [api_version]
+                definition["properties"]["apiVersion"]["default"] = api_version
+                if "apiVersion" not in required:
+                    required.append("apiVersion")
+            if "kind" in definition["properties"]:
+                definition["properties"]["kind"]["enum"] = [kind]
+                definition["properties"]["kind"]["default"] = kind
+                if "kind" not in required:
+                    required.append("kind")
+            if "metadata" in required:
+                required.remove("metadata")
 
 
 def process_transformations(transformations: list[Transformation], schema: dict) -> dict:
     renames = {}
+    is_openapi = detect_schema_type(schema) == "openapi"
+    definitions = get_schema_definitions(schema)
 
     def _new_name(definition_name):
         for transformation in transformations:
@@ -117,21 +170,145 @@ def process_transformations(transformations: list[Transformation], schema: dict)
                 )
         return definition_name
 
-    for definition_name in schema["definitions"]:
+    # Process renames
+    for definition_name in list(definitions.keys()):
         new_name = _new_name(definition_name)
         renames[definition_name] = new_name
+
+    # Apply renames
     for old_name, new_name in renames.items():
         if not new_name:
-            schema["definitions"].pop(old_name)
+            definitions.pop(old_name)
             continue
-        schema["definitions"][new_name] = schema["definitions"].pop(old_name)
+        definitions[new_name] = definitions.pop(old_name)
 
+    set_schema_definitions(schema, definitions)
     raw_schema = json.dumps(schema, indent=2)
+    prefix = "#/components/schemas/" if is_openapi else "#/definitions/"
     for old_name, new_name in renames.items():
-        raw_schema = raw_schema.replace(
-            f'"#/definitions/{old_name}"', f'"#/definitions/{new_name}"'
-        )
+        raw_schema = raw_schema.replace(f'"{prefix}{old_name}"', f'"{prefix}{new_name}"')
     return json.loads(raw_schema)
+
+
+def load_yaml_documents(file_path: str) -> Iterator[dict]:
+    """Load YAML documents from a file."""
+    with open(file_path, "r") as f:
+        try:
+            yield from yaml.safe_load_all(f)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Failed to parse YAML file: {e}")
+
+
+def is_crd(doc: dict) -> bool:
+    """Check if a document is a CustomResourceDefinition."""
+    return (
+        doc.get("apiVersion") == "apiextensions.k8s.io/v1"
+        and doc.get("kind") == "CustomResourceDefinition"
+    )
+
+
+def convert_crd_to_schema(crd: dict) -> Dict[str, Any]:
+    """Convert a CRD to an OpenAPI schema."""
+    schema: Dict[str, Any] = {
+        "openapi": "3.0.0",
+        "info": {"title": "Generated Schema", "version": "v1"},
+        "components": {"schemas": {}},
+    }
+
+    spec = crd.get("spec", {})
+    versions = spec.get("versions", [])
+    group = spec.get("group", "")
+    kind = spec.get("names", {}).get("kind", "")
+
+    # Add ObjectMeta if not already in components
+    schema["components"]["schemas"]["io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"] = {
+        "type": "object",
+    }
+
+    for version in versions:
+        if not version.get("served", True):
+            continue
+
+        version_name = version.get("name", "")
+        schema_obj = version.get("schema", {}).get("openAPIV3Schema", {})
+
+        if not schema_obj:
+            continue
+
+        # Convert group to reverse domain format
+        if group:
+            reverse_group = ".".join(reversed(group.split(".")))
+            def_name = f"{reverse_group}.{version_name}.{kind}"
+        else:
+            def_name = f"core.{version_name}.{kind}"
+
+        schema["components"]["schemas"][def_name] = schema_obj
+
+        # Add GVK metadata
+        schema["components"]["schemas"][def_name]["x-kubernetes-group-version-kind"] = [
+            {
+                "group": group,
+                "version": version_name,
+                "kind": kind,
+            }
+        ]
+
+        # Handle spec and status properties
+        if "properties" in schema_obj:
+            properties = schema_obj["properties"]
+
+            # Handle spec property
+            if "spec" in properties:
+                spec_schema = properties["spec"]
+                spec_name = f"{def_name}Spec"
+                schema["components"]["schemas"][spec_name] = spec_schema
+                properties["spec"] = {"$ref": f"#/components/schemas/{spec_name}"}
+                spec_schema["title"] = f"{kind}Spec"
+
+            # Handle status property
+            if "status" in properties:
+                status_schema = properties["status"]
+                status_name = f"{def_name}Status"
+                schema["components"]["schemas"][status_name] = status_schema
+                properties["status"] = {"$ref": f"#/components/schemas/{status_name}"}
+                status_schema["title"] = f"{kind}Status"
+
+            # Set metadata reference
+            properties["metadata"] = {
+                "$ref": "#/components/schemas/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+            }
+
+    return schema
+
+
+def merge_schemas(schemas: list[dict[str, Any]]) -> dict:
+    """Merge multiple OpenAPI schemas into one."""
+    merged: dict[str, Any] = {
+        "openapi": "3.0.0",
+        "info": {"title": "Generated Schema", "version": "v1"},
+        "components": {"schemas": {}},
+    }
+
+    for schema in schemas:
+        merged["components"]["schemas"].update(schema["components"]["schemas"])
+
+    return merged
+
+
+def fetch_remote_content(url: str) -> str:
+    """Fetch content from a remote URL."""
+    response = httpx.get(url, follow_redirects=True)
+    if response.status_code != 200:
+        raise ValueError(f"Failed to fetch {url}")
+    return response.text
+
+
+def load_yaml_content(content: str) -> Iterator[dict]:
+    """Load YAML documents from a string."""
+    try:
+        yield from yaml.safe_load_all(content)
+    except yaml.YAMLError as e:
+        raise ValueError(f"Failed to parse YAML content: {e}")
 
 
 def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
@@ -139,17 +316,43 @@ def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
     extra_data_file = workdir / "extra_data.json"
 
     if config.input_.startswith("http"):
-        response = httpx.get(config.input_, follow_redirects=True)
-        if response.status_code != 200:
-            raise ValueError(f"Failed to fetch {config.input_}")
-        schema = response.json()
+        content = fetch_remote_content(config.input_)
+        if config.input_.endswith((".yaml", ".yml")):
+            # Handle remote YAML files
+            schemas = []
+            for doc in load_yaml_content(content):
+                if doc and is_crd(doc):
+                    schemas.append(convert_crd_to_schema(doc))
+            if not schemas:
+                raise ValueError(f"No valid CRDs found in {config.input_}")
+            schema = merge_schemas(schemas)
+        else:
+            # Handle remote JSON
+            schema = json.loads(content)
     else:
-        with open(config.input_, "r") as f:
-            content = f.read()
-        schema = json.loads(content)
+        if config.input_.endswith((".yaml", ".yml")):
+            # Handle local YAML files
+            schemas = []
+            for doc in load_yaml_documents(config.input_):
+                if doc and is_crd(doc):
+                    schemas.append(convert_crd_to_schema(doc))
+            if not schemas:
+                raise ValueError(f"No valid CRDs found in {config.input_}")
+            schema = merge_schemas(schemas)
+        else:
+            # Handle local JSON
+            with open(config.input_, "r") as f:
+                content = f.read()
+            schema = json.loads(content)
 
     schema = process_transformations(config.transformations, schema)
     process_definitions(schema)
+
+    if detect_schema_type(schema) == "openapi":
+        config.additional_datamodel_codegen_args.extend(["--input-file-type", "openapi"])
+    else:
+        config.additional_datamodel_codegen_args.extend(["--input-file-type", "jsonschema"])
+
     extra_data = generate_extra_data(schema)
 
     # Write schema and extra data files
@@ -162,22 +365,28 @@ def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
 
 
 def generate_extra_data(schema: dict) -> dict:
+    """Generate extra data for both OpenAPI and JSONSchema formats."""
     extra_data = {}
-    for prop_name, prop in schema["definitions"].items():
+    definitions = get_schema_definitions(schema)
+
+    for prop_name, prop in definitions.items():
         extra_prop_data = {
             "is_gvk": False,
             "is_list": False,
         }
+
+        # Check for GVK
         if "x-kubernetes-group-version-kind" in prop:
             extra_prop_data["is_gvk"] = True
-        if prop_name.endswith("List") and set(prop["properties"]) == {
-            "metadata",
-            "items",
-            "apiVersion",
-            "kind",
-        }:
-            extra_prop_data["is_list"] = True
+
+        # Check for List type
+        if prop_name.endswith("List") and "properties" in prop:
+            required_list_props = {"metadata", "items", "apiVersion", "kind"}
+            if set(prop["properties"]) == required_list_props:
+                extra_prop_data["is_list"] = True
+
         extra_data[prop_name] = extra_prop_data
+
     return extra_data
 
 
@@ -296,11 +505,11 @@ def generate(config: ModelConfig):
     input_file, extra_data_file = process_input(config, workdir)
 
     args = []
-    base_class = "cloudcoil._pydantic.BaseModel"
+    base_class = "cloudcoil.pydantic.BaseModel"
     if config.mode == "resource":
         base_class = "cloudcoil.resources.Resource"
         additional_imports = [
-            "cloudcoil._pydantic.BaseModel",
+            "cloudcoil.pydantic.BaseModel",
             "cloudcoil.resources.ResourceList",
         ]
         args = [
@@ -419,6 +628,18 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Don't generate py.typed file",
     )
+    # Add new arguments
+    parser.add_argument(
+        "--crd-namespace",
+        help="Namespace for CRD resources",
+    )
+    parser.add_argument(
+        "--additional-codegen-arg",
+        action="append",
+        help="Additional arguments to pass to datamodel-codegen",
+        dest="additional_datamodel_codegen_args",
+        default=[],
+    )
     return parser
 
 
@@ -466,6 +687,8 @@ def create_model_config_from_args(args: argparse.Namespace) -> ModelConfig | Non
         transformations=transformations,
         generate_init=not args.no_init,
         generate_py_typed=not args.no_py_typed,
+        crd_namespace=args.crd_namespace,
+        additional_datamodel_codegen_args=args.additional_datamodel_codegen_args,
     )
 
 
