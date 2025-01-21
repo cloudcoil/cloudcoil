@@ -8,7 +8,7 @@ import sys
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Annotated, Any, Dict, Iterator, List, Literal
+from typing import Annotated, Any, Dict, Iterator, List, Literal, Set, Tuple
 
 import httpx
 import yaml
@@ -25,6 +25,25 @@ else:
     from . import _tomllib as tomllib
 
 
+class Update(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+        validate_default=True,
+    )
+    match_: Annotated[str | re.Pattern, Field(alias="match"), BeforeValidator(re.compile)]
+    jsonpath: str
+    value: Any
+
+
+class Rename(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+        validate_default=True,
+    )
+    from_: Annotated[str, Field(alias="from")]
+    to: str
+
+
 class Transformation(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
@@ -34,6 +53,18 @@ class Transformation(BaseModel):
     replace: str | None = None
     namespace: str | None = None
     exclude: bool = False
+
+    @model_validator(mode="after")
+    def validate_transformation_mode(self):
+        if self.exclude:
+            if self.replace or self.namespace:
+                raise ValueError(
+                    "Exclusion transformations cannot have replace or namespace values"
+                )
+        else:
+            if not self.replace:
+                raise ValueError("replace is required for non-exclusion transformations")
+        return self
 
 
 class ModelConfig(BaseModel):
@@ -47,12 +78,15 @@ class ModelConfig(BaseModel):
     output: Path | None = None
     mode: Literal["resource", "base"] = "resource"
     transformations: list[Transformation] = []
+    updates: list[Update] = []
     generate_init: Annotated[bool, Field(alias="generate-init")] = True
     generate_py_typed: Annotated[bool, Field(alias="generate-py-typed")] = True
     exclude_unknown: Annotated[bool, Field(alias="exclude-unknown")] = False
     additional_datamodel_codegen_args: Annotated[
         list[str], Field(alias="additional-datamodel-codegen-args")
     ] = []
+    merge_duplicate_models: Annotated[bool, Field(alias="merge-duplicate-models")] = False
+    renames: list[Rename] = []
 
     @model_validator(mode="after")
     def _add_namespace(self):
@@ -73,7 +107,12 @@ class ModelConfig(BaseModel):
             ]
             self.transformations = crd_transformations + self.transformations
         if self.exclude_unknown:
-            self.transformations.append(Transformation(match_=re.compile(r"^.*$"), exclude=True))
+            self.transformations.append(
+                Transformation(
+                    match_=re.compile(r"^.*$"),
+                    exclude=True,
+                )
+            )
         for transformation in self.transformations:
             if transformation.exclude:
                 if transformation.replace or transformation.namespace:
@@ -113,6 +152,95 @@ def set_schema_definitions(schema: dict, definitions: dict) -> None:
         schema["components"]["schemas"] = definitions
     else:
         schema["definitions"] = definitions
+
+
+def set_value_at_path(obj: dict, path: str, value: Any) -> None:
+    """Set a value at a specified JSON path with support for array indices.
+
+    Empty path segments are skipped. Multiple dots are treated as a single dot.
+    Array indices can be used at any level including root.
+
+    Examples:
+        set_value_at_path(obj, "foo.bar", "value")  # {"foo": {"bar": "value"}}
+        set_value_at_path(obj, "foo..bar", "value") # {"foo": {"bar": "value"}}
+        set_value_at_path(obj, "[0].foo", "value")  # [{"foo": "value"}]
+    """
+    parts = []
+    current_part = ""
+    in_brackets = False
+
+    # Parse path into parts, handling array indices
+    for char in path:
+        if char == "[":
+            if in_brackets:
+                raise ValueError("Invalid path: nested brackets not supported")
+            in_brackets = True
+            if current_part:
+                if current_part.strip():  # Only add non-empty segments
+                    parts.append(current_part)
+                current_part = ""
+        elif char == "]":
+            if not in_brackets:
+                raise ValueError("Invalid path: unmatched closing bracket")
+            in_brackets = False
+            try:
+                parts.append(int(current_part))  # type: ignore
+            except ValueError:
+                raise ValueError(f"Invalid array index: {current_part}")
+            current_part = ""
+        elif char == "." and not in_brackets:
+            if current_part.strip():  # Only add non-empty segments
+                parts.append(current_part)
+            current_part = ""
+        else:
+            current_part += char
+
+    if in_brackets:
+        raise ValueError("Invalid path: unclosed bracket")
+    if current_part.strip():  # Only add final non-empty segment
+        parts.append(current_part)
+
+    # Handle root array case
+    if parts and isinstance(parts[0], int):
+        if not isinstance(obj, list):
+            obj.clear()  # Clear dict to convert to list
+            obj[:] = []  # Convert to list without reassignment
+
+    # Navigate path and set value
+    current = obj
+    for i, part in enumerate(parts[:-1]):
+        next_part = parts[i + 1]
+        if isinstance(part, int):
+            if not isinstance(current, list):
+                if isinstance(current, dict):
+                    current.clear()
+                    current[:] = []
+                else:
+                    raise ValueError(
+                        f"Cannot set index on non-list at {'.'.join(map(str, parts[:i]))}"
+                    )
+            while len(current) <= part:
+                current.append({} if not isinstance(next_part, int) else [])
+            current = current[part]
+        else:
+            # Create nested dict if needed
+            if not isinstance(current.get(part), (dict, list)):
+                current[part] = [] if isinstance(next_part, int) else {}
+            current = current[part]
+
+    last = parts[-1]
+    if isinstance(last, int):
+        if not isinstance(current, list):
+            if isinstance(current, dict):
+                current.clear()
+                current[:] = []
+            else:
+                raise ValueError("Cannot set index on non-list")
+        while len(current) <= last:
+            current.append(None)
+        current[last] = value
+    else:
+        current[last] = value
 
 
 def process_definitions(schema: dict) -> None:
@@ -162,6 +290,17 @@ def process_definitions(schema: dict) -> None:
                     required.append("kind")
             if "metadata" in required:
                 required.remove("metadata")
+
+
+def process_updates(updates: list[Update], schema: dict) -> None:
+    """Process updates by setting values at specified JSON paths."""
+    definitions = get_schema_definitions(schema)
+
+    for definition_name, definition in definitions.items():
+        for update in updates:
+            assert isinstance(update.match_, re.Pattern)
+            if update.match_.match(definition_name):
+                set_value_at_path(definition, update.jsonpath, update.value)
 
 
 def process_transformations(transformations: list[Transformation], schema: dict) -> dict:
@@ -272,7 +411,6 @@ def convert_crd_to_schema(crd: dict) -> Dict[str, Any]:
                 spec_name = f"{def_name}Spec"
                 schema["components"]["schemas"][spec_name] = spec_schema
                 properties["spec"] = {"$ref": f"#/components/schemas/{spec_name}"}
-                spec_schema["title"] = f"{kind}Spec"
 
             # Handle status property
             if "status" in properties:
@@ -280,7 +418,6 @@ def convert_crd_to_schema(crd: dict) -> Dict[str, Any]:
                 status_name = f"{def_name}Status"
                 schema["components"]["schemas"][status_name] = status_schema
                 properties["status"] = {"$ref": f"#/components/schemas/{status_name}"}
-                status_schema["title"] = f"{kind}Status"
 
             # Set metadata reference
             properties["metadata"] = {
@@ -354,7 +491,13 @@ def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
                 content = f.read()
             schema = json.loads(content)
 
+    # Process transformations first
     schema = process_transformations(config.transformations, schema)
+
+    # Then apply any updates
+    process_updates(config.updates, schema)
+
+    # Continue with definition processing
     process_definitions(schema)
 
     if detect_schema_type(schema) == "openapi":
@@ -504,6 +647,179 @@ def generate_init_imports(root_dir: str | Path):
     process_directory(root_dir)
 
 
+def parse_model_fields(content: str) -> Dict[str, List[Tuple]]:
+    """Parse Python file content and extract Pydantic model fields."""
+    models = {}
+    tree = ast.parse(content)
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ClassDef):
+            continue
+
+        # Check if it's a Pydantic model
+        if not any(
+            base.id in ("BaseModel", "Resource")
+            for base in node.bases
+            if isinstance(base, ast.Name)
+        ):
+            continue
+
+        fields = []
+        for stmt in node.body:
+            if not isinstance(stmt, ast.AnnAssign):
+                continue
+
+            assert isinstance(stmt.target, ast.Name)
+            field_name = stmt.target.id
+            type_annotation = ast.unparse(stmt.annotation)
+            default_value = ast.unparse(stmt.value) if stmt.value else None
+
+            fields.append((field_name, type_annotation, default_value))
+
+        if fields:
+            models[node.name] = fields
+
+    return models
+
+
+def find_duplicate_models(workdir: Path) -> Dict[str, Set[str]]:
+    """Find models with identical fields across all Python files."""
+    model_fields: Dict[Tuple[Tuple[str, str, str], ...], Set[str]] = {}
+    model_locations: Dict[str, str] = {}
+
+    for file in workdir.rglob("*.py"):
+        if file.name == "__init__.py":
+            continue
+
+        content = file.read_text()
+        file_models = parse_model_fields(content)
+
+        for model_name, fields in file_models.items():
+            fields_tuple = tuple(sorted(fields, key=lambda f: f[0]))
+            model_locations[model_name] = str(file.relative_to(workdir))
+            if fields_tuple in model_fields:
+                model_fields[fields_tuple].add(model_name)
+            else:
+                model_fields[fields_tuple] = {model_name}
+
+    return {
+        sorted(models)[0]: models - {sorted(models)[0]}
+        for models in model_fields.values()
+        if len(models) > 1
+    }
+
+
+def merge_duplicate_models(workdir: Path, canonical_models: Dict[str, Set[str]]):
+    """Replace duplicate models with their canonical versions."""
+    # Create a mapping of old to new model names
+    replacements = {
+        old: canonical for canonical, duplicates in canonical_models.items() for old in duplicates
+    }
+
+    # Replace all occurrences in Python files
+    for file in workdir.rglob("*.py"):
+        content = file.read_text()
+        tree = ast.parse(content)
+
+        modified = False
+
+        class ClassRemover(ast.NodeTransformer):
+            def __init__(self, classes_to_remove):
+                self.classes_to_remove = set(classes_to_remove)
+                self.modified = False
+
+            def visit_ClassDef(self, node):  # noqa: N802
+                if node.name in self.classes_to_remove:
+                    self.modified = True
+                    return None
+                return node
+
+        class ReferenceReplacer(ast.NodeTransformer):
+            def __init__(self, replacements):
+                self.replacements = replacements
+                self.modified = False
+
+            def visit_Name(self, node):  # noqa: N802
+                if node.id in self.replacements:
+                    self.modified = True
+                    node.id = self.replacements[node.id]
+                return node
+
+        # Replace class definitions
+        class_remover = ClassRemover(replacements.keys())
+        tree = class_remover.visit(tree)
+
+        # Replace references
+        reference_replacer = ReferenceReplacer(replacements)
+        tree = reference_replacer.visit(tree)
+
+        if class_remover.modified or reference_replacer.modified:
+            modified = True
+
+        if modified:
+            new_content = ast.unparse(tree)
+            file.write_text(new_content)
+
+
+def rename_classes(workdir: Path, renames: Dict[str, str]):
+    """Rename classes according to the renames mapping."""
+    if not renames:
+        return
+
+    for file in workdir.rglob("*.py"):
+        content = file.read_text()
+        tree = ast.parse(content)
+
+        class ClassRenamer(ast.NodeTransformer):
+            def __init__(self, renames):
+                self.renames = renames
+                self.modified = False
+
+            def visit_ClassDef(self, node):  # noqa: N802
+                if node.name in self.renames:
+                    self.modified = True
+                    node.name = self.renames[node.name]
+                return self.generic_visit(node)
+
+            def visit_AnnAssign(self, node):  # noqa: N802
+                # Handle type annotations in field definitions
+                if isinstance(node.annotation, ast.Name) and node.annotation.id in self.renames:
+                    self.modified = True
+                    node.annotation.id = self.renames[node.annotation.id]
+                elif isinstance(node.annotation, ast.Subscript):
+                    # Handle List[Type], Optional[Type], etc.
+                    self._process_subscript(node.annotation)
+                return self.generic_visit(node)
+
+            def visit_Name(self, node):  # noqa: N802
+                if node.id in self.renames:
+                    self.modified = True
+                    node.id = self.renames[node.id]
+                return node
+
+            def _process_subscript(self, node):
+                # Handle type annotations like List[OldName], Optional[OldName], etc.
+                if isinstance(node.slice, ast.Name) and node.slice.id in self.renames:
+                    self.modified = True
+                    node.slice.id = self.renames[node.slice.id]
+                elif isinstance(node.slice, ast.Tuple):
+                    # Handle Union[Type1, Type2], etc.
+                    for elt in node.slice.elts:
+                        if isinstance(elt, ast.Name) and elt.id in self.renames:
+                            self.modified = True
+                            elt.id = self.renames[elt.id]
+                elif isinstance(node.slice, ast.Subscript):
+                    # Handle nested types like List[Optional[OldName]]
+                    self._process_subscript(node.slice)
+
+        renamer = ClassRenamer(renames)
+        new_tree = renamer.visit(tree)
+
+        if renamer.modified:
+            new_content = ast.unparse(new_tree)
+            file.write_text(new_content)
+
+
 def generate(config: ModelConfig):
     ruff = shutil.which("ruff")
     if not ruff:
@@ -560,6 +876,24 @@ def generate(config: ModelConfig):
             ]
         )
     rewrite_imports(config.namespace, workdir)
+
+    if config.generate_init:
+        Path(workdir / generated_path / "__init__.py").touch()
+        generate_init_imports(workdir / generated_path)
+    else:
+        Path(workdir / generated_path / "__init__.py").unlink()
+    if config.generate_py_typed:
+        Path(workdir / generated_path / "py.typed").touch()
+
+    # Deduplicate models
+    if config.merge_duplicate_models:
+        duplicates = find_duplicate_models(workdir / generated_path)
+        if duplicates:
+            merge_duplicate_models(workdir / generated_path, duplicates)
+
+    # Apply class renames after deduplication
+    rename_classes(workdir / generated_path, {rename.from_: rename.to for rename in config.renames})
+
     ruff_check_fix_args = [
         ruff,
         "check",
@@ -578,13 +912,7 @@ def generate(config: ModelConfig):
         str(Path(__file__).parent / "ruff.toml"),
     ]
     subprocess.run(ruff_format_args, check=True)
-    if config.generate_init:
-        Path(workdir / generated_path / "__init__.py").touch()
-        generate_init_imports(workdir / generated_path)
-    else:
-        Path(workdir / generated_path / "__init__.py").unlink()
-    if config.generate_py_typed:
-        Path(workdir / generated_path / "py.typed").touch()
+    # Continue with the existing move operations
     output_dir = config.output or Path(".")
     # Move the entire generated package from workdir / generated_path to the output directory
     # if the output directory exists
@@ -643,7 +971,6 @@ def create_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Don't generate py.typed file",
     )
-    # Add new arguments
     parser.add_argument(
         "--crd-namespace",
         help="Namespace for CRD resources",
