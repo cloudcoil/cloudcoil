@@ -41,8 +41,17 @@ pip install cloudcoil[kubernetes]
 
 ## 🔌 Integrations
 
-Discover more Cloudcoil model integrations for popular Kubernetes operators and CRDs:
-[Browse cloudcoil-models on GitHub](https://github.com/topics/cloudcoil-models)
+Discover more Cloudcoil model integrations for popular Kubernetes operators and CRDs at [cloudcoil-models on GitHub](https://github.com/topics/cloudcoil-models).
+
+Current first-class integrations include:
+
+| Project | Github | PyPI | 
+| ------- | ------- | -------  | 
+| [cert-manager](https://github.com/cert-manager/cert-manager) | [models-cert-manager](https://github.com/cloudcoil/models-cert-manager) | [cloudcoil.models.cert_manager](https://pypi.org/project/cloudcoil.models.cert-manager) |
+| [fluxcd](https://github.com/fluxcd/flux2) | [models-fluxcd](https://github.com/cloudcoil/models-fluxcd) | [cloudcoil.models.fluxcd](https://pypi.org/project/cloudcoil.models.fluxcd) |
+| [kyverno](https://github.com/kyverno/kyverno) | [models-kyverno](https://github.com/cloudcoil/models-kyverno) | [cloudcoil.models.kyverno](https://pypi.org/project/cloudcoil.models.kyverno) |
+
+> Missing an integration you need? [Open a model request](https://github.com/cloudcoil/cloudcoil/issues/new?template=%F0%9F%94%8C-model-request.md) to suggest a new integration!
 
 ## 💡 Examples
 
