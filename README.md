@@ -39,6 +39,10 @@ Using pip:
 pip install cloudcoil[kubernetes]
 ```
 
+## 🔌 Integrations
+
+Discover more Cloudcoil model integrations for popular Kubernetes operators and CRDs:
+[Browse cloudcoil-models on GitHub](https://github.com/topics/cloudcoil-models)
 
 ## 💡 Examples
 
@@ -326,6 +330,44 @@ job = job_class(
     }
 )
 ```
+
+## 🏗️ Model Generation
+
+Cloudcoil supports generating typed models from CustomResourceDefinitions (CRDs). You can either use the provided cookiecutter template or set up model generation manually.
+
+### Using the Cookiecutter Template
+
+The fastest way to get started is using our cookiecutter template: [cloudcoil-models-cookiecutter](https://github.com/cloudcoil/cloudcoil-models-cookiecutter)
+
+### Codegen Config
+
+Cloudcoil includes a CLI tool, cloudcoil-model-codegen, which reads configuration from your pyproject.toml under [tool.cloudcoil.codegen.models]. It supports options such as:
+
+• namespace: The Python package name for generated models  
+• input: Path or URL to CRD (YAML/JSON) or OpenAPI schema  
+• output: Output directory for the generated code  
+• mode: Either "resource" (default) or "base" for the generated class hierarchy  
+• crd-namespace: Inject a namespace for CRD resources  
+• transformations / updates: Modify the schema before generation  
+• exclude-unknown: Exclude definitions that cannot be mapped  
+• merge-duplicate-models: Merge identical models  
+• renames: Rename classes after generation  
+• additional-datamodel-codegen-args: Pass extra flags to the underlying generator  
+
+Example pyproject.toml config - 
+
+```toml
+[[tool.cloudcoil.codegen.models]]
+# Unique name for the models
+# This will be used as the name for the setuptools entrypoints
+namespace = "cloudcoil.models.fluxcd"
+input = "https://github.com/fluxcd/flux2/releases/download/v2.4.0/install.yaml"
+crd-namespace = "io.fluxcd.toolkit"
+```
+
+For more examples, check out the [cloudcoil-models](https://github.com/topics/cloudcoil-models) topic on Github.
+
+If you are building a models package to be used with cloudcoil, please make sure to tag it with this topic for discovery.
 
 ## 📚 Documentation
 
