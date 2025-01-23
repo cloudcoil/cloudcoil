@@ -10,8 +10,8 @@ lint:
 
 .PHONY: fix-lint
 fix-lint:
-	uv run --frozen ruff format cloudcoil tests
-	uv run --frozen ruff check --fix --unsafe-fixes cloudcoil tests
+	uv run --frozen ruff format cloudcoil tests .
+	uv run --frozen ruff check --fix --unsafe-fixes cloudcoil tests .
 
 .PHONY: docs-deploy
 docs-deploy:

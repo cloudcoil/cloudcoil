@@ -4,7 +4,7 @@ indent-width = 4
 
 # Assume Python 3.10
 target-version = "py310"
-
+unsafe-fixes = true
 # Linting
 [lint]
 select = [
