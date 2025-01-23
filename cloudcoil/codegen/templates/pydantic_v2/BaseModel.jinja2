@@ -31,7 +31,6 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         {%- if field.data_type.data_types and field.data_type.data_types[0].is_list  %}
         {%- set item_type = field.data_type.data_types[0].data_types[0] %}
         {%- if item_type.reference is not none %}
-        """ {{ item_type.data_type }} """
         def {{ field_setter_name }}(self, value_or_callback: Union[{{ field.type_hint }}, Callable[[GenericListBuilder[{{ item_type.type_hint }}, {{ item_type.type_hint }}.Builder]], GenericListBuilder[{{ item_type.type_hint }}, {{ item_type.type_hint }}.Builder]]]) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
@@ -43,7 +42,6 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         {%- endif %}
         {%- else %}
         {%- if field.data_type.reference is not none %}
-        """ {{ field.data_type.data_types[0] }} """
 
         def {{ field_setter_name }}(self, value_or_callback: Union[{{ field.type_hint }}, Callable[[{{ field.data_type.type_hint }}.Builder], {{ field.data_type.type_hint }}.Builder]]) -> Self:
             value = value_or_callback
