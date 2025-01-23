@@ -4,11 +4,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Dict, List, Literal, Optional, Union
+from typing import Annotated, Callable, Dict, List, Literal, Optional, Type, Union
 
 from pydantic import Field, RootModel
 
-from cloudcoil.pydantic import BaseModel
+from cloudcoil.pydantic import BaseBuilder, BaseModel, ListBuilder, Self
 
 
 class Quantity(RootModel[str]):
@@ -21,6 +21,48 @@ class Quantity(RootModel[str]):
 
 
 class APIResource(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "APIResource":
+            return APIResource(**self._attrs)
+
+        def categories(self, value: Optional[List[str]]) -> Self:
+            return self._set("categories", value)
+
+        def group(self, value: Optional[str]) -> Self:
+            return self._set("group", value)
+
+        def kind(self, value: str) -> Self:
+            return self._set("kind", value)
+
+        def name(self, value: str) -> Self:
+            return self._set("name", value)
+
+        def namespaced(self, value: bool) -> Self:
+            return self._set("namespaced", value)
+
+        def short_names(self, value: Optional[List[str]]) -> Self:
+            return self._set("short_names", value)
+
+        def singular_name(self, value: str) -> Self:
+            return self._set("singular_name", value)
+
+        def storage_version_hash(self, value: Optional[str]) -> Self:
+            return self._set("storage_version_hash", value)
+
+        def verbs(self, value: List[str]) -> Self:
+            return self._set("verbs", value)
+
+        def version(self, value: Optional[str]) -> Self:
+            return self._set("version", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     categories: Annotated[
         Optional[List[str]],
         Field(
@@ -80,6 +122,38 @@ class APIResource(BaseModel):
 
 
 class APIResourceList(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "APIResourceList":
+            return APIResourceList(**self._attrs)
+
+        def api_version(self, value: Optional[Literal["v1"]]) -> Self:
+            return self._set("api_version", value)
+
+        def group_version(self, value: str) -> Self:
+            return self._set("group_version", value)
+
+        def kind(self, value: Optional[Literal["APIResourceList"]]) -> Self:
+            return self._set("kind", value)
+
+        def resources(
+            self,
+            value_or_callback: Union[
+                List[APIResource], Callable[[Type[APIResource]], List[APIResource]]
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(APIResource)
+            return self._set("resources", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     api_version: Annotated[
         Optional[Literal["v1"]],
         Field(
@@ -109,6 +183,27 @@ class APIResourceList(BaseModel):
 
 
 class FieldSelectorRequirement(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "FieldSelectorRequirement":
+            return FieldSelectorRequirement(**self._attrs)
+
+        def key(self, value: str) -> Self:
+            return self._set("key", value)
+
+        def operator(self, value: str) -> Self:
+            return self._set("operator", value)
+
+        def values(self, value: Optional[List[str]]) -> Self:
+            return self._set("values", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     key: Annotated[
         str,
         Field(description="key is the field selector key that the requirement applies to."),
@@ -128,10 +223,40 @@ class FieldSelectorRequirement(BaseModel):
 
 
 class FieldsV1(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "FieldsV1":
+            return FieldsV1(**self._attrs)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     pass
 
 
 class GroupVersionForDiscovery(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "GroupVersionForDiscovery":
+            return GroupVersionForDiscovery(**self._attrs)
+
+        def group_version(self, value: str) -> Self:
+            return self._set("group_version", value)
+
+        def version(self, value: str) -> Self:
+            return self._set("version", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     group_version: Annotated[
         str,
         Field(
@@ -148,6 +273,27 @@ class GroupVersionForDiscovery(BaseModel):
 
 
 class LabelSelectorRequirement(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "LabelSelectorRequirement":
+            return LabelSelectorRequirement(**self._attrs)
+
+        def key(self, value: str) -> Self:
+            return self._set("key", value)
+
+        def operator(self, value: str) -> Self:
+            return self._set("operator", value)
+
+        def values(self, value: Optional[List[str]]) -> Self:
+            return self._set("values", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     key: Annotated[str, Field(description="key is the label key that the selector applies to.")]
     operator: Annotated[
         str,
@@ -164,6 +310,30 @@ class LabelSelectorRequirement(BaseModel):
 
 
 class ListMeta(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "ListMeta":
+            return ListMeta(**self._attrs)
+
+        def continue_(self, value: Optional[str]) -> Self:
+            return self._set("continue_", value)
+
+        def remaining_item_count(self, value: Optional[int]) -> Self:
+            return self._set("remaining_item_count", value)
+
+        def resource_version(self, value: Optional[str]) -> Self:
+            return self._set("resource_version", value)
+
+        def self_link(self, value: Optional[str]) -> Self:
+            return self._set("self_link", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     continue_: Annotated[
         Optional[str],
         Field(
@@ -202,6 +372,36 @@ class MicroTime(RootModel[datetime]):
 
 
 class OwnerReference(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "OwnerReference":
+            return OwnerReference(**self._attrs)
+
+        def api_version(self, value: str) -> Self:
+            return self._set("api_version", value)
+
+        def block_owner_deletion(self, value: Optional[bool]) -> Self:
+            return self._set("block_owner_deletion", value)
+
+        def controller(self, value: Optional[bool]) -> Self:
+            return self._set("controller", value)
+
+        def kind(self, value: str) -> Self:
+            return self._set("kind", value)
+
+        def name(self, value: str) -> Self:
+            return self._set("name", value)
+
+        def uid(self, value: str) -> Self:
+            return self._set("uid", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     api_version: Annotated[
         str, Field(alias="apiVersion", description="API version of the referent.")
     ]
@@ -237,10 +437,40 @@ class OwnerReference(BaseModel):
 
 
 class Patch(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "Patch":
+            return Patch(**self._attrs)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     pass
 
 
 class Preconditions(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "Preconditions":
+            return Preconditions(**self._attrs)
+
+        def resource_version(self, value: Optional[str]) -> Self:
+            return self._set("resource_version", value)
+
+        def uid(self, value: Optional[str]) -> Self:
+            return self._set("uid", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     resource_version: Annotated[
         Optional[str],
         Field(alias="resourceVersion", description="Specifies the target ResourceVersion"),
@@ -249,6 +479,24 @@ class Preconditions(BaseModel):
 
 
 class ServerAddressByClientCIDR(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "ServerAddressByClientCIDR":
+            return ServerAddressByClientCIDR(**self._attrs)
+
+        def client_cidr(self, value: str) -> Self:
+            return self._set("client_cidr", value)
+
+        def server_address(self, value: str) -> Self:
+            return self._set("server_address", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     client_cidr: Annotated[
         str,
         Field(
@@ -266,6 +514,27 @@ class ServerAddressByClientCIDR(BaseModel):
 
 
 class StatusCause(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "StatusCause":
+            return StatusCause(**self._attrs)
+
+        def field(self, value: Optional[str]) -> Self:
+            return self._set("field", value)
+
+        def message(self, value: Optional[str]) -> Self:
+            return self._set("message", value)
+
+        def reason(self, value: Optional[str]) -> Self:
+            return self._set("reason", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     field: Annotated[
         Optional[str],
         Field(
@@ -287,6 +556,45 @@ class StatusCause(BaseModel):
 
 
 class StatusDetails(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "StatusDetails":
+            return StatusDetails(**self._attrs)
+
+        def causes(
+            self,
+            value_or_callback: Union[
+                Optional[List[StatusCause]],
+                Callable[[Type[StatusCause]], List[StatusCause]],
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(StatusCause)
+            return self._set("causes", value)
+
+        def group(self, value: Optional[str]) -> Self:
+            return self._set("group", value)
+
+        def kind(self, value: Optional[str]) -> Self:
+            return self._set("kind", value)
+
+        def name(self, value: Optional[str]) -> Self:
+            return self._set("name", value)
+
+        def retry_after_seconds(self, value: Optional[int]) -> Self:
+            return self._set("retry_after_seconds", value)
+
+        def uid(self, value: Optional[str]) -> Self:
+            return self._set("uid", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     causes: Annotated[
         Optional[List[StatusCause]],
         Field(
@@ -336,6 +644,18 @@ class Time(RootModel[datetime]):
 
 
 class RawExtension(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "RawExtension":
+            return RawExtension(**self._attrs)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     pass
 
 
@@ -349,6 +669,45 @@ class IntOrString(RootModel[Union[int, str]]):
 
 
 class Info(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "Info":
+            return Info(**self._attrs)
+
+        def build_date(self, value: str) -> Self:
+            return self._set("build_date", value)
+
+        def compiler(self, value: str) -> Self:
+            return self._set("compiler", value)
+
+        def git_commit(self, value: str) -> Self:
+            return self._set("git_commit", value)
+
+        def git_tree_state(self, value: str) -> Self:
+            return self._set("git_tree_state", value)
+
+        def git_version(self, value: str) -> Self:
+            return self._set("git_version", value)
+
+        def go_version(self, value: str) -> Self:
+            return self._set("go_version", value)
+
+        def major(self, value: str) -> Self:
+            return self._set("major", value)
+
+        def minor(self, value: str) -> Self:
+            return self._set("minor", value)
+
+        def platform(self, value: str) -> Self:
+            return self._set("platform", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     build_date: Annotated[str, Field(alias="buildDate")]
     compiler: str
     git_commit: Annotated[str, Field(alias="gitCommit")]
@@ -361,6 +720,63 @@ class Info(BaseModel):
 
 
 class APIGroup(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "APIGroup":
+            return APIGroup(**self._attrs)
+
+        def api_version(self, value: Optional[Literal["v1"]]) -> Self:
+            return self._set("api_version", value)
+
+        def kind(self, value: Optional[Literal["APIGroup"]]) -> Self:
+            return self._set("kind", value)
+
+        def name(self, value: str) -> Self:
+            return self._set("name", value)
+
+        def preferred_version(
+            self,
+            value_or_callback: Union[
+                Optional[GroupVersionForDiscovery],
+                Callable[[Type[GroupVersionForDiscovery]], GroupVersionForDiscovery],
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(GroupVersionForDiscovery)
+            return self._set("preferred_version", value)
+
+        def server_address_by_client_cid_rs(
+            self,
+            value_or_callback: Union[
+                Optional[List[ServerAddressByClientCIDR]],
+                Callable[[Type[ServerAddressByClientCIDR]], List[ServerAddressByClientCIDR]],
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(ServerAddressByClientCIDR)
+            return self._set("server_address_by_client_cid_rs", value)
+
+        def versions(
+            self,
+            value_or_callback: Union[
+                List[GroupVersionForDiscovery],
+                Callable[[Type[GroupVersionForDiscovery]], List[GroupVersionForDiscovery]],
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(GroupVersionForDiscovery)
+            return self._set("versions", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     api_version: Annotated[
         Optional[Literal["v1"]],
         Field(
@@ -396,6 +812,33 @@ class APIGroup(BaseModel):
 
 
 class APIGroupList(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "APIGroupList":
+            return APIGroupList(**self._attrs)
+
+        def api_version(self, value: Optional[Literal["v1"]]) -> Self:
+            return self._set("api_version", value)
+
+        def groups(
+            self,
+            value_or_callback: Union[List[APIGroup], Callable[[Type[APIGroup]], List[APIGroup]]],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(APIGroup)
+            return self._set("groups", value)
+
+        def kind(self, value: Optional[Literal["APIGroupList"]]) -> Self:
+            return self._set("kind", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     api_version: Annotated[
         Optional[Literal["v1"]],
         Field(
@@ -413,6 +856,39 @@ class APIGroupList(BaseModel):
 
 
 class APIVersions(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "APIVersions":
+            return APIVersions(**self._attrs)
+
+        def api_version(self, value: Optional[Literal["v1"]]) -> Self:
+            return self._set("api_version", value)
+
+        def kind(self, value: Optional[Literal["APIVersions"]]) -> Self:
+            return self._set("kind", value)
+
+        def server_address_by_client_cid_rs(
+            self,
+            value_or_callback: Union[
+                List[ServerAddressByClientCIDR],
+                Callable[[Type[ServerAddressByClientCIDR]], List[ServerAddressByClientCIDR]],
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(ServerAddressByClientCIDR)
+            return self._set("server_address_by_client_cid_rs", value)
+
+        def versions(self, value: List[str]) -> Self:
+            return self._set("versions", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     api_version: Annotated[
         Optional[Literal["v1"]],
         Field(
@@ -440,6 +916,41 @@ class APIVersions(BaseModel):
 
 
 class Condition(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "Condition":
+            return Condition(**self._attrs)
+
+        def last_transition_time(
+            self, value_or_callback: Union[Time, Callable[[Type[Time]], Time]]
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(Time)
+            return self._set("last_transition_time", value)
+
+        def message(self, value: str) -> Self:
+            return self._set("message", value)
+
+        def observed_generation(self, value: Optional[int]) -> Self:
+            return self._set("observed_generation", value)
+
+        def reason(self, value: str) -> Self:
+            return self._set("reason", value)
+
+        def status(self, value: str) -> Self:
+            return self._set("status", value)
+
+        def type(self, value: str) -> Self:
+            return self._set("type", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     last_transition_time: Annotated[
         Time,
         Field(
@@ -476,6 +987,47 @@ class Condition(BaseModel):
 
 
 class DeleteOptions(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "DeleteOptions":
+            return DeleteOptions(**self._attrs)
+
+        def api_version(self, value: Optional[Literal["v1"]]) -> Self:
+            return self._set("api_version", value)
+
+        def dry_run(self, value: Optional[List[str]]) -> Self:
+            return self._set("dry_run", value)
+
+        def grace_period_seconds(self, value: Optional[int]) -> Self:
+            return self._set("grace_period_seconds", value)
+
+        def kind(self, value: Optional[Literal["DeleteOptions"]]) -> Self:
+            return self._set("kind", value)
+
+        def orphan_dependents(self, value: Optional[bool]) -> Self:
+            return self._set("orphan_dependents", value)
+
+        def preconditions(
+            self,
+            value_or_callback: Union[
+                Optional[Preconditions], Callable[[Type[Preconditions]], Preconditions]
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(Preconditions)
+            return self._set("preconditions", value)
+
+        def propagation_policy(self, value: Optional[str]) -> Self:
+            return self._set("propagation_policy", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     api_version: Annotated[
         Optional[Literal["v1"]],
         Field(
@@ -526,6 +1078,33 @@ class DeleteOptions(BaseModel):
 
 
 class LabelSelector(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "LabelSelector":
+            return LabelSelector(**self._attrs)
+
+        def match_expressions(
+            self,
+            value_or_callback: Union[
+                Optional[List[LabelSelectorRequirement]],
+                Callable[[Type[LabelSelectorRequirement]], List[LabelSelectorRequirement]],
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(LabelSelectorRequirement)
+            return self._set("match_expressions", value)
+
+        def match_labels(self, value: Optional[Dict[str, str]]) -> Self:
+            return self._set("match_labels", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     match_expressions: Annotated[
         Optional[List[LabelSelectorRequirement]],
         Field(
@@ -543,6 +1122,50 @@ class LabelSelector(BaseModel):
 
 
 class ManagedFieldsEntry(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "ManagedFieldsEntry":
+            return ManagedFieldsEntry(**self._attrs)
+
+        def api_version(self, value: Optional[str]) -> Self:
+            return self._set("api_version", value)
+
+        def fields_type(self, value: Optional[str]) -> Self:
+            return self._set("fields_type", value)
+
+        def fields_v1(
+            self,
+            value_or_callback: Union[Optional[FieldsV1], Callable[[Type[FieldsV1]], FieldsV1]],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(FieldsV1)
+            return self._set("fields_v1", value)
+
+        def manager(self, value: Optional[str]) -> Self:
+            return self._set("manager", value)
+
+        def operation(self, value: Optional[str]) -> Self:
+            return self._set("operation", value)
+
+        def subresource(self, value: Optional[str]) -> Self:
+            return self._set("subresource", value)
+
+        def time(
+            self, value_or_callback: Union[Optional[Time], Callable[[Type[Time]], Time]]
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(Time)
+            return self._set("time", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     api_version: Annotated[
         Optional[str],
         Field(
@@ -589,6 +1212,91 @@ class ManagedFieldsEntry(BaseModel):
 
 
 class ObjectMeta(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "ObjectMeta":
+            return ObjectMeta(**self._attrs)
+
+        def annotations(self, value: Optional[Dict[str, str]]) -> Self:
+            return self._set("annotations", value)
+
+        def creation_timestamp(
+            self, value_or_callback: Union[Optional[Time], Callable[[Type[Time]], Time]]
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(Time)
+            return self._set("creation_timestamp", value)
+
+        def deletion_grace_period_seconds(self, value: Optional[int]) -> Self:
+            return self._set("deletion_grace_period_seconds", value)
+
+        def deletion_timestamp(
+            self, value_or_callback: Union[Optional[Time], Callable[[Type[Time]], Time]]
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(Time)
+            return self._set("deletion_timestamp", value)
+
+        def finalizers(self, value: Optional[List[str]]) -> Self:
+            return self._set("finalizers", value)
+
+        def generate_name(self, value: Optional[str]) -> Self:
+            return self._set("generate_name", value)
+
+        def generation(self, value: Optional[int]) -> Self:
+            return self._set("generation", value)
+
+        def labels(self, value: Optional[Dict[str, str]]) -> Self:
+            return self._set("labels", value)
+
+        def managed_fields(
+            self,
+            value_or_callback: Union[
+                Optional[List[ManagedFieldsEntry]],
+                Callable[[Type[ManagedFieldsEntry]], List[ManagedFieldsEntry]],
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(ManagedFieldsEntry)
+            return self._set("managed_fields", value)
+
+        def name(self, value: Optional[str]) -> Self:
+            return self._set("name", value)
+
+        def namespace(self, value: Optional[str]) -> Self:
+            return self._set("namespace", value)
+
+        def owner_references(
+            self,
+            value_or_callback: Union[
+                Optional[List[OwnerReference]],
+                Callable[[Type[OwnerReference]], List[OwnerReference]],
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(OwnerReference)
+            return self._set("owner_references", value)
+
+        def resource_version(self, value: Optional[str]) -> Self:
+            return self._set("resource_version", value)
+
+        def self_link(self, value: Optional[str]) -> Self:
+            return self._set("self_link", value)
+
+        def uid(self, value: Optional[str]) -> Self:
+            return self._set("uid", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     annotations: Annotated[
         Optional[Dict[str, str]],
         Field(
@@ -690,6 +1398,56 @@ class ObjectMeta(BaseModel):
 
 
 class Status(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "Status":
+            return Status(**self._attrs)
+
+        def api_version(self, value: Optional[Literal["v1"]]) -> Self:
+            return self._set("api_version", value)
+
+        def code(self, value: Optional[int]) -> Self:
+            return self._set("code", value)
+
+        def details(
+            self,
+            value_or_callback: Union[
+                Optional[StatusDetails], Callable[[Type[StatusDetails]], StatusDetails]
+            ],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(StatusDetails)
+            return self._set("details", value)
+
+        def kind(self, value: Optional[Literal["Status"]]) -> Self:
+            return self._set("kind", value)
+
+        def message(self, value: Optional[str]) -> Self:
+            return self._set("message", value)
+
+        def metadata(
+            self,
+            value_or_callback: Union[Optional[ListMeta], Callable[[Type[ListMeta]], ListMeta]],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(ListMeta)
+            return self._set("metadata", value)
+
+        def reason(self, value: Optional[str]) -> Self:
+            return self._set("reason", value)
+
+        def status(self, value: Optional[str]) -> Self:
+            return self._set("status", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     api_version: Annotated[
         Optional[Literal["v1"]],
         Field(
@@ -738,6 +1496,30 @@ class Status(BaseModel):
 
 
 class WatchEvent(BaseModel):
+    class Builder(BaseBuilder):
+        def build(self) -> "WatchEvent":
+            return WatchEvent(**self._attrs)
+
+        def object(
+            self,
+            value_or_callback: Union[RawExtension, Callable[[Type[RawExtension]], RawExtension]],
+        ) -> Self:
+            value = value_or_callback
+            if callable(value_or_callback):
+                value = value_or_callback(RawExtension)
+            return self._set("object", value)
+
+        def type(self, value: str) -> Self:
+            return self._set("type", value)
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder[Self]:
+        return ListBuilder[cls]()  # type: ignore[valid-type]
+
     object: Annotated[
         RawExtension,
         Field(

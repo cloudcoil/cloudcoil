@@ -252,5 +252,5 @@ def test_generate_fluxcd_models(tmp_path, monkeypatch):
         assert f"class {model}(resource):" in content.lower(), f"Expected model {model} not found"
 
     # Verify imports and structure
-    assert "from cloudcoil.resources import Resource" in content
-    assert "from cloudcoil.pydantic import BaseModel" in content
+    assert "from cloudcoil.resources import" in content
+    assert "from cloudcoil.pydantic import" in content
