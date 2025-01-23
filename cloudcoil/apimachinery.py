@@ -4,14 +4,33 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Callable, Dict, List, Literal, Optional, Type, Union
+from typing import Annotated, Callable, Dict, List, Literal, Optional, Type, Union, cast
 
 from pydantic import Field, RootModel
 
-from cloudcoil.pydantic import BaseBuilder, BaseModel, ListBuilder, Self
+from cloudcoil.pydantic import BaseBuilder, BaseModel, GenericListBuilder, Self
 
 
 class Quantity(RootModel[str]):
+    class Builder(BaseModel):
+        _value: str | None = None
+
+        @property
+        def base_class(self) -> Type["Quantity"]:
+            return Quantity
+
+        def root(self, value: str) -> Self:
+            self._value = value
+            return self
+
+        def __call__(self, value: str) -> Self:
+            self._value = value
+            return self
+
+        def build(self) -> "Quantity":
+            value = cast(str, self._value)
+            return Quantity(value)
+
     root: Annotated[
         str,
         Field(
@@ -19,9 +38,27 @@ class Quantity(RootModel[str]):
         ),
     ]
 
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    class ListBuilder(GenericListBuilder["Quantity", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use Quantity.list_builder() instead."
+            )
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
+
 
 class APIResource(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["APIResource"]:
+            return APIResource
+
         def build(self) -> "APIResource":
             return APIResource(**self._attrs)
 
@@ -59,9 +96,15 @@ class APIResource(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["APIResource", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use APIResource.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     categories: Annotated[
         Optional[List[str]],
@@ -123,6 +166,10 @@ class APIResource(BaseModel):
 
 class APIResourceList(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["APIResourceList"]:
+            return APIResourceList
+
         def build(self) -> "APIResourceList":
             return APIResourceList(**self._attrs)
 
@@ -135,24 +182,36 @@ class APIResourceList(BaseModel):
         def kind(self, value: Optional[Literal["APIResourceList"]]) -> Self:
             return self._set("kind", value)
 
+        """  """
+
         def resources(
             self,
             value_or_callback: Union[
-                List[APIResource], Callable[[Type[APIResource]], List[APIResource]]
+                List[APIResource],
+                Callable[
+                    [GenericListBuilder[APIResource, APIResource.Builder]],
+                    GenericListBuilder[APIResource, APIResource.Builder],
+                ],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(APIResource)
+                value = value_or_callback(APIResource.list_builder()).build()
             return self._set("resources", value)
 
     @classmethod
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["APIResourceList", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use APIResourceList.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     api_version: Annotated[
         Optional[Literal["v1"]],
@@ -184,6 +243,10 @@ class APIResourceList(BaseModel):
 
 class FieldSelectorRequirement(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["FieldSelectorRequirement"]:
+            return FieldSelectorRequirement
+
         def build(self) -> "FieldSelectorRequirement":
             return FieldSelectorRequirement(**self._attrs)
 
@@ -200,9 +263,15 @@ class FieldSelectorRequirement(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["FieldSelectorRequirement", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use FieldSelectorRequirement.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     key: Annotated[
         str,
@@ -224,6 +293,10 @@ class FieldSelectorRequirement(BaseModel):
 
 class FieldsV1(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["FieldsV1"]:
+            return FieldsV1
+
         def build(self) -> "FieldsV1":
             return FieldsV1(**self._attrs)
 
@@ -231,15 +304,25 @@ class FieldsV1(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["FieldsV1", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use FieldsV1.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     pass
 
 
 class GroupVersionForDiscovery(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["GroupVersionForDiscovery"]:
+            return GroupVersionForDiscovery
+
         def build(self) -> "GroupVersionForDiscovery":
             return GroupVersionForDiscovery(**self._attrs)
 
@@ -253,9 +336,15 @@ class GroupVersionForDiscovery(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["GroupVersionForDiscovery", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use GroupVersionForDiscovery.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     group_version: Annotated[
         str,
@@ -274,6 +363,10 @@ class GroupVersionForDiscovery(BaseModel):
 
 class LabelSelectorRequirement(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["LabelSelectorRequirement"]:
+            return LabelSelectorRequirement
+
         def build(self) -> "LabelSelectorRequirement":
             return LabelSelectorRequirement(**self._attrs)
 
@@ -290,9 +383,15 @@ class LabelSelectorRequirement(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["LabelSelectorRequirement", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use LabelSelectorRequirement.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     key: Annotated[str, Field(description="key is the label key that the selector applies to.")]
     operator: Annotated[
@@ -311,6 +410,10 @@ class LabelSelectorRequirement(BaseModel):
 
 class ListMeta(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["ListMeta"]:
+            return ListMeta
+
         def build(self) -> "ListMeta":
             return ListMeta(**self._attrs)
 
@@ -330,9 +433,15 @@ class ListMeta(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["ListMeta", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use ListMeta.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     continue_: Annotated[
         Optional[str],
@@ -365,14 +474,51 @@ class ListMeta(BaseModel):
 
 
 class MicroTime(RootModel[datetime]):
+    class Builder(BaseModel):
+        _value: datetime | None = None
+
+        @property
+        def base_class(self) -> Type["MicroTime"]:
+            return MicroTime
+
+        def root(self, value: datetime) -> Self:
+            self._value = value
+            return self
+
+        def __call__(self, value: datetime) -> Self:
+            self._value = value
+            return self
+
+        def build(self) -> "MicroTime":
+            value = cast(datetime, self._value)
+            return MicroTime(value)
+
     root: Annotated[
         datetime,
         Field(description="MicroTime is version of Time with microsecond level precision."),
     ]
 
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    class ListBuilder(GenericListBuilder["MicroTime", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use MicroTime.list_builder() instead."
+            )
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
+
 
 class OwnerReference(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["OwnerReference"]:
+            return OwnerReference
+
         def build(self) -> "OwnerReference":
             return OwnerReference(**self._attrs)
 
@@ -398,9 +544,15 @@ class OwnerReference(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["OwnerReference", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use OwnerReference.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     api_version: Annotated[
         str, Field(alias="apiVersion", description="API version of the referent.")
@@ -438,6 +590,10 @@ class OwnerReference(BaseModel):
 
 class Patch(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["Patch"]:
+            return Patch
+
         def build(self) -> "Patch":
             return Patch(**self._attrs)
 
@@ -445,15 +601,25 @@ class Patch(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["Patch", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use Patch.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     pass
 
 
 class Preconditions(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["Preconditions"]:
+            return Preconditions
+
         def build(self) -> "Preconditions":
             return Preconditions(**self._attrs)
 
@@ -467,9 +633,15 @@ class Preconditions(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["Preconditions", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use Preconditions.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     resource_version: Annotated[
         Optional[str],
@@ -480,6 +652,10 @@ class Preconditions(BaseModel):
 
 class ServerAddressByClientCIDR(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["ServerAddressByClientCIDR"]:
+            return ServerAddressByClientCIDR
+
         def build(self) -> "ServerAddressByClientCIDR":
             return ServerAddressByClientCIDR(**self._attrs)
 
@@ -493,9 +669,15 @@ class ServerAddressByClientCIDR(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["ServerAddressByClientCIDR", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use ServerAddressByClientCIDR.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     client_cidr: Annotated[
         str,
@@ -515,6 +697,10 @@ class ServerAddressByClientCIDR(BaseModel):
 
 class StatusCause(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["StatusCause"]:
+            return StatusCause
+
         def build(self) -> "StatusCause":
             return StatusCause(**self._attrs)
 
@@ -531,9 +717,15 @@ class StatusCause(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["StatusCause", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use StatusCause.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     field: Annotated[
         Optional[str],
@@ -557,19 +749,28 @@ class StatusCause(BaseModel):
 
 class StatusDetails(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["StatusDetails"]:
+            return StatusDetails
+
         def build(self) -> "StatusDetails":
             return StatusDetails(**self._attrs)
+
+        """  """
 
         def causes(
             self,
             value_or_callback: Union[
                 Optional[List[StatusCause]],
-                Callable[[Type[StatusCause]], List[StatusCause]],
+                Callable[
+                    [GenericListBuilder[StatusCause, StatusCause.Builder]],
+                    GenericListBuilder[StatusCause, StatusCause.Builder],
+                ],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(StatusCause)
+                value = value_or_callback(StatusCause.list_builder()).build()
             return self._set("causes", value)
 
         def group(self, value: Optional[str]) -> Self:
@@ -591,9 +792,15 @@ class StatusDetails(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["StatusDetails", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use StatusDetails.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     causes: Annotated[
         Optional[List[StatusCause]],
@@ -635,6 +842,25 @@ class StatusDetails(BaseModel):
 
 
 class Time(RootModel[datetime]):
+    class Builder(BaseModel):
+        _value: datetime | None = None
+
+        @property
+        def base_class(self) -> Type["Time"]:
+            return Time
+
+        def root(self, value: datetime) -> Self:
+            self._value = value
+            return self
+
+        def __call__(self, value: datetime) -> Self:
+            self._value = value
+            return self
+
+        def build(self) -> "Time":
+            value = cast(datetime, self._value)
+            return Time(value)
+
     root: Annotated[
         datetime,
         Field(
@@ -642,9 +868,27 @@ class Time(RootModel[datetime]):
         ),
     ]
 
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    class ListBuilder(GenericListBuilder["Time", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use Time.list_builder() instead."
+            )
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
+
 
 class RawExtension(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["RawExtension"]:
+            return RawExtension
+
         def build(self) -> "RawExtension":
             return RawExtension(**self._attrs)
 
@@ -652,14 +896,39 @@ class RawExtension(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["RawExtension", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use RawExtension.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     pass
 
 
 class IntOrString(RootModel[Union[int, str]]):
+    class Builder(BaseModel):
+        _value: Union[int, str] | None = None
+
+        @property
+        def base_class(self) -> Type["IntOrString"]:
+            return IntOrString
+
+        def root(self, value: Union[int, str]) -> Self:
+            self._value = value
+            return self
+
+        def __call__(self, value: Union[int, str]) -> Self:
+            self._value = value
+            return self
+
+        def build(self) -> "IntOrString":
+            value = cast(Union[int, str], self._value)
+            return IntOrString(value)
+
     root: Annotated[
         Union[int, str],
         Field(
@@ -667,9 +936,27 @@ class IntOrString(RootModel[Union[int, str]]):
         ),
     ]
 
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    class ListBuilder(GenericListBuilder["IntOrString", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use IntOrString.list_builder() instead."
+            )
+
+    @classmethod
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
+
 
 class Info(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["Info"]:
+            return Info
+
         def build(self) -> "Info":
             return Info(**self._attrs)
 
@@ -704,9 +991,15 @@ class Info(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["Info", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use Info.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     build_date: Annotated[str, Field(alias="buildDate")]
     compiler: str
@@ -721,6 +1014,10 @@ class Info(BaseModel):
 
 class APIGroup(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["APIGroup"]:
+            return APIGroup
+
         def build(self) -> "APIGroup":
             return APIGroup(**self._attrs)
 
@@ -733,49 +1030,77 @@ class APIGroup(BaseModel):
         def name(self, value: str) -> Self:
             return self._set("name", value)
 
+        """  """
+
         def preferred_version(
             self,
             value_or_callback: Union[
                 Optional[GroupVersionForDiscovery],
-                Callable[[Type[GroupVersionForDiscovery]], GroupVersionForDiscovery],
+                Callable[[GroupVersionForDiscovery.Builder], GroupVersionForDiscovery.Builder],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(GroupVersionForDiscovery)
+                value = value_or_callback(GroupVersionForDiscovery.builder()).build()
             return self._set("preferred_version", value)
+
+        """  """
 
         def server_address_by_client_cid_rs(
             self,
             value_or_callback: Union[
                 Optional[List[ServerAddressByClientCIDR]],
-                Callable[[Type[ServerAddressByClientCIDR]], List[ServerAddressByClientCIDR]],
+                Callable[
+                    [
+                        GenericListBuilder[
+                            ServerAddressByClientCIDR, ServerAddressByClientCIDR.Builder
+                        ]
+                    ],
+                    GenericListBuilder[
+                        ServerAddressByClientCIDR, ServerAddressByClientCIDR.Builder
+                    ],
+                ],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(ServerAddressByClientCIDR)
+                value = value_or_callback(ServerAddressByClientCIDR.list_builder()).build()
             return self._set("server_address_by_client_cid_rs", value)
+
+        """  """
 
         def versions(
             self,
             value_or_callback: Union[
                 List[GroupVersionForDiscovery],
-                Callable[[Type[GroupVersionForDiscovery]], List[GroupVersionForDiscovery]],
+                Callable[
+                    [
+                        GenericListBuilder[
+                            GroupVersionForDiscovery, GroupVersionForDiscovery.Builder
+                        ]
+                    ],
+                    GenericListBuilder[GroupVersionForDiscovery, GroupVersionForDiscovery.Builder],
+                ],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(GroupVersionForDiscovery)
+                value = value_or_callback(GroupVersionForDiscovery.list_builder()).build()
             return self._set("versions", value)
 
     @classmethod
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["APIGroup", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use APIGroup.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     api_version: Annotated[
         Optional[Literal["v1"]],
@@ -813,19 +1138,31 @@ class APIGroup(BaseModel):
 
 class APIGroupList(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["APIGroupList"]:
+            return APIGroupList
+
         def build(self) -> "APIGroupList":
             return APIGroupList(**self._attrs)
 
         def api_version(self, value: Optional[Literal["v1"]]) -> Self:
             return self._set("api_version", value)
 
+        """  """
+
         def groups(
             self,
-            value_or_callback: Union[List[APIGroup], Callable[[Type[APIGroup]], List[APIGroup]]],
+            value_or_callback: Union[
+                List[APIGroup],
+                Callable[
+                    [GenericListBuilder[APIGroup, APIGroup.Builder]],
+                    GenericListBuilder[APIGroup, APIGroup.Builder],
+                ],
+            ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(APIGroup)
+                value = value_or_callback(APIGroup.list_builder()).build()
             return self._set("groups", value)
 
         def kind(self, value: Optional[Literal["APIGroupList"]]) -> Self:
@@ -835,9 +1172,15 @@ class APIGroupList(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["APIGroupList", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use APIGroupList.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     api_version: Annotated[
         Optional[Literal["v1"]],
@@ -857,6 +1200,10 @@ class APIGroupList(BaseModel):
 
 class APIVersions(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["APIVersions"]:
+            return APIVersions
+
         def build(self) -> "APIVersions":
             return APIVersions(**self._attrs)
 
@@ -866,16 +1213,27 @@ class APIVersions(BaseModel):
         def kind(self, value: Optional[Literal["APIVersions"]]) -> Self:
             return self._set("kind", value)
 
+        """  """
+
         def server_address_by_client_cid_rs(
             self,
             value_or_callback: Union[
                 List[ServerAddressByClientCIDR],
-                Callable[[Type[ServerAddressByClientCIDR]], List[ServerAddressByClientCIDR]],
+                Callable[
+                    [
+                        GenericListBuilder[
+                            ServerAddressByClientCIDR, ServerAddressByClientCIDR.Builder
+                        ]
+                    ],
+                    GenericListBuilder[
+                        ServerAddressByClientCIDR, ServerAddressByClientCIDR.Builder
+                    ],
+                ],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(ServerAddressByClientCIDR)
+                value = value_or_callback(ServerAddressByClientCIDR.list_builder()).build()
             return self._set("server_address_by_client_cid_rs", value)
 
         def versions(self, value: List[str]) -> Self:
@@ -885,9 +1243,15 @@ class APIVersions(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["APIVersions", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use APIVersions.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     api_version: Annotated[
         Optional[Literal["v1"]],
@@ -917,15 +1281,21 @@ class APIVersions(BaseModel):
 
 class Condition(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["Condition"]:
+            return Condition
+
         def build(self) -> "Condition":
             return Condition(**self._attrs)
 
+        """  """
+
         def last_transition_time(
-            self, value_or_callback: Union[Time, Callable[[Type[Time]], Time]]
+            self, value_or_callback: Union[Time, Callable[[Time.Builder], Time.Builder]]
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(Time)
+                value = value_or_callback(Time.builder()).build()
             return self._set("last_transition_time", value)
 
         def message(self, value: str) -> Self:
@@ -947,9 +1317,15 @@ class Condition(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["Condition", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use Condition.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     last_transition_time: Annotated[
         Time,
@@ -988,6 +1364,10 @@ class Condition(BaseModel):
 
 class DeleteOptions(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["DeleteOptions"]:
+            return DeleteOptions
+
         def build(self) -> "DeleteOptions":
             return DeleteOptions(**self._attrs)
 
@@ -1006,15 +1386,18 @@ class DeleteOptions(BaseModel):
         def orphan_dependents(self, value: Optional[bool]) -> Self:
             return self._set("orphan_dependents", value)
 
+        """  """
+
         def preconditions(
             self,
             value_or_callback: Union[
-                Optional[Preconditions], Callable[[Type[Preconditions]], Preconditions]
+                Optional[Preconditions],
+                Callable[[Preconditions.Builder], Preconditions.Builder],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(Preconditions)
+                value = value_or_callback(Preconditions.builder()).build()
             return self._set("preconditions", value)
 
         def propagation_policy(self, value: Optional[str]) -> Self:
@@ -1024,9 +1407,15 @@ class DeleteOptions(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["DeleteOptions", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use DeleteOptions.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     api_version: Annotated[
         Optional[Literal["v1"]],
@@ -1079,19 +1468,32 @@ class DeleteOptions(BaseModel):
 
 class LabelSelector(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["LabelSelector"]:
+            return LabelSelector
+
         def build(self) -> "LabelSelector":
             return LabelSelector(**self._attrs)
+
+        """  """
 
         def match_expressions(
             self,
             value_or_callback: Union[
                 Optional[List[LabelSelectorRequirement]],
-                Callable[[Type[LabelSelectorRequirement]], List[LabelSelectorRequirement]],
+                Callable[
+                    [
+                        GenericListBuilder[
+                            LabelSelectorRequirement, LabelSelectorRequirement.Builder
+                        ]
+                    ],
+                    GenericListBuilder[LabelSelectorRequirement, LabelSelectorRequirement.Builder],
+                ],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(LabelSelectorRequirement)
+                value = value_or_callback(LabelSelectorRequirement.list_builder()).build()
             return self._set("match_expressions", value)
 
         def match_labels(self, value: Optional[Dict[str, str]]) -> Self:
@@ -1101,9 +1503,15 @@ class LabelSelector(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["LabelSelector", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use LabelSelector.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     match_expressions: Annotated[
         Optional[List[LabelSelectorRequirement]],
@@ -1123,6 +1531,10 @@ class LabelSelector(BaseModel):
 
 class ManagedFieldsEntry(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["ManagedFieldsEntry"]:
+            return ManagedFieldsEntry
+
         def build(self) -> "ManagedFieldsEntry":
             return ManagedFieldsEntry(**self._attrs)
 
@@ -1132,13 +1544,17 @@ class ManagedFieldsEntry(BaseModel):
         def fields_type(self, value: Optional[str]) -> Self:
             return self._set("fields_type", value)
 
+        """  """
+
         def fields_v1(
             self,
-            value_or_callback: Union[Optional[FieldsV1], Callable[[Type[FieldsV1]], FieldsV1]],
+            value_or_callback: Union[
+                Optional[FieldsV1], Callable[[FieldsV1.Builder], FieldsV1.Builder]
+            ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(FieldsV1)
+                value = value_or_callback(FieldsV1.builder()).build()
             return self._set("fields_v1", value)
 
         def manager(self, value: Optional[str]) -> Self:
@@ -1150,21 +1566,30 @@ class ManagedFieldsEntry(BaseModel):
         def subresource(self, value: Optional[str]) -> Self:
             return self._set("subresource", value)
 
+        """  """
+
         def time(
-            self, value_or_callback: Union[Optional[Time], Callable[[Type[Time]], Time]]
+            self,
+            value_or_callback: Union[Optional[Time], Callable[[Time.Builder], Time.Builder]],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(Time)
+                value = value_or_callback(Time.builder()).build()
             return self._set("time", value)
 
     @classmethod
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["ManagedFieldsEntry", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use ManagedFieldsEntry.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     api_version: Annotated[
         Optional[str],
@@ -1213,29 +1638,39 @@ class ManagedFieldsEntry(BaseModel):
 
 class ObjectMeta(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["ObjectMeta"]:
+            return ObjectMeta
+
         def build(self) -> "ObjectMeta":
             return ObjectMeta(**self._attrs)
 
         def annotations(self, value: Optional[Dict[str, str]]) -> Self:
             return self._set("annotations", value)
 
+        """  """
+
         def creation_timestamp(
-            self, value_or_callback: Union[Optional[Time], Callable[[Type[Time]], Time]]
+            self,
+            value_or_callback: Union[Optional[Time], Callable[[Time.Builder], Time.Builder]],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(Time)
+                value = value_or_callback(Time.builder()).build()
             return self._set("creation_timestamp", value)
 
         def deletion_grace_period_seconds(self, value: Optional[int]) -> Self:
             return self._set("deletion_grace_period_seconds", value)
 
+        """  """
+
         def deletion_timestamp(
-            self, value_or_callback: Union[Optional[Time], Callable[[Type[Time]], Time]]
+            self,
+            value_or_callback: Union[Optional[Time], Callable[[Time.Builder], Time.Builder]],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(Time)
+                value = value_or_callback(Time.builder()).build()
             return self._set("deletion_timestamp", value)
 
         def finalizers(self, value: Optional[List[str]]) -> Self:
@@ -1250,16 +1685,21 @@ class ObjectMeta(BaseModel):
         def labels(self, value: Optional[Dict[str, str]]) -> Self:
             return self._set("labels", value)
 
+        """  """
+
         def managed_fields(
             self,
             value_or_callback: Union[
                 Optional[List[ManagedFieldsEntry]],
-                Callable[[Type[ManagedFieldsEntry]], List[ManagedFieldsEntry]],
+                Callable[
+                    [GenericListBuilder[ManagedFieldsEntry, ManagedFieldsEntry.Builder]],
+                    GenericListBuilder[ManagedFieldsEntry, ManagedFieldsEntry.Builder],
+                ],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(ManagedFieldsEntry)
+                value = value_or_callback(ManagedFieldsEntry.list_builder()).build()
             return self._set("managed_fields", value)
 
         def name(self, value: Optional[str]) -> Self:
@@ -1268,16 +1708,21 @@ class ObjectMeta(BaseModel):
         def namespace(self, value: Optional[str]) -> Self:
             return self._set("namespace", value)
 
+        """  """
+
         def owner_references(
             self,
             value_or_callback: Union[
                 Optional[List[OwnerReference]],
-                Callable[[Type[OwnerReference]], List[OwnerReference]],
+                Callable[
+                    [GenericListBuilder[OwnerReference, OwnerReference.Builder]],
+                    GenericListBuilder[OwnerReference, OwnerReference.Builder],
+                ],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(OwnerReference)
+                value = value_or_callback(OwnerReference.list_builder()).build()
             return self._set("owner_references", value)
 
         def resource_version(self, value: Optional[str]) -> Self:
@@ -1293,9 +1738,15 @@ class ObjectMeta(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["ObjectMeta", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use ObjectMeta.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     annotations: Annotated[
         Optional[Dict[str, str]],
@@ -1399,6 +1850,10 @@ class ObjectMeta(BaseModel):
 
 class Status(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["Status"]:
+            return Status
+
         def build(self) -> "Status":
             return Status(**self._attrs)
 
@@ -1408,15 +1863,18 @@ class Status(BaseModel):
         def code(self, value: Optional[int]) -> Self:
             return self._set("code", value)
 
+        """  """
+
         def details(
             self,
             value_or_callback: Union[
-                Optional[StatusDetails], Callable[[Type[StatusDetails]], StatusDetails]
+                Optional[StatusDetails],
+                Callable[[StatusDetails.Builder], StatusDetails.Builder],
             ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(StatusDetails)
+                value = value_or_callback(StatusDetails.builder()).build()
             return self._set("details", value)
 
         def kind(self, value: Optional[Literal["Status"]]) -> Self:
@@ -1425,13 +1883,17 @@ class Status(BaseModel):
         def message(self, value: Optional[str]) -> Self:
             return self._set("message", value)
 
+        """  """
+
         def metadata(
             self,
-            value_or_callback: Union[Optional[ListMeta], Callable[[Type[ListMeta]], ListMeta]],
+            value_or_callback: Union[
+                Optional[ListMeta], Callable[[ListMeta.Builder], ListMeta.Builder]
+            ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(ListMeta)
+                value = value_or_callback(ListMeta.builder()).build()
             return self._set("metadata", value)
 
         def reason(self, value: Optional[str]) -> Self:
@@ -1444,9 +1906,15 @@ class Status(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["Status", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use Status.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     api_version: Annotated[
         Optional[Literal["v1"]],
@@ -1497,16 +1965,24 @@ class Status(BaseModel):
 
 class WatchEvent(BaseModel):
     class Builder(BaseBuilder):
+        @property
+        def base_class(self) -> Type["WatchEvent"]:
+            return WatchEvent
+
         def build(self) -> "WatchEvent":
             return WatchEvent(**self._attrs)
 
+        """  """
+
         def object(
             self,
-            value_or_callback: Union[RawExtension, Callable[[Type[RawExtension]], RawExtension]],
+            value_or_callback: Union[
+                RawExtension, Callable[[RawExtension.Builder], RawExtension.Builder]
+            ],
         ) -> Self:
             value = value_or_callback
             if callable(value_or_callback):
-                value = value_or_callback(RawExtension)
+                value = value_or_callback(RawExtension.builder()).build()
             return self._set("object", value)
 
         def type(self, value: str) -> Self:
@@ -1516,9 +1992,15 @@ class WatchEvent(BaseModel):
     def builder(cls) -> Builder:
         return cls.Builder()
 
+    class ListBuilder(GenericListBuilder["WatchEvent", Builder]):
+        def __init__(self):
+            raise NotImplementedError(
+                "This class is not meant to be instantiated. Use WatchEvent.list_builder() instead."
+            )
+
     @classmethod
-    def list_builder(cls) -> ListBuilder[Self]:
-        return ListBuilder[cls]()  # type: ignore[valid-type]
+    def list_builder(cls) -> ListBuilder:
+        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
 
     object: Annotated[
         RawExtension,
