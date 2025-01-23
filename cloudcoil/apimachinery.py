@@ -182,8 +182,6 @@ class APIResourceList(BaseModel):
         def kind(self, value: Optional[Literal["APIResourceList"]]) -> Self:
             return self._set("kind", value)
 
-        """  """
-
         def resources(
             self,
             value_or_callback: Union[
@@ -756,8 +754,6 @@ class StatusDetails(BaseModel):
         def build(self) -> "StatusDetails":
             return StatusDetails(**self._attrs)
 
-        """  """
-
         def causes(
             self,
             value_or_callback: Union[
@@ -1030,8 +1026,6 @@ class APIGroup(BaseModel):
         def name(self, value: str) -> Self:
             return self._set("name", value)
 
-        """  """
-
         def preferred_version(
             self,
             value_or_callback: Union[
@@ -1043,8 +1037,6 @@ class APIGroup(BaseModel):
             if callable(value_or_callback):
                 value = value_or_callback(GroupVersionForDiscovery.builder()).build()
             return self._set("preferred_version", value)
-
-        """  """
 
         def server_address_by_client_cid_rs(
             self,
@@ -1066,8 +1058,6 @@ class APIGroup(BaseModel):
             if callable(value_or_callback):
                 value = value_or_callback(ServerAddressByClientCIDR.list_builder()).build()
             return self._set("server_address_by_client_cid_rs", value)
-
-        """  """
 
         def versions(
             self,
@@ -1148,8 +1138,6 @@ class APIGroupList(BaseModel):
         def api_version(self, value: Optional[Literal["v1"]]) -> Self:
             return self._set("api_version", value)
 
-        """  """
-
         def groups(
             self,
             value_or_callback: Union[
@@ -1212,8 +1200,6 @@ class APIVersions(BaseModel):
 
         def kind(self, value: Optional[Literal["APIVersions"]]) -> Self:
             return self._set("kind", value)
-
-        """  """
 
         def server_address_by_client_cid_rs(
             self,
@@ -1287,8 +1273,6 @@ class Condition(BaseModel):
 
         def build(self) -> "Condition":
             return Condition(**self._attrs)
-
-        """  """
 
         def last_transition_time(
             self, value_or_callback: Union[Time, Callable[[Time.Builder], Time.Builder]]
@@ -1386,8 +1370,6 @@ class DeleteOptions(BaseModel):
         def orphan_dependents(self, value: Optional[bool]) -> Self:
             return self._set("orphan_dependents", value)
 
-        """  """
-
         def preconditions(
             self,
             value_or_callback: Union[
@@ -1475,8 +1457,6 @@ class LabelSelector(BaseModel):
         def build(self) -> "LabelSelector":
             return LabelSelector(**self._attrs)
 
-        """  """
-
         def match_expressions(
             self,
             value_or_callback: Union[
@@ -1544,8 +1524,6 @@ class ManagedFieldsEntry(BaseModel):
         def fields_type(self, value: Optional[str]) -> Self:
             return self._set("fields_type", value)
 
-        """  """
-
         def fields_v1(
             self,
             value_or_callback: Union[
@@ -1565,8 +1543,6 @@ class ManagedFieldsEntry(BaseModel):
 
         def subresource(self, value: Optional[str]) -> Self:
             return self._set("subresource", value)
-
-        """  """
 
         def time(
             self,
@@ -1648,8 +1624,6 @@ class ObjectMeta(BaseModel):
         def annotations(self, value: Optional[Dict[str, str]]) -> Self:
             return self._set("annotations", value)
 
-        """  """
-
         def creation_timestamp(
             self,
             value_or_callback: Union[Optional[Time], Callable[[Time.Builder], Time.Builder]],
@@ -1661,8 +1635,6 @@ class ObjectMeta(BaseModel):
 
         def deletion_grace_period_seconds(self, value: Optional[int]) -> Self:
             return self._set("deletion_grace_period_seconds", value)
-
-        """  """
 
         def deletion_timestamp(
             self,
@@ -1685,8 +1657,6 @@ class ObjectMeta(BaseModel):
         def labels(self, value: Optional[Dict[str, str]]) -> Self:
             return self._set("labels", value)
 
-        """  """
-
         def managed_fields(
             self,
             value_or_callback: Union[
@@ -1707,8 +1677,6 @@ class ObjectMeta(BaseModel):
 
         def namespace(self, value: Optional[str]) -> Self:
             return self._set("namespace", value)
-
-        """  """
 
         def owner_references(
             self,
@@ -1863,8 +1831,6 @@ class Status(BaseModel):
         def code(self, value: Optional[int]) -> Self:
             return self._set("code", value)
 
-        """  """
-
         def details(
             self,
             value_or_callback: Union[
@@ -1882,8 +1848,6 @@ class Status(BaseModel):
 
         def message(self, value: Optional[str]) -> Self:
             return self._set("message", value)
-
-        """  """
 
         def metadata(
             self,
@@ -1971,8 +1935,6 @@ class WatchEvent(BaseModel):
 
         def build(self) -> "WatchEvent":
             return WatchEvent(**self._attrs)
-
-        """  """
 
         def object(
             self,
