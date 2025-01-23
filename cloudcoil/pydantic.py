@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Callable, Dict, Generic, List, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, List, TypeVar
 
 if sys.version_info >= (3, 11):
     from typing import Self as Self
@@ -29,17 +29,17 @@ class BaseBuilder(pydantic.BaseModel):
         return builder
 
 
-class ListBuilder(pydantic.BaseModel, Generic[T]):
+class GenericListBuilder(pydantic.BaseModel, Generic[T, TBuilder]):
     _list: List[T] = []
 
     @property
-    def resource_class(self) -> type[T]:
+    def base_class(self) -> type[T]:
         return self.__pydantic_generic_metadata__["args"][0]
 
-    def add(self, value_or_callback: Callable[[Type[T]], T] | T) -> "Self":
+    def add(self, value_or_callback: Callable[[TBuilder], TBuilder] | T) -> "Self":
         output = self.__class__()
         if callable(value_or_callback):
-            value = value_or_callback(self.resource_class)
+            value = value_or_callback(self.base_class.builder()).build()  # type: ignore
         else:
             value = value_or_callback
         output._list = self._list + [value]

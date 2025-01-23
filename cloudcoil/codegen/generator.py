@@ -842,9 +842,10 @@ def generate(config: ModelConfig):
         "typing.Callable",
         "typing.Union",
         "typing.Type",
+        "typing.cast",
         "cloudcoil.pydantic.BaseBuilder",
         "cloudcoil.pydantic.BaseModel",
-        "cloudcoil.pydantic.ListBuilder",
+        "cloudcoil.pydantic.GenericListBuilder",
         "cloudcoil.pydantic.Self",
     ]
     if config.mode == "resource":
