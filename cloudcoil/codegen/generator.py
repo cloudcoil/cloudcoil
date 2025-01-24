@@ -342,6 +342,9 @@ def process_transformations(transformations: list[Transformation], schema: dict)
     prefix = "#/components/schemas/" if is_openapi else "#/definitions/"
     for old_name, new_name in renames.items():
         raw_schema = raw_schema.replace(f'"{prefix}{old_name}"', f'"{prefix}{new_name}"')
+    # We need to replace tabs with spaces to esnure ruff does not complain
+    # about inconsistent indentation
+    raw_schema = raw_schema.replace(r"\t", " " * 4)
     return json.loads(raw_schema)
 
 
@@ -843,10 +846,15 @@ def generate(config: ModelConfig):
         "typing.Union",
         "typing.Type",
         "typing.cast",
+        "typing.overload",
         "cloudcoil.pydantic.BaseBuilder",
         "cloudcoil.pydantic.BaseModel",
+        "cloudcoil.pydantic.BaseModelBuilder",
         "cloudcoil.pydantic.GenericListBuilder",
+        "cloudcoil.pydantic.BuilderContextBase",
+        "cloudcoil.pydantic.ListBuilderContext",
         "cloudcoil.pydantic.Self",
+        "cloudcoil.pydantic.Never",
     ]
     if config.mode == "resource":
         base_class = "cloudcoil.resources.Resource"
@@ -881,6 +889,7 @@ def generate(config: ModelConfig):
                 "--disable-timestamp",
                 "--use-annotated",
                 "--use-default-kwarg",
+                "--use-field-description",
                 "--custom-template-dir",
                 str(Path(__file__).parent / "templates"),
                 "--use-default",

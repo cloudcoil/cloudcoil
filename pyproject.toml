@@ -1,6 +1,6 @@
 [project]
 name = "cloudcoil"
-version = "0.1.0dev0"
+version = "0.3.0dev0"
 description = "Cloud native made easy with Python"
 authors = [{ name = "Sambhav Kothari", email = "sambhavs.email@gmail.com" }]
 maintainers = [{ name = "Sambhav Kothari", email = "sambhavs.email@gmail.com" }]
