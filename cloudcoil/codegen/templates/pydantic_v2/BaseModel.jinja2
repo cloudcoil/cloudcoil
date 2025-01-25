@@ -11,7 +11,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
 {%- endif %}
 {%- if description %}
     """
-    {{ description | indent(4) }}
+    {{ description | replace("\t", " "*4) | trim | indent(4) }}
     """
 {%- endif %}
 
@@ -41,7 +41,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         def {{ field_setter_name }}(self, value_or_callback=None, /):
             {%- if field.docstring %}
             """
-            {{ field.docstring | indent(4) }}
+            {{ field.docstring | replace("\t", " "*4) | trim | indent(12) }}
             """
             {%- endif %}
             if self._in_context and value_or_callback is None:
@@ -62,7 +62,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         def {{ field_setter_name }}(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
             """
-            {{ field.docstring | indent(4) }}
+            {{ field.docstring | replace("\t", " "*4) | trim | indent(12) }}
             """
             {%- endif %}
             return self._set("{{ field.name }}", value)
@@ -81,7 +81,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         def {{ field_setter_name }}(self, value_or_callback=None, /):
             {%- if field.docstring %}
             """
-            {{ field.docstring | indent(4) }}
+            {{ field.docstring | replace("\t", " "*4) | trim | indent(12) }}
             """
             {%- endif %}
             if self._in_context and value_or_callback is None:
@@ -102,7 +102,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         def {{ field_setter_name }}(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
             """
-            {{ field.docstring | indent(4) }}
+            {{ field.docstring | replace("\t", " "*4) | trim | indent(12) }}
             """
             {%- endif %}
             return self._set("{{ field.name }}", value)
@@ -157,7 +157,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
     {%- endif %}
     {%- if field.docstring %}
     """
-    {{ field.docstring | indent(4) }}
+    {{ field.docstring | replace("\t", " "*4) | trim | indent(4) }}
     """
     {%- endif %}
 {%- for method in methods -%}

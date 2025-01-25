@@ -1,5 +1,5 @@
 [project]
-name = "cloudcoil.models.{{ cookiecutter.model_name }}"
+name = "cloudcoil.models.{{ cookiecutter.module_name }}"
 version = "0.0.0"
 description = "Versioned {{cookiecutter.model_name}} models for cloudcoil"
 authors = [{ name = "{{cookiecutter.author_name}}", email = "{{cookiecutter.author_email}}" }]
@@ -80,7 +80,7 @@ only-include = ["cloudcoil"]
 [[tool.cloudcoil.codegen.models]]
 # Unique name for the models
 # This will be used as the name for the setuptools entrypoints
-namespace = "cloudcoil.models.{{cookiecutter.model_name}}"
+namespace = "cloudcoil.models.{{cookiecutter.module_name}}"
 input = "{{ cookiecutter.crd_url }}"
 {%- if cookiecutter.crd_namespace %}
 crd-namespace = "{{ cookiecutter.crd_namespace }}"

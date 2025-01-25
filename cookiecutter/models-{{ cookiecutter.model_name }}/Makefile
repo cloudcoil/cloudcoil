@@ -6,7 +6,7 @@ test:
 lint:
 	uv run ruff check cloudcoil tests
 	uv run ruff format --check cloudcoil tests
-	uv run mypy -p cloudcoil.models.{{cookiecutter.model_name}} 
+	uv run mypy -p cloudcoil.models.{{cookiecutter.module_name}} 
 
 .PHONY: fix-lint
 fix-lint:
