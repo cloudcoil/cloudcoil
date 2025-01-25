@@ -45,3 +45,4 @@
             uses: peter-evans/repository-dispatch@v1
             with:
               event-type: update-repos
+              token: ${{ secrets.CI_GITHUB_TOKEN }}
