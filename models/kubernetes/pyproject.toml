@@ -1,0 +1,8 @@
+# Rename the definitions to a more pythonic name
+# This is a list of regex substitutions
+transformations = [
+    { match = "^io\\.k8s\\.apimachinery\\..*\\.(.+)", replace = "apimachinery.\\g<1>", namespace = "cloudcoil"},
+    { match = "^io\\.k8s\\.apiextensions-apiserver\\.pkg\\.apis\\.apiextensions\\.(.+)$", replace = "apiextensions.\\g<1>"},
+    { match = "^io\\.k8s\\.api\\.(.+)$", replace = "\\g<1>"},
+    { match = "^io\\.k8s\\.kube-aggregator\\.pkg\\.apis\\.(.+)$", replace = "\\g<1>"},
+]

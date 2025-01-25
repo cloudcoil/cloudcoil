@@ -1,0 +1,8 @@
+default_context:
+  model_name: fluxcd
+  author_name: Sambhav Kothari
+  author_email: sambhavs.email@gmail.com
+  crd_namespace: io.fluxcd.toolkit
+  crd_url: https://github.com/fluxcd/flux2/releases/download/v2.4.0/install.yaml
+  versions: "'2.4.0'"
+  version_replacement_sed: releases/download

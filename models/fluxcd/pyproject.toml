@@ -1,0 +1,4 @@
+[[tool.mypy.overrides]]
+# Ignore specific third-party packages
+module = "cloudcoil.models.fluxcd.image.*"
+disable_error_code = ["assignment"]

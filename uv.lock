@@ -185,10 +185,6 @@ name = "cloudcoil"
 version = "0.3.0.dev0"
 source = { editable = "." }
 dependencies = [
-    { name = "cloudcoil-models-kubernetes", version = "1.29.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-29' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
-    { name = "cloudcoil-models-kubernetes", version = "1.30.9.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
-    { name = "cloudcoil-models-kubernetes", version = "1.31.5.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
-    { name = "cloudcoil-models-kubernetes", version = "1.32.1.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-32' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31')" },
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -197,20 +193,20 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
-    { name = "cloudcoil-models-kubernetes", version = "1.29.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-29' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
+    { name = "cloudcoil-models-kubernetes", version = "1.29.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-29' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra != 'extra-9-cloudcoil-kubernetes-1-32')" },
     { name = "cloudcoil-models-kubernetes", version = "1.30.9.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
     { name = "cloudcoil-models-kubernetes", version = "1.31.5.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
-    { name = "cloudcoil-models-kubernetes", version = "1.32.1.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-32' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "cloudcoil-models-kubernetes", version = "1.32.1.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
 ]
 codegen = [
     { name = "datamodel-code-generator", extra = ["http"] },
     { name = "ruff" },
 ]
 kubernetes = [
-    { name = "cloudcoil-models-kubernetes", version = "1.29.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-29' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
+    { name = "cloudcoil-models-kubernetes", version = "1.29.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-29' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra != 'extra-9-cloudcoil-kubernetes-1-32')" },
     { name = "cloudcoil-models-kubernetes", version = "1.30.9.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
     { name = "cloudcoil-models-kubernetes", version = "1.31.5.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
-    { name = "cloudcoil-models-kubernetes", version = "1.32.1.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-32' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "cloudcoil-models-kubernetes", version = "1.32.1.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
 ]
 kubernetes-1-29 = [
     { name = "cloudcoil-models-kubernetes", version = "1.29.13.1", source = { registry = "https://pypi.org/simple" } },
@@ -249,7 +245,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cloudcoil-models-kubernetes", specifier = ">=1.29.12.0" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'all'" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes'" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes-1-29'", specifier = "~=1.29.0" },
@@ -296,7 +291,7 @@ resolution-markers = [
     "python_full_version >= '4.0'",
 ]
 dependencies = [
-    { name = "cloudcoil", marker = "extra == 'extra-9-cloudcoil-kubernetes-1-29' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
+    { name = "cloudcoil" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5e/20/5789ed6a4f3cee3a99e3813762da9bc9cf66bad1d658c1db859d4a64e2a2/cloudcoil_models_kubernetes-1.29.13.1.tar.gz", hash = "sha256:d681fe97f014d2e5c7da0310ac1a6af45d417be8120071459a69183945a4d87c", size = 262551 }
 wheels = [
@@ -350,7 +345,7 @@ resolution-markers = [
     "python_full_version >= '4.0'",
 ]
 dependencies = [
-    { name = "cloudcoil", marker = "extra == 'extra-9-cloudcoil-kubernetes-1-32' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31')" },
+    { name = "cloudcoil", marker = "(extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b2/bc/fd75c66074c02eae6dfdcb1307f4db7e82990b797f272341cbf705c40e17/cloudcoil_models_kubernetes-1.32.1.1.tar.gz", hash = "sha256:4df2454c1c06992fcd9b530d10f4ac1a674447626d4c7cde460e557eb7fcb37d", size = 289284 }
 wheels = [

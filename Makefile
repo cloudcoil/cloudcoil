@@ -37,3 +37,38 @@ gen-models:
 	rm -rf cloudcoil/apimachinery.py
 	uv run --frozen cloudcoil-model-codegen
 	$(MAKE) fix-lint
+
+
+REPOS := $(shell ls models | sed 's/\/$$//')
+
+gen-all-repos: $(addprefix gen-repo-,$(REPOS))
+
+publish-all-repos: $(addprefix publish-repo-,$(REPOS))
+
+gen-repo-%:
+	rm -rf output/models-$*
+	uvx cookiecutter --no-input --output-dir=output --config-file=models/$*/cookiecutter.yaml cookiecutter _config_dir=$$PWD/models/$*
+
+# publish-repo-% creates a repo in cloudcoil/models-$* if it doesn't exist, and pushes the generated code to it
+# It should not force push to the repo and instead change all the existing files in the repo to match the generated code
+# Check if the repo exists using gh
+# If it doesn't exist, create it
+# If it does exist, change all the existing files in the repo to match the generated code
+# Push the generated code to the repo
+publish-repo-%: gen-repo-%
+	@echo "Publishing to cloudcoil/models-$*"
+	@if ! gh repo view cloudcoil/models-$* >/dev/null 2>&1; then \
+		gh repo create cloudcoil/models-$* --public --description "Generated model repository for $*"; \
+	fi
+	@rm -rf tmp/models-$*
+	@mkdir -p tmp/models-$*
+	@cd tmp/models-$* && \
+		git clone https://github.com/cloudcoil/models-$*.git . || git init && \
+		git remote add origin https://github.com/cloudcoil/models-$*.git || true && \
+		git rm -rf . && \
+		git config user.name "github-actions[bot]" && \
+		git config user.email "github-actions[bot]@users.noreply.github.com" && \
+		cp -a ../../output/models-$*/. . && \
+		git add -A && \
+		git diff --cached --quiet || git commit -m "Update generated code" && \
+		git push -u origin HEAD:main

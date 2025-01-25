@@ -1,0 +1,126 @@
+{%-raw %}
+name: Update Versions
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  update-versions:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        model_version: {% endraw %}[{{cookiecutter.versions}}]{% raw %}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.CI_GITHUB_TOKEN }}
+      - name: Install uv and set python
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: '3.10'
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Update version for ${{ matrix.model_version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+        run: |
+          uv add cloudcoil -U
+          VERSION="${{ matrix.model_version }}.0"
+          MINOR_VERSION=$(echo "${{ matrix.model_version }}" | cut -d'.' -f1,2)
+          BRANCH="release-${MINOR_VERSION}"
+          # Update version and input URL using sed
+          sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
+          sed -i "s|{% endraw %}{{ cookiecutter.version_replacement_sed }}/v[0-9]\+\.[0-9]\+\.[0-9]\+/|{{ cookiecutter.version_replacement_sed }}{% raw %}/v${{ matrix.model_version }}/|" pyproject.toml
+          # Generate models
+          make gen-models
+
+          # Create temporary directory and handle repository
+          TEMP_DIR=$(mktemp -d)
+          cd "$TEMP_DIR"
+
+          # Clone repo and checkout/create branch
+          git clone https://${{ secrets.CI_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git .
+          git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
+          
+          # Fetch and reset to remote branch if it exists
+          if git ls-remote --exit-code origin "$BRANCH"; then
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+          fi
+
+          # Remove all files (tracked and untracked)
+          git rm -rf .
+
+          # Copy new files and commit
+          rm -rf $GITHUB_WORKSPACE/.git
+          cp -a $GITHUB_WORKSPACE/. .
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Update to version ${{ matrix.model_version }}"
+          git push -u origin HEAD:"$BRANCH"
+
+      - name: Get next release version
+        id: next_version
+        run: |
+          # Get all existing tags that match the pattern
+          BASE_VERSION="${{ matrix.model_version }}"
+          EXISTING_TAGS=$(gh api repos/${{ github.repository }}/releases --jq "[.[] | select(.tag_name | startswith(\"${BASE_VERSION}.\")).tag_name] | .[]")
+          
+          # Find highest x in v{BASE_VERSION}.x
+          HIGHEST_X=$(echo "$EXISTING_TAGS" | sort -V | tail -n1 | cut -d. -f3)
+          
+          # If no existing tags, start with 1, otherwise increment
+          if [ -z "$HIGHEST_X" ]; then
+            NEXT_X=0
+          else
+            NEXT_X=$((HIGHEST_X + 1))
+          fi
+          
+          echo "next_version=${BASE_VERSION}.${NEXT_X}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+
+      - name: Create draft release
+        run: |
+          RELEASE_TAG="${{ steps.next_version.outputs.next_version }}"
+          BASE_VERSION=$(echo "${{ matrix.model_version }}" | cut -d'.' -f1,2)          
+          BRANCH="release-${BASE_VERSION}"
+          
+          # Find the previous release tag with same minor version using version sort
+          PREV_TAG=$(gh api repos/${{ github.repository }}/releases --jq "[.[] | select(.tag_name | startswith(\"${BASE_VERSION}.\")).tag_name] | .[]" | sort -V | tail -n1)
+          COMPARE_LINK=""
+          if [ ! -z "$PREV_TAG" ]; then
+            COMPARE_LINK="[Compare with previous release](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${RELEASE_TAG})"
+          fi
+          
+          RELEASE_NOTES="Release for version $RELEASE_TAG ${COMPARE_LINK}"
+          
+          if gh release view "$RELEASE_TAG" --repo ${{ github.repository }} &>/dev/null; then
+            gh release edit "$RELEASE_TAG" \
+              --repo ${{ github.repository }} \
+              --draft \
+              --title "Release $RELEASE_TAG" \
+              --notes "$RELEASE_NOTES" \
+              --target "$BRANCH"
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo ${{ github.repository }} \
+              --draft \
+              --title "Release $RELEASE_TAG" \
+              --notes "$RELEASE_NOTES" \
+              --target "$BRANCH"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+{%- endraw %}
