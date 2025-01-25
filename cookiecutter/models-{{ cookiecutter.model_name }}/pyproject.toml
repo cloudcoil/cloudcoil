@@ -1,0 +1,87 @@
+[project]
+name = "cloudcoil.models.{{ cookiecutter.model_name }}"
+version = "0.0.0"
+description = "Versioned {{cookiecutter.model_name}} models for cloudcoil"
+authors = [{ name = "{{cookiecutter.author_name}}", email = "{{cookiecutter.author_email}}" }]
+maintainers = [{ name = "{{cookiecutter.author_name}}", email = "{{cookiecutter.author_email}}" }]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "cloudcoil>=0.2.0",
+]
+keywords = ["cloud-native", "kubernetes", "{{ cookiecutter.model_name}}", "pydantic", "python", "async", "cloudcoil", "cloudcoil-models"]
+
+[project.urls]
+Homepage = "https://github.com/cloudcoil/cloudcoil"
+Documentation = "https://cloudcoil.github.io/cloudcoil"
+Repository = "https://github.com/cloudcoil/models-{{cookiecutter.model_name}}"
+Issues = "https://github.com/cloudcoil/models-{{cookiecutter.model_name}}/issues"
+Changelog = "https://github.com/cloudcoil/models-{{cookiecutter.model_name}}/releases"
+
+[build-system]
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "F", # pyflakes
+    "B", # flake8-bugbear
+    "N", # pep8-naming
+    "I", # isort
+]
+ignore = ["E203", "B008", "N818", "E501", "B904"]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib -ra -q --cov=cloudcoil --cov-report=xml --cov-report=term -vvv --junitxml=junit.xml -o junit_family=legacy"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.5.3",
+    "mkdocstrings>=0.24.0",
+    "mkdocstrings-python>=1.7.5",
+    "mkdocs-autorefs>=0.5.0",
+    "pytest>=8.3.4",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.8.4",
+    "mkdocs-autorefs",
+    "datamodel-code-generator[http]",
+    "types-pyyaml>=6.0.12.20241221",
+    "ipython>=8.12.3",
+    "pytest-sugar>=1.0.0",
+    "pytest-asyncio>=0.25.0",
+    "cloudcoil[codegen,test]>=0.0.14"
+]
+
+[tool.mypy]
+plugins = ['pydantic.mypy', 'cloudcoil.mypy']
+
+[tool.coverage.run]
+omit = ["cloudcoil/models/**"]
+
+[tool.hatch.build.targets.wheel]
+only-include = ["cloudcoil"]
+
+[[tool.cloudcoil.codegen.models]]
+# Unique name for the models
+# This will be used as the name for the setuptools entrypoints
+namespace = "cloudcoil.models.{{cookiecutter.model_name}}"
+input = "{{ cookiecutter.crd_url }}"
+{%- if cookiecutter.crd_namespace %}
+crd-namespace = "{{ cookiecutter.crd_namespace }}"
+{%- endif %}

@@ -1,3 +1,4 @@
+{%- raw %}
 ---
     name: PyPI publish
     
@@ -28,7 +29,7 @@
               cache-dependency-glob: "**/uv.lock"
     
           - name: Install dependencies
-            run: uv sync --extra all --dev
+            run: uv sync --all-extras --dev
     
           - name: Bump version number
             run: |
@@ -39,9 +40,4 @@
     
           - name: Publish package distributions to PyPI
             uses: pypa/gh-action-pypi-publish@release/v1
-          
-          # Trigger a workflow dispatch in the same repository
-          - name: Trigger update-repos workflow
-            uses: peter-evans/repository-dispatch@v1
-            with:
-              event-type: update-repos
+{%- endraw %}

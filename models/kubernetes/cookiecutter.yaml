@@ -1,0 +1,8 @@
+default_context:
+  model_name: kubernetes
+  author_name: Sambhav Kothari
+  author_email: sambhavs.email@gmail.com
+  crd_namespace: ''
+  crd_url: https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.32.1/api/openapi-spec/swagger.json
+  versions: "'1.29.13', '1.30.9', '1.31.5', '1.32.1'"
+  version_replacement_sed: refs/tags

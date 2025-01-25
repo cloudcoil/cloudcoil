@@ -1,0 +1,10 @@
+{
+    "model_name": "model",
+    "author_name": "Sambhav Kothari",
+    "author_email": "sambhavs.email@gmail.com",
+    "crd_namespace": "default",
+    "crd_url": "https://example.com",
+    "versions": "'1.0.0', '1.0.1', '1.0.2'",
+    "version_replacement_sed": "releases/download",
+    "_config_dir": ""
+}

@@ -1,16 +1,17 @@
+{%- raw %}
 ---
-    name: PyPI publish
+    name: Test PyPI publish
     
     on:
       release:
-        types: [released]
+        types: [prereleased]
     
     jobs:
       build:
         runs-on: ubuntu-latest
         permissions:
-            # IMPORTANT: this permission is mandatory for Trusted Publishing
-            id-token: write
+          # IMPORTANT: this permission is mandatory for Trusted Publishing
+          id-token: write
         steps:
           - name: Checkout code
             uses: actions/checkout@v3
@@ -28,7 +29,7 @@
               cache-dependency-glob: "**/uv.lock"
     
           - name: Install dependencies
-            run: uv sync --extra all --dev
+            run: uv sync --all-extras --dev
     
           - name: Bump version number
             run: |
@@ -36,12 +37,9 @@
     
           - name: Build package
             run: uv build
-    
+
           - name: Publish package distributions to PyPI
             uses: pypa/gh-action-pypi-publish@release/v1
-          
-          # Trigger a workflow dispatch in the same repository
-          - name: Trigger update-repos workflow
-            uses: peter-evans/repository-dispatch@v1
-            with:
-              event-type: update-repos
+            with: 
+              repository-url: https://test.pypi.org/legacy/
+{%- endraw %}
