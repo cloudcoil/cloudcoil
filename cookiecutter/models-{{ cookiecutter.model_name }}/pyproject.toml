@@ -14,7 +14,7 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "cloudcoil>=0.2.0",
+    "cloudcoil>=0.3.0",
 ]
 keywords = ["cloud-native", "kubernetes", "{{ cookiecutter.model_name}}", "pydantic", "python", "async", "cloudcoil", "cloudcoil-models"]
 
@@ -65,7 +65,7 @@ dev = [
     "ipython>=8.12.3",
     "pytest-sugar>=1.0.0",
     "pytest-asyncio>=0.25.0",
-    "cloudcoil[codegen,test]>=0.0.14"
+    "cloudcoil[codegen,test]"
 ]
 
 [tool.mypy]
