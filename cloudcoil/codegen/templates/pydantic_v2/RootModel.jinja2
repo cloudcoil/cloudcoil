@@ -1,10 +1,8 @@
 {%- macro get_type_hint(_fields) -%}
 {%- if _fields -%}
-{#There will only ever be a single field for RootModel#}
 {{- _fields[0].type_hint}}
 {%- endif -%}
 {%- endmacro -%}
-
 
 {% for decorator in decorators -%}
 {{ decorator }}
@@ -23,30 +21,39 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
 {%- endfilter %}
 {%- endif %}
 {%- if not fields and not description %}
-    class Builder(BaseModel):
+    class Builder(BaseBuilder):
         @property
-        def base_class(self) -> Type["{{ class_name }}"]:
+        def cls(self) -> Type["{{ class_name }}"]:
             return {{ class_name }}
         def build(self) -> "{{ class_name }}":
             return {{ class_name }}()
 {%- else %}
     {%- set field = fields[0] %}
-    class Builder(BaseModel):
+    class Builder(BaseBuilder):
         _value: {{ field.type_hint }} | None = None
-        @property
-        def base_class(self) -> Type["{{ class_name }}"]:
-            return {{ class_name }}
-        def root(self, value: {{ field.type_hint }}) -> Self:
+
+        def root(self, value: {{ field.type_hint }}, /) -> Self:
+            {%- if field.docstring %}
+            """
+            {{ field.docstring | indent(4) }}
+            """
+            {%- endif %}
             self._value = value
             return self
 
-        def __call__(self, value: {{ field.type_hint }}) -> Self:
+        def __call__(self, value: {{ field.type_hint }}, /) -> Self:
+            {%- if field.docstring %}
+            """
+            {{ field.docstring | indent(4) }}
+            """
+            {%- endif %}
             self._value = value
             return self
 
         def build(self) -> "{{ class_name }}":
             value = cast({{ field.type_hint }}, self._value)
             return {{ class_name }}(value)
+
     {%- if not field.annotated and field.field %}
     root: {{ field.type_hint }} = {{ field.field }}
     {%- else %}
@@ -65,16 +72,17 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
     """
     {%- endif %}
 {%- endif %}
+    class BuilderContext(BuilderContextBase["{{ class_name }}.Builder"]):
+        def model_post_init(self, __context) -> None:
+            self._builder = {{ class_name }}.Builder()
+            self._parent_builder = None
+            self._field_name = None
 
     @classmethod
     def builder(cls) -> Builder:
         return cls.Builder()
 
-    class ListBuilder(GenericListBuilder["{{class_name}}", Builder]):
-        def __init__(self):
-            raise NotImplementedError("This class is not meant to be instantiated. Use {{ class_name }}.list_builder() instead.")
-
     @classmethod
-    def list_builder(cls) -> ListBuilder:
-        return GenericListBuilder[cls, cls.Builder]()  # type: ignore
-
+    def new(cls) -> BuilderContext:
+        """Creates a new context manager builder for {{ class_name }}."""
+        return cls.BuilderContext()
