@@ -18,7 +18,6 @@ dependencies = [
     "httpx",
     "pyyaml>=6.0.2",
     "typing_extensions>=4.0.0; python_version <= '3.10'",
-    "cloudcoil-models-kubernetes>=1.29.12.0",
 ]
 keywords = ["cloud-native", "kubernetes", "pydantic", "python", "async"]
 
