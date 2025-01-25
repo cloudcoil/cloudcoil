@@ -39,7 +39,8 @@ class Update(BaseModel):
     )
     match_: Annotated[str | re.Pattern, Field(alias="match"), BeforeValidator(re.compile)]
     jsonpath: str
-    value: Any
+    value: Any | None = None
+    delete: bool = False
 
 
 class Rename(BaseModel):
@@ -161,93 +162,166 @@ def set_schema_definitions(schema: dict, definitions: dict) -> None:
         schema["definitions"] = definitions
 
 
+def delete_value_at_path(obj: dict, path: str) -> None:
+    """Delete a value at a specified JSON path with support for array indices.
+
+    Empty path segments are skipped. Multiple dots are treated as a single dot.
+    Array indices can be used at any level including root.
+
+    Examples:
+        delete_value_at_path(obj, "foo.bar")  # {"foo": {}}
+        delete_value_at_path(obj, "foo..bar") # {"foo": {}}
+        delete_value_at_path(obj, "[0].foo")  # [{}]
+    """
+    # Handle empty path
+    if not path:
+        return
+
+    # Split by dots and handle array indices
+    segments = []
+    current_segment = ""
+    i = 0
+    while i < len(path):
+        if path[i] == ".":
+            if current_segment:
+                segments.append(current_segment)
+            current_segment = ""
+        elif path[i] == "[":
+            if current_segment:
+                segments.append(current_segment)
+            current_segment = "["
+        else:
+            current_segment += path[i]
+        i += 1
+
+    if current_segment:
+        segments.append(current_segment)
+
+    segments = [s for s in segments if s]
+
+    if not segments:
+        return
+
+    def parse_segment(segment: str):
+        """Parse a path segment to determine if it's an array index."""
+        if segment.startswith("[") and segment.endswith("]"):
+            try:
+                return int(segment[1:-1])
+            except ValueError:
+                return segment
+        return segment
+
+    # Start with the full object
+    current = obj
+
+    # Navigate through all but the last segment
+    for segment in segments[:-1]:
+        key = parse_segment(segment)
+
+        # Handle array index
+        if isinstance(key, int):
+            if not isinstance(current, list) or key >= len(current):
+                return
+            current = current[key]
+        # Handle dict key
+        else:
+            if not isinstance(current, dict) or key not in current:
+                return
+            current = current[key]
+
+    # Handle the final segment
+    final_segment = parse_segment(segments[-1])
+
+    # Handle array index for final segment
+    if isinstance(final_segment, int):
+        if not isinstance(current, list) or final_segment >= len(current):
+            return
+        current.pop(final_segment)
+    # Handle dict key for final segment
+    elif isinstance(current, dict) and final_segment in current:
+        del current[final_segment]
+
+
 def set_value_at_path(obj: dict, path: str, value: Any) -> None:
     """Set a value at a specified JSON path with support for array indices.
 
     Empty path segments are skipped. Multiple dots are treated as a single dot.
     Array indices can be used at any level including root.
+    Empty array slots are filled with None.
 
     Examples:
         set_value_at_path(obj, "foo.bar", "value")  # {"foo": {"bar": "value"}}
         set_value_at_path(obj, "foo..bar", "value") # {"foo": {"bar": "value"}}
         set_value_at_path(obj, "[0].foo", "value")  # [{"foo": "value"}]
     """
-    parts = []
-    current_part = ""
-    in_brackets = False
+    if not path:
+        return
 
-    # Parse path into parts, handling array indices
-    for char in path:
-        if char == "[":
-            if in_brackets:
-                raise ValueError("Invalid path: nested brackets not supported")
-            in_brackets = True
-            if current_part:
-                if current_part.strip():  # Only add non-empty segments
-                    parts.append(current_part)
-                current_part = ""
-        elif char == "]":
-            if not in_brackets:
-                raise ValueError("Invalid path: unmatched closing bracket")
-            in_brackets = False
+    # Split by dots and handle array indices
+    segments = []
+    current_segment = ""
+    i = 0
+    while i < len(path):
+        if path[i] == ".":
+            if current_segment:
+                segments.append(current_segment)
+            current_segment = ""
+        elif path[i] == "[":
+            if current_segment:
+                segments.append(current_segment)
+            current_segment = "["
+        else:
+            current_segment += path[i]
+        i += 1
+
+    if current_segment:
+        segments.append(current_segment)
+
+    segments = [s for s in segments if s]
+
+    if not segments:
+        return
+
+    def parse_segment(segment: str):
+        """Parse a path segment to determine if it's an array index."""
+        if segment.startswith("[") and segment.endswith("]"):
             try:
-                parts.append(int(current_part))  # type: ignore
+                return int(segment[1:-1])
             except ValueError:
-                raise ValueError(f"Invalid array index: {current_part}")
-            current_part = ""
-        elif char == "." and not in_brackets:
-            if current_part.strip():  # Only add non-empty segments
-                parts.append(current_part)
-            current_part = ""
-        else:
-            current_part += char
+                return segment
+        return segment
 
-    if in_brackets:
-        raise ValueError("Invalid path: unclosed bracket")
-    if current_part.strip():  # Only add final non-empty segment
-        parts.append(current_part)
-
-    # Handle root array case
-    if parts and isinstance(parts[0], int):
-        if not isinstance(obj, list):
-            obj.clear()  # Clear dict to convert to list
-            obj[:] = []  # Convert to list without reassignment
-
-    # Navigate path and set value
     current = obj
-    for i, part in enumerate(parts[:-1]):
-        next_part = parts[i + 1]
-        if isinstance(part, int):
-            if not isinstance(current, list):
-                if isinstance(current, dict):
-                    current.clear()
-                    current[:] = []
-                else:
-                    raise ValueError(
-                        f"Cannot set index on non-list at {'.'.join(map(str, parts[:i]))}"
-                    )
-            while len(current) <= part:
-                current.append({} if not isinstance(next_part, int) else [])
-            current = current[part]
-        else:
-            # Create nested dict if needed
-            if not isinstance(current.get(part), (dict, list)):
-                current[part] = [] if isinstance(next_part, int) else {}
-            current = current[part]
 
-    last = parts[-1]
-    if isinstance(last, int):
+    for i, segment in enumerate(segments[:-1]):
+        key = parse_segment(segment)
+        next_segment = parse_segment(segments[i + 1])
+
+        if isinstance(key, int):
+            if not isinstance(current, list):
+                return
+            while len(current) <= key:
+                current.append(None)
+            if current[key] is None:
+                current[key] = {} if not isinstance(next_segment, int) else []
+            current = current[key]
+        else:
+            if not isinstance(current, dict):
+                return
+            if key not in current:
+                current[key] = {} if not isinstance(next_segment, int) else []
+            current = current[key]
+
+    final_segment = parse_segment(segments[-1])
+
+    if isinstance(final_segment, int):
         if not isinstance(current, list):
-            if isinstance(current, dict):
-                current.clear()
-                current[:] = []
-            else:
-                raise ValueError("Cannot set index on non-list")
-        while len(current) <= last:
+            return
+        while len(current) <= final_segment:
             current.append(None)
-        current[last] = value
-    else:
-        current[last] = value
+        current[final_segment] = value
+    elif isinstance(current, dict):
+        current[final_segment] = value
 
 
 def process_definitions(schema: dict) -> None:
@@ -307,7 +381,10 @@ def process_updates(updates: list[Update], schema: dict) -> None:
         for update in updates:
             assert isinstance(update.match_, re.Pattern)
             if update.match_.match(definition_name):
-                set_value_at_path(definition, update.jsonpath, update.value)
+                if update.delete:
+                    delete_value_at_path(definition, update.jsonpath)
+                else:
+                    set_value_at_path(definition, update.jsonpath, update.value)
 
 
 def process_transformations(transformations: list[Transformation], schema: dict) -> dict:
@@ -342,9 +419,6 @@ def process_transformations(transformations: list[Transformation], schema: dict)
     prefix = "#/components/schemas/" if is_openapi else "#/definitions/"
     for old_name, new_name in renames.items():
         raw_schema = raw_schema.replace(f'"{prefix}{old_name}"', f'"{prefix}{new_name}"')
-    # We need to replace tabs with spaces to esnure ruff does not complain
-    # about inconsistent indentation
-    raw_schema = raw_schema.replace(r"\t", " " * 4)
     return json.loads(raw_schema)
 
 
@@ -776,58 +850,25 @@ def rename_classes(workdir: Path, renames: Dict[str, str]):
     if not renames:
         return
 
+    # Create regex patterns for all class names
+    patterns = {
+        re.compile(rf"\b{re.escape(old_name)}\b"): new_name
+        for old_name, new_name in renames.items()
+    }
+
     for file in workdir.rglob("*.py"):
         content = file.read_text()
-        tree = ast.parse(content)
+        modified = False
 
-        class ClassRenamer(ast.NodeTransformer):
-            def __init__(self, renames):
-                self.renames = renames
-                self.modified = False
+        # Apply each rename pattern
+        for pattern, new_name in patterns.items():
+            new_content = pattern.sub(new_name, content)
+            if new_content != content:
+                modified = True
+                content = new_content
 
-            def visit_ClassDef(self, node):  # noqa: N802
-                if node.name in self.renames:
-                    self.modified = True
-                    node.name = self.renames[node.name]
-                return self.generic_visit(node)
-
-            def visit_AnnAssign(self, node):  # noqa: N802
-                # Handle type annotations in field definitions
-                if isinstance(node.annotation, ast.Name) and node.annotation.id in self.renames:
-                    self.modified = True
-                    node.annotation.id = self.renames[node.annotation.id]
-                elif isinstance(node.annotation, ast.Subscript):
-                    # Handle List[Type], Optional[Type], etc.
-                    self._process_subscript(node.annotation)
-                return self.generic_visit(node)
-
-            def visit_Name(self, node):  # noqa: N802
-                if node.id in self.renames:
-                    self.modified = True
-                    node.id = self.renames[node.id]
-                return node
-
-            def _process_subscript(self, node):
-                # Handle type annotations like List[OldName], Optional[OldName], etc.
-                if isinstance(node.slice, ast.Name) and node.slice.id in self.renames:
-                    self.modified = True
-                    node.slice.id = self.renames[node.slice.id]
-                elif isinstance(node.slice, ast.Tuple):
-                    # Handle Union[Type1, Type2], etc.
-                    for elt in node.slice.elts:
-                        if isinstance(elt, ast.Name) and elt.id in self.renames:
-                            self.modified = True
-                            elt.id = self.renames[elt.id]
-                elif isinstance(node.slice, ast.Subscript):
-                    # Handle nested types like List[Optional[OldName]]
-                    self._process_subscript(node.slice)
-
-        renamer = ClassRenamer(renames)
-        new_tree = renamer.visit(tree)
-
-        if renamer.modified:
-            new_content = ast.unparse(new_tree)
-            file.write_text(new_content)
+        if modified:
+            file.write_text(content)
 
 
 def generate(config: ModelConfig):

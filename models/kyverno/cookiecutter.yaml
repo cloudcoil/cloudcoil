@@ -1,0 +1,8 @@
+default_context:
+  model_name: kyverno
+  author_name: Sambhav Kothari
+  author_email: sambhavs.email@gmail.com
+  crd_namespace: io.kyverno
+  crd_url: https://github.com/kyverno/kyverno/releases/download/v1.12.7/install.yaml
+  versions: "'1.12.7'"
+  version_replacement_sed: releases/download

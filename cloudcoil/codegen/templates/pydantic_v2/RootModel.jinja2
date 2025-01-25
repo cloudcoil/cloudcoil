@@ -11,7 +11,7 @@
 class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)}}]{%- endif -%}):{% if comment is defined %}  # {{ comment }}{% endif %}
 {%- if description %}
     """
-    {{ description | indent(4) }}
+    {{ description | replace("\t", " "*4) | trim | indent(4) }}
     """
 {%- endif %}
 
@@ -35,7 +35,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
         def root(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
             """
-            {{ field.docstring | indent(4) }}
+            {{ field.docstring | replace("\t", " "*4) | trim | indent(12) }}
             """
             {%- endif %}
             self._value = value
@@ -44,7 +44,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
         def __call__(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
             """
-            {{ field.docstring | indent(4) }}
+            {{ field.docstring | replace("\t", " "*4) | trim | indent(12) }}
             """
             {%- endif %}
             self._value = value
@@ -68,7 +68,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
     {%- endif %}
     {%- if field.docstring %}
     """
-    {{ field.docstring | indent(4) }}
+    {{ field.docstring | replace("\t", " "*4) | trim | indent(4) }}
     """
     {%- endif %}
 {%- endif %}

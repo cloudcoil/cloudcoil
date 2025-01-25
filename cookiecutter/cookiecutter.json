@@ -1,5 +1,6 @@
 {
     "model_name": "model",
+    "module_name": "{{ cookiecutter.model_name | replace('-', '_') }}",
     "author_name": "Sambhav Kothari",
     "author_email": "sambhavs.email@gmail.com",
     "crd_namespace": "default",

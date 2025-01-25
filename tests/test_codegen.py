@@ -1,12 +1,15 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from cloudcoil.codegen.generator import (
     ModelConfig,
     Transformation,
+    delete_value_at_path,
     generate,
     process_definitions,
+    set_value_at_path,
 )
 
 K8S_OPENAPI_URL = str(Path(__file__).parent / "data" / "k8s-swagger.json")
@@ -254,3 +257,249 @@ def test_generate_fluxcd_models(tmp_path, monkeypatch):
     # Verify imports and structure
     assert "from cloudcoil.resources import" in content
     assert "from cloudcoil.pydantic import" in content
+
+
+def test_basic_dict_deletion():
+    obj = {"foo": {"bar": 42}}
+    delete_value_at_path(obj, "foo.bar")
+    assert obj == {"foo": {}}
+
+
+def test_array_index_deletion():
+    obj = [{"foo": 42}]
+    delete_value_at_path(obj, "[0].foo")
+    assert obj == [{}]
+
+
+def test_mixed_array_dict_deletion():
+    obj = {"foo": [{"bar": 42}]}
+    delete_value_at_path(obj, "foo[0].bar")
+    assert obj == {"foo": [{}]}
+
+
+def test_delete_multiple_dots():
+    obj = {"foo": {"bar": 42}}
+    delete_value_at_path(obj, "foo..bar")
+    assert obj == {"foo": {}}
+
+
+def test_delete_empty_path():
+    obj = {"foo": 42}
+    delete_value_at_path(obj, "")
+    assert obj == {"foo": 42}
+
+
+def test_none_path():
+    obj = {"foo": 42}
+    delete_value_at_path(obj, None)  # type: ignore
+    assert obj == {"foo": 42}
+
+
+def test_nonexistent_path():
+    obj = {"foo": {"bar": 42}}
+    delete_value_at_path(obj, "foo.baz")
+    assert obj == {"foo": {"bar": 42}}
+
+
+def test_invalid_array_index():
+    obj = [{"foo": 42}]
+    delete_value_at_path(obj, "[1].foo")  # Index out of range
+    assert obj == [{"foo": 42}]
+
+
+def test_array_index_on_dict():
+    obj = {"foo": 42}
+    delete_value_at_path(obj, "[0].foo")  # Can't use array index on dict
+    assert obj == {"foo": 42}
+
+
+def test_dict_key_on_array():
+    obj = [42]
+    delete_value_at_path(obj, "foo[0]")  # Can't use dict key on array
+    assert obj == [42]
+
+
+def test_nested_array_deletion():
+    obj = {"foo": [{"bar": [{"baz": 42}]}]}
+    delete_value_at_path(obj, "foo[0].bar[0].baz")
+    assert obj == {"foo": [{"bar": [{}]}]}
+
+
+def test_root_array_deletion():
+    obj = [{"foo": 42}, {"bar": 24}]
+    delete_value_at_path(obj, "[0]")
+    assert obj == [{"bar": 24}]
+
+
+def test_multiple_empty_segments():
+    obj = {"foo": {"bar": 42}}
+    delete_value_at_path(obj, "foo...bar")
+    assert obj == {"foo": {}}
+
+
+def test_path_with_spaces():
+    obj = {"foo bar": {"baz": 42}}
+    delete_value_at_path(obj, "foo bar.baz")
+    assert obj == {"foo bar": {}}
+
+
+@pytest.mark.parametrize(
+    "obj,path,expected",
+    [
+        ({"a": 1}, "a", {}),
+        ([1, 2, 3], "[1]", [1, 3]),
+        ({"a": [1, 2]}, "a[1]", {"a": [1]}),
+        ({"a": {"b": {"c": 1}}}, "a.b.c", {"a": {"b": {}}}),
+        ([{"a": 1}, {"b": 2}], "[0].a", [{}, {"b": 2}]),
+    ],
+)
+def test_delete_parametrized_cases(obj: Any, path: str, expected: Any):
+    delete_value_at_path(obj, path)
+    assert obj == expected
+
+
+def test_delete_nested_empty_dict():
+    obj = {"foo": {"bar": {}}}
+    delete_value_at_path(obj, "foo.bar")
+    assert obj == {"foo": {}}
+
+
+def test_delete_nested_empty_list():
+    obj = {"foo": {"bar": []}}
+    delete_value_at_path(obj, "foo.bar")
+    assert obj == {"foo": {}}
+
+
+def test_delete_invalid_array_syntax():
+    obj = {"foo": [42]}
+    delete_value_at_path(obj, "foo[abc]")  # Invalid array index
+    assert obj == {"foo": [42]}
+
+
+def test_delete_trailing_dot():
+    obj = {"foo": {"bar": 42}}
+    delete_value_at_path(obj, "foo.bar.")
+    assert obj == {"foo": {}}
+
+
+def test_delete_leading_dot():
+    obj = {"foo": {"bar": 42}}
+    delete_value_at_path(obj, ".foo.bar")
+    assert obj == {"foo": {}}
+
+
+def test_basic_dict_setting():
+    obj = {}
+    set_value_at_path(obj, "foo.bar", 42)
+    assert obj == {"foo": {"bar": 42}}
+
+
+def test_array_index_setting():
+    obj = [{}]
+    set_value_at_path(obj, "[0].foo", 42)
+    assert obj == [{"foo": 42}]
+
+
+def test_array_extension():
+    obj = []
+    set_value_at_path(obj, "[2].foo", 42)
+    assert obj == [None, None, {"foo": 42}]
+
+
+def test_mixed_array_dict_setting():
+    obj = {"foo": []}
+    set_value_at_path(obj, "foo[1].bar", 42)
+    assert obj == {"foo": [None, {"bar": 42}]}
+
+
+def test_multiple_dots():
+    obj = {}
+    set_value_at_path(obj, "foo..bar", 42)
+    assert obj == {"foo": {"bar": 42}}
+
+
+def test_empty_path():
+    obj = {"foo": 42}
+    set_value_at_path(obj, "", "value")
+    assert obj == {"foo": 42}
+
+
+def test_overwrite_existing_value():
+    obj = {"foo": {"bar": 42}}
+    set_value_at_path(obj, "foo.bar", "new_value")
+    assert obj == {"foo": {"bar": "new_value"}}
+
+
+def test_create_nested_structure():
+    obj = {}
+    set_value_at_path(obj, "a.b.c.d", 42)
+    assert obj == {"a": {"b": {"c": {"d": 42}}}}
+
+
+def test_array_index_without_dot():
+    obj = {"a": [1, 2]}
+    set_value_at_path(obj, "a[1]", 42)
+    assert obj == {"a": [1, 42]}
+
+
+def test_array_nested_in_array():
+    obj = []
+    set_value_at_path(obj, "[0][1]", 42)
+    assert obj == [[None, 42]]
+
+
+def test_create_array_in_dict():
+    obj = {}
+    set_value_at_path(obj, "foo[1]", 42)
+    assert obj == {"foo": [None, 42]}
+
+
+@pytest.mark.parametrize(
+    "obj,path,value,expected",
+    [
+        ({}, "a", 1, {"a": 1}),
+        ([], "[1]", 2, [None, 2]),
+        ({}, "a[1]", 3, {"a": [None, 3]}),
+        ({}, "a.b.c", 4, {"a": {"b": {"c": 4}}}),
+        ([None], "[0].a", 5, [{"a": 5}]),
+    ],
+)
+def test_parametrized_cases(obj: Any, path: str, value: Any, expected: Any):
+    set_value_at_path(obj, path, value)
+    assert obj == expected
+
+
+def test_invalid_array_syntax():
+    obj = {"foo": [42]}
+    set_value_at_path(obj, "foo[abc]", "value")
+    assert obj == {"foo": [42]}
+
+
+def test_array_index_on_non_array():
+    obj = {"foo": 42}
+    set_value_at_path(obj, "foo[0]", "value")
+    assert obj == {"foo": 42}
+
+
+def test_dict_key_on_non_dict():
+    obj = [42]
+    set_value_at_path(obj, "[0].foo", "value")
+    assert obj == [42]
+
+
+def test_nested_array_creation():
+    obj = {}
+    set_value_at_path(obj, "foo[0][1][2]", 42)
+    assert obj == {"foo": [[None, [None, None, 42]]]}
+
+
+def test_trailing_dot():
+    obj = {}
+    set_value_at_path(obj, "foo.bar.", 42)
+    assert obj == {"foo": {"bar": 42}}
+
+
+def test_leading_dot():
+    obj = {}
+    set_value_at_path(obj, ".foo.bar", 42)
+    assert obj == {"foo": {"bar": 42}}

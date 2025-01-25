@@ -89,6 +89,7 @@ dev = [
     "pytest-sugar>=1.0.0",
     "pytest-asyncio>=0.25.0",
     "pytest-xdist>=3.6.1",
+    "cloudcoil-models-kubernetes>=1.29.13.1",
 ]
 
 [tool.mypy]

@@ -108,6 +108,96 @@ The fluent builder provides:
 - ⚡ Compile-time validation of your configuration
 - 🎯 Clear and chainable API that guides you through resource creation
 
+### Using the Context Manager Builder API
+
+For complex nested resources, Cloudcoil also provides a context manager-based builder pattern that can make the structure more clear:
+
+```python
+from cloudcoil.models.fluxcd.source.v1 import GitRepository
+from cloudcoil.models.fluxcd.kustomize.v1 import Kustomization
+
+# Create a GitRepository using context managers
+with GitRepository.new() as repo:
+    with repo.metadata() as metadata:
+        metadata.name("my-app")
+        metadata.namespace("default")
+        metadata.labels({"env": "prod"})
+    
+    with repo.spec() as spec:
+        spec.url("https://github.com/org/repo")
+        spec.interval("1m")
+        
+        with spec.ref() as ref:
+            ref.branch("main")
+
+final_repo = repo.build()
+
+# Create a Kustomization using context managers
+with Kustomization.new() as kustomization:
+    with kustomization.metadata() as metadata:
+        metadata.name("my-app")
+        metadata.namespace("default")
+    
+    with kustomization.spec() as spec:
+        spec.path("./kustomize")
+        spec.interval("5m")
+        spec.prune(True)
+        
+        with spec.source_ref() as ref:
+            ref.kind("GitRepository")
+            ref.name("my-app")
+
+final_kustomization = kustomization.build()
+```
+
+The context manager builder provides:
+- 🎭 Clear visual nesting of resource structure
+- 🔒 Automatic resource cleanup
+- 🎯 Familiar Python context manager pattern
+- ✨ Same great IDE support as the fluent builder
+
+### Mixing Builder Styles
+
+CloudCoil's intelligent builder system automatically detects which style you're using and provides appropriate IDE support:
+
+```python
+from cloudcoil.models.fluxcd.source.v1 import GitRepository
+from cloudcoil import apimachinery
+
+# Mixing styles lets you choose the best approach for each part
+with GitRepository.new() as repo:
+    # Direct object initialization with full type checking
+    repo.metadata(apimachinery.ObjectMeta(
+        name="my-app",
+        namespace="default",
+        labels={"env": "prod"}
+    ))
+    
+    with repo.spec() as spec:
+        # Simple fields directly
+        spec.url("https://github.com/org/repo")
+        spec.interval("1m")
+        # Fluent style
+        spec.ref(lambda r: r
+            .branch("main")
+            .tag("v1.0.0")
+        )
+        # Direct assignment
+        spec.timeout = "1m"
+
+final_repo = repo.build()
+```
+
+This flexibility allows you to:
+- 🔀 Choose the most appropriate style for each part of your configuration
+- 📖 Maximize readability for both simple and complex structures
+- 🎨 Format your code according to your team's preferences
+- 🧠 Get full IDE support with automatic style detection
+- ✨ Enjoy rich autocomplete in all styles
+- ⚡ Benefit from type checking across mixed styles
+- 🎯 Receive immediate feedback on type errors
+- 🔍 See documentation for all fields regardless of style
+
 ## 📚 Documentation
 
 For complete documentation, visit [cloudcoil.github.io/cloudcoil](https://cloudcoil.github.io/cloudcoil)

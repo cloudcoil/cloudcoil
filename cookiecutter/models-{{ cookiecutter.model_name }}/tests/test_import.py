@@ -1,8 +1,8 @@
 import pytest
-import cloudcoil.models.{{cookiecutter.model_name}} as {{cookiecutter.model_name}}
+import cloudcoil.models.{{cookiecutter.module_name}} as {{cookiecutter.module_name}}
 from types import ModuleType
 
 
 def test_has_modules():
-    modules = list(filter(lambda x: isinstance(x, ModuleType), {{cookiecutter.model_name}}.__dict__.values()))
-    assert modules, "No modules found in {{cookiecutter.model_name}}"
+    modules = list(filter(lambda x: isinstance(x, ModuleType), {{cookiecutter.module_name}}.__dict__.values()))
+    assert modules, "No modules found in {{cookiecutter.module_name}}"
