@@ -1,0 +1,8 @@
+default_context:
+  model_name: prometheus-operator
+  author_name: Sambhav Kothari
+  author_email: sambhavs.email@gmail.com
+  crd_namespace: com.coreos.monitoring
+  crd_url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v0.79.2/bundle.yaml
+  versions: "'0.79.2'"
+  version_replacement_sed: releases/download/v

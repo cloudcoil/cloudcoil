@@ -1,0 +1,8 @@
+default_context:
+  model_name: istio
+  author_name: Sambhav Kothari
+  author_email: sambhavs.email@gmail.com
+  crd_namespace: io.istio
+  crd_url: https://raw.githubusercontent.com/istio/istio/refs/tags/1.24.2/manifests/charts/base/files/crd-all.gen.yaml
+  versions: "'1.24.2'"
+  version_replacement_sed: refs/tags/

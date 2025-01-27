@@ -39,7 +39,7 @@ jobs:
           BRANCH="release-${MINOR_VERSION}"
           # Update version and input URL using sed
           sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
-          sed -i "s|{% endraw %}{{ cookiecutter.version_replacement_sed }}/v[0-9]\+\.[0-9]\+\.[0-9]\+/|{{ cookiecutter.version_replacement_sed }}{% raw %}/v${{ matrix.model_version }}/|" pyproject.toml
+          sed -i "s|{% endraw %}{{ cookiecutter.version_replacement_sed }}[0-9]\+\.[0-9]\+\.[0-9]\+/|{{ cookiecutter.version_replacement_sed }}{% raw %}${{ matrix.model_version }}/|" pyproject.toml
           # Generate models
           make gen-models
 
@@ -73,14 +73,13 @@ jobs:
       - name: Get next release version
         id: next_version
         run: |
-          # Get all existing tags that match the pattern
           BASE_VERSION="${{ matrix.model_version }}"
-          EXISTING_TAGS=$(gh api repos/${{ github.repository }}/releases --jq "[.[] | select(.tag_name | startswith(\"${BASE_VERSION}.\")).tag_name] | .[]")
+          EXISTING_TAGS=$(gh release list --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]")
           
           # Find highest x in v{BASE_VERSION}.x
           HIGHEST_X=$(echo "$EXISTING_TAGS" | sort -V | tail -n1 | cut -d. -f3)
           
-          # If no existing tags, start with 1, otherwise increment
+          # If no existing tags, start with 0, otherwise increment
           if [ -z "$HIGHEST_X" ]; then
             NEXT_X=0
           else
@@ -97,8 +96,8 @@ jobs:
           BASE_VERSION=$(echo "${{ matrix.model_version }}" | cut -d'.' -f1,2)          
           BRANCH="release-${BASE_VERSION}"
           
-          # Find the previous release tag with same minor version using version sort
-          PREV_TAG=$(gh api repos/${{ github.repository }}/releases --jq "[.[] | select(.tag_name | startswith(\"${BASE_VERSION}.\")).tag_name] | .[]" | sort -V | tail -n1)
+          # Find the previous release tag with same minor version, excluding drafts
+          PREV_TAG=$(gh release list --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]" | sort -V | tail -n1)
           COMPARE_LINK=""
           if [ ! -z "$PREV_TAG" ]; then
             COMPARE_LINK="[Compare with previous release](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${RELEASE_TAG})"
@@ -106,7 +105,10 @@ jobs:
           
           RELEASE_NOTES="Release for version $RELEASE_TAG ${COMPARE_LINK}"
           
-          if gh release view "$RELEASE_TAG" --repo ${{ github.repository }} &>/dev/null; then
+          # Check for existing draft first
+          EXISTING_DRAFT=$(gh release list --json tagName,isDraft --jq ".[] | select(.tagName == \"${RELEASE_TAG}\" and .isDraft == true).tagName")
+          
+          if [ ! -z "$EXISTING_DRAFT" ]; then
             gh release edit "$RELEASE_TAG" \
               --repo ${{ github.repository }} \
               --draft \
