@@ -43,7 +43,7 @@ class Update(BaseModel):
     delete: bool = False
 
 
-class Rename(BaseModel):
+class Alias(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
         validate_default=True,
@@ -93,8 +93,7 @@ class ModelConfig(BaseModel):
     additional_datamodel_codegen_args: Annotated[
         list[str], Field(alias="additional-datamodel-codegen-args")
     ] = []
-    merge_duplicate_models: Annotated[bool, Field(alias="merge-duplicate-models")] = False
-    renames: list[Rename] = []
+    aliases: list[Alias] = []
 
     @model_validator(mode="after")
     def _add_namespace(self):
@@ -256,8 +255,6 @@ def set_value_at_path(obj: dict, path: str, value: Any) -> None:
     """
     if not path:
         return
-
-    # Split by dots and handle array indices
     segments = []
     current_segment = ""
     i = 0
@@ -384,7 +381,8 @@ def process_updates(updates: list[Update], schema: dict) -> None:
                 if update.delete:
                     delete_value_at_path(definition, update.jsonpath)
                 else:
-                    set_value_at_path(definition, update.jsonpath, update.value)
+                    value = update.match_.sub(update.value, definition_name)
+                    set_value_at_path(definition, update.jsonpath, value)
 
 
 def process_transformations(transformations: list[Transformation], schema: dict) -> dict:
@@ -488,6 +486,8 @@ def convert_crd_to_schema(crd: dict) -> Dict[str, Any]:
         # Handle spec and status properties
         if "properties" in schema_obj:
             properties = schema_obj["properties"]
+            properties.setdefault("apiVersion", {"type": "string"})
+            properties.setdefault("kind", {"type": "string"})
 
             # Handle spec property
             if "spec" in properties:
@@ -793,84 +793,6 @@ def find_duplicate_models(workdir: Path) -> Dict[str, Set[str]]:
     }
 
 
-def merge_duplicate_models(workdir: Path, canonical_models: Dict[str, Set[str]]):
-    """Replace duplicate models with their canonical versions."""
-    # Create a mapping of old to new model names
-    replacements = {
-        old: canonical for canonical, duplicates in canonical_models.items() for old in duplicates
-    }
-
-    # Replace all occurrences in Python files
-    for file in workdir.rglob("*.py"):
-        content = file.read_text()
-        tree = ast.parse(content)
-
-        modified = False
-
-        class ClassRemover(ast.NodeTransformer):
-            def __init__(self, classes_to_remove):
-                self.classes_to_remove = set(classes_to_remove)
-                self.modified = False
-
-            def visit_ClassDef(self, node):  # noqa: N802
-                if node.name in self.classes_to_remove:
-                    self.modified = True
-                    return None
-                return node
-
-        class ReferenceReplacer(ast.NodeTransformer):
-            def __init__(self, replacements):
-                self.replacements = replacements
-                self.modified = False
-
-            def visit_Name(self, node):  # noqa: N802
-                if node.id in self.replacements:
-                    self.modified = True
-                    node.id = self.replacements[node.id]
-                return node
-
-        # Replace class definitions
-        class_remover = ClassRemover(replacements.keys())
-        tree = class_remover.visit(tree)
-
-        # Replace references
-        reference_replacer = ReferenceReplacer(replacements)
-        tree = reference_replacer.visit(tree)
-
-        if class_remover.modified or reference_replacer.modified:
-            modified = True
-
-        if modified:
-            new_content = ast.unparse(tree)
-            file.write_text(new_content)
-
-
-def rename_classes(workdir: Path, renames: Dict[str, str]):
-    """Rename classes according to the renames mapping."""
-    if not renames:
-        return
-
-    # Create regex patterns for all class names
-    patterns = {
-        re.compile(rf"\b{re.escape(old_name)}\b"): new_name
-        for old_name, new_name in renames.items()
-    }
-
-    for file in workdir.rglob("*.py"):
-        content = file.read_text()
-        modified = False
-
-        # Apply each rename pattern
-        for pattern, new_name in patterns.items():
-            new_content = pattern.sub(new_name, content)
-            if new_content != content:
-                modified = True
-                content = new_content
-
-        if modified:
-            file.write_text(content)
-
-
 def generate(config: ModelConfig):
     ruff = shutil.which("ruff")
     if not ruff:
@@ -905,7 +827,11 @@ def generate(config: ModelConfig):
         args.append(f"--extra-template-data={str(extra_data_file)}")
 
     args.append(f"--additional-imports={','.join(additional_imports)}")
-
+    if config.aliases:
+        (workdir / "aliases.json").write_text(
+            json.dumps({alias.from_: alias.to for alias in config.aliases}, indent=2)
+        )
+        args.append(f"--aliases={str(workdir / 'aliases.json')}")
     header = f"# Generated by cloudcoil-model-codegen v{__version__}\n# DO NOT EDIT"
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -927,6 +853,7 @@ def generate(config: ModelConfig):
                 "--input-file-type",
                 "jsonschema",
                 "--disable-appending-item-suffix",
+                "--use-title-as-name",
                 "--disable-timestamp",
                 "--use-annotated",
                 "--use-default-kwarg",
@@ -949,15 +876,6 @@ def generate(config: ModelConfig):
         Path(workdir / generated_path / "__init__.py").unlink()
     if config.generate_py_typed:
         Path(workdir / generated_path / "py.typed").touch()
-
-    # Deduplicate models
-    if config.merge_duplicate_models:
-        duplicates = find_duplicate_models(workdir / generated_path)
-        if duplicates:
-            merge_duplicate_models(workdir / generated_path, duplicates)
-
-    # Apply class renames after deduplication
-    rename_classes(workdir / generated_path, {rename.from_: rename.to for rename in config.renames})
 
     ruff_check_fix_args = [
         ruff,

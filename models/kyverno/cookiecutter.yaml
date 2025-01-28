@@ -5,4 +5,4 @@ default_context:
   crd_namespace: io.kyverno
   crd_url: https://github.com/kyverno/kyverno/releases/download/v1.12.7/install.yaml
   versions: "'1.12.7'"
-  version_replacement_sed: releases/download
+  version_replacement_sed: releases/download/v

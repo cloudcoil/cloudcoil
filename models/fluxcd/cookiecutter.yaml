@@ -5,4 +5,4 @@ default_context:
   crd_namespace: io.fluxcd.toolkit
   crd_url: https://github.com/fluxcd/flux2/releases/download/v2.4.0/install.yaml
   versions: "'2.4.0'"
-  version_replacement_sed: releases/download
+  version_replacement_sed: releases/download/v

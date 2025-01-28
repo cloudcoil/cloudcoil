@@ -6,6 +6,6 @@
     "crd_namespace": "default",
     "crd_url": "https://example.com",
     "versions": "'1.0.0', '1.0.1', '1.0.2'",
-    "version_replacement_sed": "releases/download",
+    "version_replacement_sed": "releases/download/v",
     "_config_dir": ""
 }

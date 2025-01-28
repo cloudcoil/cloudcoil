@@ -1,0 +1,3 @@
+updates = [
+    { match = "^(.*)\\..*Status$", jsonpath = "properties.validationMessages.items.properties.type.title", value = "\\g<1>.MessageType"},
+]

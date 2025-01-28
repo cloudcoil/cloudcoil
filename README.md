@@ -599,8 +599,7 @@ Cloudcoil includes a CLI tool, cloudcoil-model-codegen, which reads configuratio
 • crd-namespace: Inject a namespace for CRD resources  
 • transformations / updates: Modify the schema before generation  
 • exclude-unknown: Exclude definitions that cannot be mapped  
-• merge-duplicate-models: Merge identical models  
-• renames: Rename classes after generation  
+• aliases: Aliases for properties
 • additional-datamodel-codegen-args: Pass extra flags to the underlying generator  
 
 Example pyproject.toml config - 
