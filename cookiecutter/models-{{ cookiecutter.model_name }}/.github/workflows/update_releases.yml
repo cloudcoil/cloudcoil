@@ -74,7 +74,7 @@ jobs:
         id: next_version
         run: |
           BASE_VERSION="${{ matrix.model_version }}"
-          EXISTING_TAGS=$(gh release list --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]")
+          EXISTING_TAGS=$(gh release list --repo ${{ github.repository }} --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]")
           
           # Find highest x in v{BASE_VERSION}.x
           HIGHEST_X=$(echo "$EXISTING_TAGS" | sort -V | tail -n1 | cut -d. -f3)
@@ -97,7 +97,7 @@ jobs:
           BRANCH="release-${BASE_VERSION}"
           
           # Find the previous release tag with same minor version, excluding drafts
-          PREV_TAG=$(gh release list --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]" | sort -V | tail -n1)
+          PREV_TAG=$(gh release list --repo ${{ github.repository }} --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]" | sort -V | tail -n1)
           COMPARE_LINK=""
           if [ ! -z "$PREV_TAG" ]; then
             COMPARE_LINK="[Compare with previous release](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${RELEASE_TAG})"
@@ -106,7 +106,7 @@ jobs:
           RELEASE_NOTES="Release for version $RELEASE_TAG ${COMPARE_LINK}"
           
           # Check for existing draft first
-          EXISTING_DRAFT=$(gh release list --json tagName,isDraft --jq ".[] | select(.tagName == \"${RELEASE_TAG}\" and .isDraft == true).tagName")
+          EXISTING_DRAFT=$(gh release list --repo ${{ github.repository }} --json tagName,isDraft --jq ".[] | select(.tagName == \"${RELEASE_TAG}\" and .isDraft == true).tagName")
           
           if [ ! -z "$EXISTING_DRAFT" ]; then
             gh release edit "$RELEASE_TAG" \

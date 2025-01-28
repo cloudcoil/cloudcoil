@@ -58,7 +58,7 @@ gen-repo-%:
 publish-repo-%: gen-repo-%
 	@echo "Publishing to cloudcoil/models-$*"
 	@if ! gh repo view cloudcoil/models-$* >/dev/null 2>&1; then \
-		gh repo create cloudcoil/models-$* --public --description "Generated model repository for $*"; \
+		gh repo create cloudcoil/models-$* --add-readme --public --description "Generated model repository for $*"; \
 	fi
 	@rm -rf tmp/models-$*
 	@mkdir -p tmp/models-$*
