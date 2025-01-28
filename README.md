@@ -54,7 +54,7 @@ Current first-class integrations include:
 | [fluxcd](https://github.com/fluxcd/flux2) | [models-fluxcd](https://github.com/cloudcoil/models-fluxcd) | [cloudcoil.models.fluxcd](https://pypi.org/project/cloudcoil.models.fluxcd) |
 | [istio](https://github.com/istio/istio) | [models-istio](https://github.com/cloudcoil/models-istio) | [cloudcoil.models.istio](https://pypi.org/project/cloudcoil.models.istio) |
 | [kyverno](https://github.com/kyverno/kyverno) | [models-kyverno](https://github.com/cloudcoil/models-kyverno) | [cloudcoil.models.kyverno](https://pypi.org/project/cloudcoil.models.kyverno) |
-| [prometheus-operator](https://github.com/prometheus-operator/prometheus-operator) | [models-kyverno](https://github.com/cloudcoil/models-prometheus-operator) | [cloudcoil.models.prometheus-operator](https://pypi.org/project/cloudcoil.models.prometheus_operator) |
+| [prometheus-operator](https://github.com/prometheus-operator/prometheus-operator) | [models-prometheus-operator](https://github.com/cloudcoil/models-prometheus-operator) | [cloudcoil.models.prometheus-operator](https://pypi.org/project/cloudcoil.models.prometheus_operator) |
 
 
 You can install these integrations using
