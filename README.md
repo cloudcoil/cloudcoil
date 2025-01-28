@@ -9,6 +9,12 @@
 
 > Modern, async-first Kubernetes client with elegant Pythonic syntax and full type safety
 
+## ⭐ Support the Project
+
+If you find Cloudcoil useful, please consider giving it a star on GitHub! Your support helps the project grow and encourages continued development.
+
+[![Star on GitHub](https://img.shields.io/github/stars/cloudcoil/cloudcoil.svg?style=social)](https://github.com/cloudcoil/cloudcoil) 
+
 ## ✨ Features
 
 - 🔥 **Elegant, Pythonic API** - Feels natural to Python developers including fluent and context manager style resource builders
