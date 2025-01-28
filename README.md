@@ -20,6 +20,9 @@
 
 ## 🔧 Installation
 
+> [!NOTE]
+> For versioning information and compatibility, see the [Versioning Guide](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md).
+
 Using [uv](https://github.com/astral-sh/uv) (recommended):
 
 ```bash
@@ -45,11 +48,22 @@ Discover more Cloudcoil model integrations for popular Kubernetes operators and 
 
 Current first-class integrations include:
 
-| Project | Github | PyPI | 
+| Name | Github | PyPI | 
 | ------- | ------- | -------  | 
 | [cert-manager](https://github.com/cert-manager/cert-manager) | [models-cert-manager](https://github.com/cloudcoil/models-cert-manager) | [cloudcoil.models.cert_manager](https://pypi.org/project/cloudcoil.models.cert-manager) |
 | [fluxcd](https://github.com/fluxcd/flux2) | [models-fluxcd](https://github.com/cloudcoil/models-fluxcd) | [cloudcoil.models.fluxcd](https://pypi.org/project/cloudcoil.models.fluxcd) |
+| [istio](https://github.com/istio/istio) | [models-istio](https://github.com/cloudcoil/models-istio) | [cloudcoil.models.istio](https://pypi.org/project/cloudcoil.models.istio) |
 | [kyverno](https://github.com/kyverno/kyverno) | [models-kyverno](https://github.com/cloudcoil/models-kyverno) | [cloudcoil.models.kyverno](https://pypi.org/project/cloudcoil.models.kyverno) |
+| [prometheus-operator](https://github.com/prometheus-operator/prometheus-operator) | [models-kyverno](https://github.com/cloudcoil/models-prometheus-operator) | [cloudcoil.models.prometheus-operator](https://pypi.org/project/cloudcoil.models.prometheus_operator) |
+
+
+You can install these integrations using
+
+```bash
+uv add cloudcoil[kyverno]
+# You can also install multiple dependencies at once
+uv add cloudcoil[cert-manager,fluxcd,kyverno]
+```
 
 > Missing an integration you need? [Open a model request](https://github.com/cloudcoil/cloudcoil/issues/new?template=%F0%9F%94%8C-model-request.md) to suggest a new integration!
 

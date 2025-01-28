@@ -1,6 +1,6 @@
 [project]
 name = "cloudcoil"
-version = "0.3.0dev0"
+version = "0.5.0dev0"
 description = "Cloud native made easy with Python"
 authors = [{ name = "Sambhav Kothari", email = "sambhavs.email@gmail.com" }]
 maintainers = [{ name = "Sambhav Kothari", email = "sambhavs.email@gmail.com" }]
@@ -32,6 +32,11 @@ kubernetes-1-32 = ["cloudcoil.models.kubernetes~=1.32.0"]
 kubernetes-1-31 = ["cloudcoil.models.kubernetes~=1.31.0"]
 kubernetes-1-30 = ["cloudcoil.models.kubernetes~=1.30.0"]
 kubernetes-1-29 = ["cloudcoil.models.kubernetes~=1.29.0"]
+kyverno = ["cloudcoil.models.kyverno"]
+istio = ["cloudcoil.models.istio"]
+cert-manager = ["cloudcoil.models.cert_manager"]
+fluxcd = ["cloudcoil.models.fluxcd"]
+prometheus-operator = ["cloudcoil.models.prometheus_operator"]
 all = ["cloudcoil.models.kubernetes"]
 
 
