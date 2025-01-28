@@ -40,7 +40,7 @@ cloudcoil[fluxcd]~=0.5.0  # Installs cloudcoil with FluxCD integration
 
 Not Recommended:
 ```
-cloudcoil-fluxcd>=2.0.1  # Missing cloudcoil core constraint
+cloudcoil.models.fluxcd>=2.0  # Missing cloudcoil core constraint
 ```
 
 ## Version Compatibility
