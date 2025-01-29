@@ -11,13 +11,13 @@ Using [uv](https://github.com/astral-sh/uv) (recommended):
 
 ```bash
 # Install with Prometheus Operator support
-uv add cloudcoil.models.prometheus-operator
+uv add cloudcoil.models.prometheus_operator
 ```
 
 Using pip:
 
 ```bash
-pip install cloudcoil.models.prometheus-operator
+pip install cloudcoil.models.prometheus_operator
 ```
 
 ## 💡 Examples
