@@ -37,6 +37,8 @@ istio = ["cloudcoil.models.istio"]
 cert-manager = ["cloudcoil.models.cert_manager"]
 fluxcd = ["cloudcoil.models.fluxcd"]
 prometheus-operator = ["cloudcoil.models.prometheus_operator"]
+knative-serving = ["cloudcoil.models.knative_serving"]
+knative-eventing = ["cloudcoil.models.knative_eventing"]
 all = ["cloudcoil.models.kubernetes"]
 
 

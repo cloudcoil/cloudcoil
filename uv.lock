@@ -211,6 +211,12 @@ fluxcd = [
 istio = [
     { name = "cloudcoil-models-istio" },
 ]
+knative-eventing = [
+    { name = "cloudcoil-models-knative-eventing" },
+]
+knative-serving = [
+    { name = "cloudcoil-models-knative-serving" },
+]
 kubernetes = [
     { name = "cloudcoil-models-kubernetes", version = "1.29.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-29' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra != 'extra-9-cloudcoil-kubernetes-1-32')" },
     { name = "cloudcoil-models-kubernetes", version = "1.30.9.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
@@ -267,6 +273,8 @@ requires-dist = [
     { name = "cloudcoil-models-cert-manager", marker = "extra == 'cert-manager'" },
     { name = "cloudcoil-models-fluxcd", marker = "extra == 'fluxcd'" },
     { name = "cloudcoil-models-istio", marker = "extra == 'istio'" },
+    { name = "cloudcoil-models-knative-eventing", marker = "extra == 'knative-eventing'" },
+    { name = "cloudcoil-models-knative-serving", marker = "extra == 'knative-serving'" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'all'" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes'" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes-1-29'", specifier = "~=1.29.0" },
@@ -339,6 +347,30 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e4/a5/d74009ef142dbededdd09fac70bce7adac9234da1a74fe18902ebef9d3c0/cloudcoil_models_istio-1.24.2.0.tar.gz", hash = "sha256:4ffbbffed1102b2162739192a1297a0f589997895c47f4183d1fda4830bec8b7", size = 217757 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cf/17/e73575c6cad5480ce1d774cf2080659ce3287e091792cf96c0cdc488b09c/cloudcoil_models_istio-1.24.2.0-py3-none-any.whl", hash = "sha256:74914af8553151237614494ac266964f667d7cd22f14190c9257ca9443be6a33", size = 165178 },
+]
+
+[[package]]
+name = "cloudcoil-models-knative-eventing"
+version = "1.17.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudcoil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/3a/90e8b4453030d41cdf513ed66c3cd720766337699f70b5a95a391c27f236/cloudcoil_models_knative_eventing-1.17.1.0.tar.gz", hash = "sha256:de0e35d4dac2a3fd065df1cfb6464d1b358c23ac6da0e48687e2cf6098afd176", size = 131748 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/14/82d1e4cd5dea8ff441897d25729b74f75432a1f8b55e3cf22a5948eeacf8/cloudcoil_models_knative_eventing-1.17.1.0-py3-none-any.whl", hash = "sha256:e60fe53e328e0b2f2206693230a6d60ceb3bd704b25a88f9f85f9a7a8a4121b7", size = 85874 },
+]
+
+[[package]]
+name = "cloudcoil-models-knative-serving"
+version = "1.17.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudcoil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d0/bb/4195caa371da4e5ad4258b2afa952141fca9bd96c1cdc00ad462ac33896e/cloudcoil_models_knative_serving-1.17.0.0.tar.gz", hash = "sha256:29d639fe76e2019960c64f5b3a6a384278e12ac37bbecb3187a512a0e087d795", size = 118109 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/2b/8443bce2b198732216df1306e2a9979e9c941f89cfe269aba1b46ab1141e/cloudcoil_models_knative_serving-1.17.0.0-py3-none-any.whl", hash = "sha256:af48ebcac209969e3ba38a8e91e20546629b912df8aeb54b44c903b79b6da8e7", size = 63332 },
 ]
 
 [[package]]
