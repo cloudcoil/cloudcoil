@@ -77,7 +77,7 @@ jobs:
           EXISTING_TAGS=$(gh release list --repo ${{ github.repository }} --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]")
           
           # Find highest x in v{BASE_VERSION}.x
-          HIGHEST_X=$(echo "$EXISTING_TAGS" | sort -V | tail -n1 | cut -d. -f3)
+          HIGHEST_X=$(echo "$EXISTING_TAGS" | sort -V | tail -n1 | cut -d. -f4)
           
           # If no existing tags, start with 0, otherwise increment
           if [ -z "$HIGHEST_X" ]; then
