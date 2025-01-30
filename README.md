@@ -64,6 +64,7 @@ Current first-class integrations include:
 | [kyverno](https://github.com/kyverno/kyverno) | [models-kyverno](https://github.com/cloudcoil/models-kyverno) | [cloudcoil.models.kyverno](https://pypi.org/project/cloudcoil.models.kyverno) |
 | [prometheus-operator](https://github.com/prometheus-operator/prometheus-operator) | [models-prometheus-operator](https://github.com/cloudcoil/models-prometheus-operator) | [cloudcoil.models.prometheus_operator](https://pypi.org/project/cloudcoil.models.prometheus_operator) |
 | [sealed-secrets](https://github.com/bitnami-labs/sealed-secrets) | [models-sealed-secrets](https://github.com/cloudcoil/models-sealed-secrets) | [cloudcoil.models.sealed_secrets](https://pypi.org/project/cloudcoil.models.sealed_secrets) |
+| [velero](https://github.com/vmware-tanzu/velero) | [models-velero](https://github.com/cloudcoil/models-velero) | [cloudcoil.models.velero](https://pypi.org/project/cloudcoil.models.velero) |
 
 You can install these integrations using
 

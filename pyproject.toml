@@ -39,6 +39,7 @@ fluxcd = ["cloudcoil.models.fluxcd"]
 prometheus-operator = ["cloudcoil.models.prometheus_operator"]
 knative-serving = ["cloudcoil.models.knative_serving"]
 knative-eventing = ["cloudcoil.models.knative_eventing"]
+sealed-secrets = ["cloudcoil.models.sealed_secrets"]
 all = ["cloudcoil.models.kubernetes"]
 
 
