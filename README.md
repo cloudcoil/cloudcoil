@@ -72,6 +72,8 @@ You can install these integrations using
 uv add cloudcoil[kyverno]
 # You can also install multiple dependencies at once
 uv add cloudcoil[cert-manager,fluxcd,kyverno]
+# You can also install all available models in cloudcoil using
+uv add cloudcoil[all-models]
 ```
 
 > Missing an integration you need? [Open a model request](https://github.com/cloudcoil/cloudcoil/issues/new?template=%F0%9F%94%8C-model-request.md) to suggest a new integration!

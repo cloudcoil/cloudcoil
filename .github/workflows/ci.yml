@@ -31,7 +31,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --extra all --dev
+        run: uv sync --extra kubernetes --dev
 
       - name: Run Checks
         run: make lint test
@@ -101,7 +101,7 @@ jobs:
           cache-dependency-glob: "**/uv.lock"
 
       - name: Install dependencies
-        run: uv sync --extra all --dev
+        run: uv sync --extra kubernetes --dev
 
       - name: Run Checks
         run: make lint test

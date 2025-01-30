@@ -198,6 +198,21 @@ all = [
     { name = "cloudcoil-models-kubernetes", version = "1.31.5.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
     { name = "cloudcoil-models-kubernetes", version = "1.32.1.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
 ]
+all-models = [
+    { name = "cloudcoil-models-cert-manager" },
+    { name = "cloudcoil-models-fluxcd" },
+    { name = "cloudcoil-models-istio" },
+    { name = "cloudcoil-models-knative-eventing" },
+    { name = "cloudcoil-models-knative-serving" },
+    { name = "cloudcoil-models-kubernetes", version = "1.29.13.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-29' or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra != 'extra-9-cloudcoil-kubernetes-1-32')" },
+    { name = "cloudcoil-models-kubernetes", version = "1.30.9.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-30' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
+    { name = "cloudcoil-models-kubernetes", version = "1.31.5.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
+    { name = "cloudcoil-models-kubernetes", version = "1.32.1.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
+    { name = "cloudcoil-models-kyverno" },
+    { name = "cloudcoil-models-prometheus-operator" },
+    { name = "cloudcoil-models-sealed-secrets" },
+    { name = "cloudcoil-models-velero" },
+]
 cert-manager = [
     { name = "cloudcoil-models-cert-manager" },
 ]
@@ -241,8 +256,14 @@ kyverno = [
 prometheus-operator = [
     { name = "cloudcoil-models-prometheus-operator" },
 ]
+sealed-secrets = [
+    { name = "cloudcoil-models-sealed-secrets" },
+]
 test = [
     { name = "pytest" },
+]
+velero = [
+    { name = "cloudcoil-models-velero" },
 ]
 
 [package.dev-dependencies]
@@ -270,19 +291,31 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cloudcoil-models-cert-manager", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-cert-manager", marker = "extra == 'cert-manager'" },
+    { name = "cloudcoil-models-fluxcd", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-fluxcd", marker = "extra == 'fluxcd'" },
+    { name = "cloudcoil-models-istio", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-istio", marker = "extra == 'istio'" },
+    { name = "cloudcoil-models-knative-eventing", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-knative-eventing", marker = "extra == 'knative-eventing'" },
+    { name = "cloudcoil-models-knative-serving", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-knative-serving", marker = "extra == 'knative-serving'" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'all'" },
+    { name = "cloudcoil-models-kubernetes", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes'" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes-1-29'", specifier = "~=1.29.0" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes-1-30'", specifier = "~=1.30.0" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes-1-31'", specifier = "~=1.31.0" },
     { name = "cloudcoil-models-kubernetes", marker = "extra == 'kubernetes-1-32'", specifier = "~=1.32.0" },
+    { name = "cloudcoil-models-kyverno", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-kyverno", marker = "extra == 'kyverno'" },
+    { name = "cloudcoil-models-prometheus-operator", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-prometheus-operator", marker = "extra == 'prometheus-operator'" },
+    { name = "cloudcoil-models-sealed-secrets", marker = "extra == 'all-models'" },
+    { name = "cloudcoil-models-sealed-secrets", marker = "extra == 'sealed-secrets'" },
+    { name = "cloudcoil-models-velero", marker = "extra == 'all-models'" },
+    { name = "cloudcoil-models-velero", marker = "extra == 'velero'" },
     { name = "datamodel-code-generator", extras = ["http"], marker = "extra == 'codegen'", specifier = "~=0.26.4" },
     { name = "httpx" },
     { name = "pydantic", specifier = ">2.0" },
@@ -467,6 +500,30 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c7/a2/22123891dd71a7f2d49fa3e6189e28b1294d1e542faa4e395fa13fa72fc6/cloudcoil_models_prometheus_operator-0.79.2.0.tar.gz", hash = "sha256:f0b495140b105875b3b8093f08ae453106ea90eea4f9115b8167b5fdf06ec294", size = 445631 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/70/3b/e29d59c6fa047ceb48b8b186004e5a5272085a75e6a890537bc209559e5d/cloudcoil_models_prometheus_operator-0.79.2.0-py3-none-any.whl", hash = "sha256:a40cca1adad11e4a051227661247fc27b5c35b69b50b8b4d9766f213a7ff6b87", size = 389453 },
+]
+
+[[package]]
+name = "cloudcoil-models-sealed-secrets"
+version = "0.28.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudcoil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e2/65/8105b9529463e34db4e5b1a09d8f799f7595ebc6c3e121bf46fef8288c14/cloudcoil_models_sealed_secrets-0.28.0.0.tar.gz", hash = "sha256:dc39284d33418c2fc78af7565deedd6262442b36a18235351b0f1a1b5f0e5fa8", size = 72026 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/eb/ebcfdcbb345f5e2e8185282c5e16c1c1f4a0509800af180750da6cfa5ea7/cloudcoil_models_sealed_secrets-0.28.0.0-py3-none-any.whl", hash = "sha256:e950bf84ea6fa80541afcc5e38c5e4a15f9ef4aee8e2c5426090b40b23f132c8", size = 10256 },
+]
+
+[[package]]
+name = "cloudcoil-models-velero"
+version = "1.15.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudcoil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ad/8b/ef6399eb2c8089dd12c23f493fa4202356984ff61cfcb8d9f1b8385db9b6/cloudcoil_models_velero-1.15.2.0.tar.gz", hash = "sha256:8849534e9bc5df96399738ba029737dc3425da4de74f0dd28efa13a0aeb38d25", size = 99848 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/fb/9352291911e8a1a503a3dc9e62490472e719b24ffe3f6138b63a09b2f635/cloudcoil_models_velero-1.15.2.0-py3-none-any.whl", hash = "sha256:9b2dd895081fe3bb2395c4c1ec45fa09496031dc8d1d898ced2b20505cf515b7", size = 38632 },
 ]
 
 [[package]]
