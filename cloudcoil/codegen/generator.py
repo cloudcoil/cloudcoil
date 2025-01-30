@@ -82,7 +82,7 @@ class ModelConfig(BaseModel):
     )
     crd_namespace: Annotated[str | None, Field(alias="crd-namespace")] = None
     namespace: str
-    input_: Annotated[str, Field(alias="input")]
+    input_: Annotated[list[str] | str, Field(alias="input")]
     output: Path | None = None
     mode: Literal["resource", "base"] = "resource"
     transformations: list[Transformation] = []
@@ -544,36 +544,37 @@ def load_yaml_content(content: str) -> Iterator[dict]:
 def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
     schema_file = workdir / "schema.json"
     extra_data_file = workdir / "extra_data.json"
+    if not isinstance(config.input_, list):
+        config.input_ = [config.input_]
 
-    if config.input_.startswith("http"):
-        content = fetch_remote_content(config.input_)
-        if config.input_.endswith((".yaml", ".yml")):
-            # Handle remote YAML files
-            schemas = []
-            for doc in load_yaml_content(content):
-                if doc and is_crd(doc):
-                    schemas.append(convert_crd_to_schema(doc))
-            if not schemas:
-                raise ValueError(f"No valid CRDs found in {config.input_}")
-            schema = merge_schemas(schemas)
+    schemas = []
+    for input_ in config.input_:
+        if input_.startswith("http"):
+            content = fetch_remote_content(input_)
+            if input_.endswith((".yaml", ".yml")):
+                for doc in load_yaml_content(content):
+                    if doc and is_crd(doc):
+                        schemas.append(convert_crd_to_schema(doc))
+            else:
+                schema = json.loads(content)
+                schemas.append(schema)
         else:
-            # Handle remote JSON
-            schema = json.loads(content)
+            if input_.endswith((".yaml", ".yml")):
+                for doc in load_yaml_documents(input_):
+                    if doc and is_crd(doc):
+                        schemas.append(convert_crd_to_schema(doc))
+            else:
+                with open(input_, "r") as f:
+                    content = f.read()
+                schema = json.loads(content)
+                schemas.append(schema)
+
+    if not schemas:
+        raise ValueError(f"No valid CRDs found in {config.input_}")
+    if len(schemas) == 1:
+        schema = schemas[0]
     else:
-        if config.input_.endswith((".yaml", ".yml")):
-            # Handle local YAML files
-            schemas = []
-            for doc in load_yaml_documents(config.input_):
-                if doc and is_crd(doc):
-                    schemas.append(convert_crd_to_schema(doc))
-            if not schemas:
-                raise ValueError(f"No valid CRDs found in {config.input_}")
-            schema = merge_schemas(schemas)
-        else:
-            # Handle local JSON
-            with open(config.input_, "r") as f:
-                content = f.read()
-            schema = json.loads(content)
+        schema = merge_schemas(schemas)
 
     # Process transformations first
     schema = process_transformations(config.transformations, schema)

@@ -3,6 +3,6 @@ default_context:
   author_name: Sambhav Kothari
   author_email: sambhavs.email@gmail.com
   crd_namespace: dev.knative
-  crd_url: https://github.com/knative/eventing/releases/download/knative-v1.17.1/eventing-crds.yaml
+  crd_urls: https://github.com/knative/eventing/releases/download/knative-v1.17.1/eventing-crds.yaml
   versions: "'1.17.1'"
   version_replacement_sed: releases/download/knative-v
