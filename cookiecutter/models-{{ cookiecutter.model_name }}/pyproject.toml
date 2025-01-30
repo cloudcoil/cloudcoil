@@ -81,7 +81,12 @@ only-include = ["cloudcoil"]
 # Unique name for the models
 # This will be used as the name for the setuptools entrypoints
 namespace = "cloudcoil.models.{{cookiecutter.module_name}}"
-input = "{{ cookiecutter.crd_url }}"
+# Split the crl urls by comma
+input = [
+{%- for crd in cookiecutter.crd_urls.split(',') %}
+    "{{ crd | trim }}",
+{%- endfor %}
+]
 {%- if cookiecutter.crd_namespace %}
 crd-namespace = "{{ cookiecutter.crd_namespace }}"
 {%- endif %}
