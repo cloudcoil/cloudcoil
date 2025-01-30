@@ -28,7 +28,7 @@
               cache-dependency-glob: "**/uv.lock"
     
           - name: Install dependencies
-            run: uv sync --extra all --dev
+            run: uv sync --extra kubernetes --dev
     
           - name: Bump version number
             run: |

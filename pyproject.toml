@@ -27,20 +27,32 @@ cloudcoil-model-codegen = "cloudcoil.codegen.generator:main"
 [project.optional-dependencies]
 test = ["pytest"]
 codegen = ["datamodel-code-generator[http]~=0.26.4", "ruff"]
-kubernetes = ["cloudcoil.models.kubernetes"]
-kubernetes-1-32 = ["cloudcoil.models.kubernetes~=1.32.0"]
-kubernetes-1-31 = ["cloudcoil.models.kubernetes~=1.31.0"]
-kubernetes-1-30 = ["cloudcoil.models.kubernetes~=1.30.0"]
-kubernetes-1-29 = ["cloudcoil.models.kubernetes~=1.29.0"]
-kyverno = ["cloudcoil.models.kyverno"]
-istio = ["cloudcoil.models.istio"]
 cert-manager = ["cloudcoil.models.cert_manager"]
 fluxcd = ["cloudcoil.models.fluxcd"]
-prometheus-operator = ["cloudcoil.models.prometheus_operator"]
-knative-serving = ["cloudcoil.models.knative_serving"]
+istio = ["cloudcoil.models.istio"]
 knative-eventing = ["cloudcoil.models.knative_eventing"]
+knative-serving = ["cloudcoil.models.knative_serving"]
+kubernetes = ["cloudcoil.models.kubernetes"]
+kubernetes-1-29 = ["cloudcoil.models.kubernetes~=1.29.0"]
+kubernetes-1-30 = ["cloudcoil.models.kubernetes~=1.30.0"]
+kubernetes-1-31 = ["cloudcoil.models.kubernetes~=1.31.0"]
+kubernetes-1-32 = ["cloudcoil.models.kubernetes~=1.32.0"]
+kyverno = ["cloudcoil.models.kyverno"]
+prometheus-operator = ["cloudcoil.models.prometheus_operator"]
 sealed-secrets = ["cloudcoil.models.sealed_secrets"]
-all = ["cloudcoil.models.kubernetes"]
+velero = ["cloudcoil.models.velero"]
+all-models = [
+    "cloudcoil.models.cert_manager",
+    "cloudcoil.models.fluxcd",
+    "cloudcoil.models.istio",
+    "cloudcoil.models.knative_eventing",
+    "cloudcoil.models.knative_serving",
+    "cloudcoil.models.kubernetes",
+    "cloudcoil.models.kyverno",
+    "cloudcoil.models.prometheus_operator",
+    "cloudcoil.models.sealed_secrets",
+    "cloudcoil.models.velero",
+]
 
 
 [project.urls]
