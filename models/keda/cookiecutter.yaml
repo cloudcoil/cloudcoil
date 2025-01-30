@@ -1,0 +1,8 @@
+default_context:
+  model_name: keda
+  author_name: Sambhav Kothari
+  author_email: sambhavs.email@gmail.com
+  crd_namespace: sh.keda
+  crd_urls: https://github.com/kedacore/keda/releases/download/v2.16.1/keda-2.16.1-crds.yaml
+  versions: "'2.16.1'"
+  version_replacement_sed: releases/download/v
