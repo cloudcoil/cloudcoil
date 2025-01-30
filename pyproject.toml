@@ -30,6 +30,7 @@ codegen = ["datamodel-code-generator[http]~=0.26.4", "ruff"]
 cert-manager = ["cloudcoil.models.cert_manager"]
 fluxcd = ["cloudcoil.models.fluxcd"]
 istio = ["cloudcoil.models.istio"]
+keda = ["cloudcoil.models.keda"]
 knative-eventing = ["cloudcoil.models.knative_eventing"]
 knative-serving = ["cloudcoil.models.knative_serving"]
 kubernetes = ["cloudcoil.models.kubernetes"]
@@ -45,6 +46,7 @@ all-models = [
     "cloudcoil.models.cert_manager",
     "cloudcoil.models.fluxcd",
     "cloudcoil.models.istio",
+    "cloudcoil.models.keda",
     "cloudcoil.models.knative_eventing",
     "cloudcoil.models.knative_serving",
     "cloudcoil.models.kubernetes",
