@@ -1,0 +1,18 @@
+transformations = [
+    { match = "^io\\.k8s\\.apimachinery\\..*\\.(.+)", replace = "apimachinery.\\g<1>", namespace = "cloudcoil"},
+    { match = "^io\\.k8s\\.apiextensions-apiserver\\.pkg\\.apis\\.apiextensions\\.(.+)$", replace = "apiextensions.\\g<1>", namespace = "cloudcoil.models.kubernetes"},
+    { match = "^io\\.k8s\\.api\\.(.+)$", replace = "\\g<1>", namespace = "cloudcoil.models.kubernetes"},
+    { match = "^io\\.k8s\\.kube-aggregator\\.pkg\\.apis\\.(.+)$", replace = "\\g<1>", namespace = "cloudcoil.models.kubernetes"},
+    { match = "^kpack\\.(.*)$", replace = "\\g<1>"},
+]
+
+aliases = [
+    {"from" = "builder", to = "builder_"},
+]
+updates = [
+    {match="^.*build\\.(.*)\\.(Image|Build|Buildpack|Builder|SourceResolver|ClusterStore|ClusterStack|ClusterBuildpack|ClusterBuilder)$",jsonpath="x-kubernetes-group-version-kind[0].kind", value="\\g<2>"},
+    {match="^.*build\\.(.*)\\.(Image|Build|Buildpack|Builder|SourceResolver|ClusterStore|ClusterStack|ClusterBuildpack|ClusterBuilder)$",jsonpath="x-kubernetes-group-version-kind[0].version", value="\\g<1>"},
+    {match="^.*build\\.(.*)\\.(Image|Build|Buildpack|Builder|SourceResolver|ClusterStore|ClusterStack|ClusterBuildpack|ClusterBuilder)$",jsonpath="x-kubernetes-group-version-kind[0].group", value="kpack.io"},
+    {match="^(.*build.*)\\.(Builder)$", jsonpath="title", value="\\g<1>.BuilderResource"},
+    {match="^(.*build.*)\\.(BuilderList)$", jsonpath="title", value="\\g<1>.BuilderResourceList"},
+]

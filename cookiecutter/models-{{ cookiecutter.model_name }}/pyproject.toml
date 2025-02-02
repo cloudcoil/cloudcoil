@@ -15,6 +15,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "cloudcoil>=0.4.0",
+{%- for dependency in cookiecutter.dependencies.split(',') %}
+    "{{ dependency | trim }}",
+{%- endfor %}
 ]
 keywords = ["cloud-native", "kubernetes", "{{ cookiecutter.model_name}}", "pydantic", "python", "async", "cloudcoil", "cloudcoil-models"]
 
