@@ -7,5 +7,6 @@
     "crd_urls": "https://example.com",
     "versions": "'1.0.0', '1.0.1', '1.0.2'",
     "version_replacement_sed": "releases/download/v",
+    "dependencies": "",
     "_config_dir": ""
 }

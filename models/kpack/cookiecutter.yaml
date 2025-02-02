@@ -1,0 +1,9 @@
+default_context:
+  model_name: kpack
+  author_name: Sambhav Kothari
+  author_email: sambhavs.email@gmail.com
+  crd_namespace: ''
+  crd_urls: https://raw.githubusercontent.com/buildpacks-community/kpack/refs/tags/v0.16.1/api/openapi-spec/swagger.json
+  versions: "'0.16.1'"
+  version_replacement_sed: refs/tags/v
+  dependencies: "cloudcoil.models.kubernetes"

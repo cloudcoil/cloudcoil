@@ -152,7 +152,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
     {{ field.name }}: {{ field.type_hint }}
     {%- endif %}
     {%- if not (field.required or (field.represented_default == 'None' and field.strip_default_none)) or field.data_type.is_optional
-            %} = {{ field.represented_default }}
+            %} = {% if field.represented_default == "{}" and field.data_type.reference is not none %}{{ field.data_type.type_hint }}.model_validate({{ field.represented_default }}){% else %}{{ field.represented_default }}{% endif %}
     {%- endif -%}
     {%- endif %}
     {%- if field.docstring %}
