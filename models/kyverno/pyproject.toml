@@ -1,4 +1,4 @@
 updates = [
-    { match = "^.*v2alpha1\\.GlobalContextEntry$", jsonpath = "properties.spec.properties.apiCall.properties.refreshInterval.format", delete = true}
+    { match = "^.*\\.GlobalContextEntrySpec$", jsonpath = "properties.apiCall.properties.refreshInterval.format", delete = true}
 ]
 exclude-unknown = true

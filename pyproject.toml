@@ -33,6 +33,7 @@ istio = ["cloudcoil.models.istio"]
 keda = ["cloudcoil.models.keda"]
 knative-eventing = ["cloudcoil.models.knative_eventing"]
 knative-serving = ["cloudcoil.models.knative_serving"]
+kpack = ["cloudcoil.models.kpack"]
 kubernetes = ["cloudcoil.models.kubernetes"]
 kubernetes-1-29 = ["cloudcoil.models.kubernetes~=1.29.0"]
 kubernetes-1-30 = ["cloudcoil.models.kubernetes~=1.30.0"]
@@ -49,6 +50,7 @@ all-models = [
     "cloudcoil.models.keda",
     "cloudcoil.models.knative_eventing",
     "cloudcoil.models.knative_serving",
+    "cloudcoil.models.kpack",
     "cloudcoil.models.kubernetes",
     "cloudcoil.models.kyverno",
     "cloudcoil.models.prometheus_operator",
