@@ -281,6 +281,9 @@ class Config:
                     kind = resource_data.get("responseKind", {}).get("kind")
                     resource = resource_data.get("resource")
                     scope = resource_data.get("scope")
+                    subresources = list(
+                        map(lambda sr: sr["subresource"], resource_data.get("subresources", {}))
+                    )
 
                     if not all([kind, resource, scope]):
                         continue
@@ -290,6 +293,7 @@ class Config:
                     self._rest_mapping[GVK(api_version=api_version, kind=kind)] = {
                         "namespaced": namespaced,
                         "resource": resource,
+                        "subresources": subresources,
                     }
 
     def _process_api_resources(self, group: str, version: str, data: dict):
@@ -303,11 +307,16 @@ class Config:
             kind = resource["kind"]
             namespaced = resource["namespaced"]
             resource_name = resource["name"]
+            subresources: list[str] = []
 
             self._rest_mapping[GVK(api_version=api_version, kind=kind)] = {
                 "namespaced": namespaced,
                 "resource": resource_name,
+                "subresources": subresources,
             }
+            for subresource in data.get("resources", []):
+                if subresource["name"].startswith(f"{resource_name}/"):
+                    subresources.append(subresource["name"].split("/", 1)[1])
 
     # Overload to allow for both sync and async clients
     @overload
@@ -331,6 +340,7 @@ class Config:
                 kind=resource,
                 resource=self._rest_mapping[gvk]["resource"],
                 namespaced=self._rest_mapping[gvk]["namespaced"],
+                subresources=self._rest_mapping[gvk]["subresources"],
                 default_namespace=self.namespace,
                 client=self.client,
             )
@@ -339,6 +349,7 @@ class Config:
             kind=resource,
             resource=self._rest_mapping[gvk]["resource"],
             namespaced=self._rest_mapping[gvk]["namespaced"],
+            subresources=self._rest_mapping[gvk]["subresources"],
             default_namespace=self.namespace,
             client=self.async_client,
         )

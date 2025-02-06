@@ -141,29 +141,33 @@ class Resource(BaseResource):
         config = context.active_config
         return await config.client_for(self.__class__, sync=False).create(self, dry_run=dry_run)
 
-    def update(self, dry_run: bool = False) -> Self:
+    def update(self, dry_run: bool = False, with_status: bool = False) -> Self:
         config = context.active_config
-        return config.client_for(self.__class__, sync=True).update(self, dry_run=dry_run)
+        return config.client_for(self.__class__, sync=True).update(
+            self, dry_run=dry_run, with_status=with_status
+        )
 
-    async def async_update(self, dry_run: bool = False) -> Self:
+    async def async_update(self, dry_run: bool = False, with_status: bool = False) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).update(self, dry_run=dry_run)
+        return await config.client_for(self.__class__, sync=False).update(
+            self, dry_run=dry_run, with_status=with_status
+        )
 
-    def save(self, dry_run: bool = False) -> Self:
+    def save(self, dry_run: bool = False, with_status: bool = False) -> Self:
         try:
             self.fetch()
         except ResourceNotFound:
             return self.create(dry_run=dry_run)
         else:
-            return self.update(dry_run=dry_run)
+            return self.update(dry_run=dry_run, with_status=with_status)
 
-    async def async_save(self, dry_run: bool = False) -> Self:
+    async def async_save(self, dry_run: bool = False, with_status: bool = False) -> Self:
         try:
             await self.async_fetch()
         except ResourceNotFound:
             return await self.async_create(dry_run=dry_run)
         else:
-            return await self.async_update(dry_run=dry_run)
+            return await self.async_update(dry_run=dry_run, with_status=with_status)
 
     @classmethod
     def delete(

@@ -43,7 +43,7 @@ class BaseCluster:
     def _download_binary(self, url: str, binary_path: Path) -> str:
         if not binary_path.exists():
             binary_lock = self._get_binary_lock_file(binary_path)
-            with FileLock(binary_lock):
+            with FileLock(str(binary_lock)):
                 if not binary_path.exists():  # Check again under lock
                     binary_path.parent.mkdir(parents=True, exist_ok=True)
                     response = httpx.get(url, follow_redirects=True)
@@ -80,7 +80,7 @@ class K3DCluster(BaseCluster):
         self.binary = self._download_binary(url, self.binary_path)
 
     def create_cluster(self) -> None:
-        with FileLock(self._lock_file):
+        with FileLock(str(self._lock_file)):
             try:
                 subprocess.run(
                     [self.binary, "cluster", "get", self.cluster_name],
@@ -110,7 +110,7 @@ class K3DCluster(BaseCluster):
         return kubeconfig_file.name
 
     def remove_cluster(self) -> None:
-        with FileLock(self._lock_file):
+        with FileLock(str(self._lock_file)):
             subprocess.run([self.binary, "cluster", "delete", self.cluster_name], check=True)
 
 
@@ -136,7 +136,7 @@ class KindCluster(BaseCluster):
         self._kubeconfig = tempfile.NamedTemporaryFile(delete=False).name
 
     def create_cluster(self) -> None:
-        with FileLock(self._lock_file):
+        with FileLock(str(self._lock_file)):
             clusters = (
                 subprocess.run(
                     [self.binary, "get", "clusters"],
@@ -174,7 +174,7 @@ class KindCluster(BaseCluster):
         return self._kubeconfig
 
     def remove_cluster(self) -> None:
-        with FileLock(self._lock_file):
+        with FileLock(str(self._lock_file)):
             subprocess.run(
                 [self.binary, "delete", "cluster", f"--name={self.cluster_name}"], check=True
             )
