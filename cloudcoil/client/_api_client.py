@@ -38,6 +38,7 @@ class _BaseAPIClient(Generic[T]):
         api_version: str,
         kind: Type[T],
         resource: str,
+        subresources: list[str],
         default_namespace: str,
         namespaced: bool,
     ) -> None:
@@ -46,6 +47,7 @@ class _BaseAPIClient(Generic[T]):
         self.resource = resource
         self.default_namespace = default_namespace
         self.namespaced = namespaced
+        self.subresources = subresources
 
     def _build_url(self, namespace: str | None = None, name: str | None = None) -> str:
         api_base = f"/api/{self.api_version}"
@@ -128,11 +130,12 @@ class APIClient(_BaseAPIClient[T]):
         api_version: str,
         kind: Type[T],
         resource: str,
+        subresources: list[str],
         default_namespace: str,
         namespaced: bool,
         client: httpx.Client,
     ) -> None:
-        super().__init__(api_version, kind, resource, default_namespace, namespaced)
+        super().__init__(api_version, kind, resource, subresources, default_namespace, namespaced)
         self._client = client
 
     def get(self, name: str, namespace: str | None = None) -> T:
@@ -154,7 +157,7 @@ class APIClient(_BaseAPIClient[T]):
         )
         return self._handle_create_response(response)
 
-    def update(self, body: T, dry_run: bool = False) -> T:
+    def update(self, body: T, dry_run: bool = False, with_status: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata must be set for {body=}")
         namespace = body.namespace or self.default_namespace
@@ -166,7 +169,23 @@ class APIClient(_BaseAPIClient[T]):
         response = self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
-        return self._handle_create_response(response)
+        result = self._handle_create_response(response)
+        if (
+            with_status
+            and hasattr(body, "status")
+            and "status" in self.subresources
+            and body.status
+        ):
+            status_url = f"{url}/status"
+            response = self._client.patch(
+                status_url,
+                json={"status": body.status.model_dump(mode="json", by_alias=True)},
+                params=params,
+                headers={"Content-Type": "application/merge-patch+json"},
+            )
+            result = self._handle_create_response(response)
+
+        return result
 
     def delete(
         self,
@@ -400,11 +419,12 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         api_version: str,
         kind: Type[T],
         resource: str,
+        subresources: list[str],
         default_namespace: str,
         namespaced: bool,
         client: httpx.AsyncClient,
     ) -> None:
-        super().__init__(api_version, kind, resource, default_namespace, namespaced)
+        super().__init__(api_version, kind, resource, subresources, default_namespace, namespaced)
         self._client = client
 
     async def get(self, name: str, namespace: str | None = None) -> T:
@@ -426,7 +446,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         )
         return self._handle_create_response(response)
 
-    async def update(self, body: T, dry_run: bool = False) -> T:
+    async def update(self, body: T, dry_run: bool = False, with_status: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata must be set for {body=}")
         namespace = body.namespace or self.default_namespace
@@ -438,7 +458,24 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         response = await self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
-        return self._handle_create_response(response)
+        result = self._handle_create_response(response)
+
+        if (
+            with_status
+            and hasattr(body, "status")
+            and "status" in self.subresources
+            and body.status
+        ):
+            status_url = f"{url}/status"
+            response = await self._client.patch(
+                status_url,
+                json={"status": body.status.model_dump(mode="json", by_alias=True)},
+                params=params,
+                headers={"Content-Type": "application/merge-patch+json"},
+            )
+            result = self._handle_create_response(response)
+
+        return result
 
     async def delete(
         self,

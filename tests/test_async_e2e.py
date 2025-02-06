@@ -200,3 +200,38 @@ async def test_async_watch_operations(test_config):
         assert any(
             event[0] == "MODIFIED" and event[1].status.phase == "Terminating" for event in events
         )
+
+
+@pytest.mark.configure_test_cluster(
+    cluster_name=f"test-cloudcoil-async-v{k8s_version}",
+    version=f"v{k8s_version}",
+    provider=cluster_provider,
+    remove=False,
+)
+async def test_async_status_operations(test_config):
+    with test_config:
+        ns = await k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).async_create()
+
+        # Create a Job
+        job = k8s.batch.v1.Job(
+            metadata=dict(name="test-status", namespace=ns.name),
+            spec={
+                "template": {
+                    "spec": {
+                        "containers": [
+                            {"name": "test", "image": "busybox", "command": ["sh", "-c", "sleep 1"]}
+                        ],
+                        "restartPolicy": "Never",
+                    }
+                }
+            },
+        )
+        created = await job.async_create()
+
+        # Test status update
+        now = "2024-01-01T00:00:00+00:00"
+        created.status.start_time = now
+        updated = await created.async_update(with_status=True)
+        assert updated.status.start_time.root.isoformat() == now
+        await job.async_remove()
+        await ns.async_remove()
