@@ -262,7 +262,9 @@ sealed-secrets = [
     { name = "cloudcoil-models-sealed-secrets" },
 ]
 test = [
+    { name = "filelock" },
     { name = "pytest" },
+    { name = "pytest-asyncio" },
 ]
 velero = [
     { name = "cloudcoil-models-velero" },
@@ -275,6 +277,7 @@ dev = [
     { name = "cloudcoil-models-kubernetes", version = "1.31.5.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-9-cloudcoil-kubernetes-1-31' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
     { name = "cloudcoil-models-kubernetes", version = "1.32.1.1", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-31' and extra == 'extra-9-cloudcoil-kubernetes-1-32') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-32')" },
     { name = "datamodel-code-generator", extra = ["http"] },
+    { name = "filelock" },
     { name = "ipython" },
     { name = "mkdocs" },
     { name = "mkdocs-autorefs" },
@@ -322,9 +325,11 @@ requires-dist = [
     { name = "cloudcoil-models-velero", marker = "extra == 'all-models'" },
     { name = "cloudcoil-models-velero", marker = "extra == 'velero'" },
     { name = "datamodel-code-generator", extras = ["http"], marker = "extra == 'codegen'", specifier = "~=0.26.4" },
+    { name = "filelock", marker = "extra == 'test'" },
     { name = "httpx" },
     { name = "pydantic", specifier = ">2.0" },
     { name = "pytest", marker = "extra == 'test'" },
+    { name = "pytest-asyncio", marker = "extra == 'test'" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", marker = "extra == 'codegen'" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.0.0" },
@@ -334,6 +339,7 @@ requires-dist = [
 dev = [
     { name = "cloudcoil-models-kubernetes", specifier = ">=1.29.13.1" },
     { name = "datamodel-code-generator", extras = ["http"] },
+    { name = "filelock", specifier = ">=3.17.0" },
     { name = "ipython", specifier = ">=8.12.3" },
     { name = "mkdocs", specifier = ">=1.6.1" },
     { name = "mkdocs-autorefs" },
@@ -714,6 +720,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/91/50/a9d80c47ff289c611ff12e63f7c5d13942c65d68125160cefd768c73e6e4/executing-2.2.0.tar.gz", hash = "sha256:5d108c028108fe2551d1a7b2e8b713341e2cb4fc0aa7dcf966fa4327a5226755", size = 978693 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7b/8f/c4d9bafc34ad7ad5d8dc16dd1347ee0e507a52c3adb6bfa8887e1c6a26ba/executing-2.2.0-py2.py3-none-any.whl", hash = "sha256:11387150cad388d62750327a53d3339fad4888b39a6fe233c3afbb54ecffd3aa", size = 26702 },
+]
+
+[[package]]
+name = "filelock"
+version = "3.17.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/9c/0b15fb47b464e1b663b1acd1253a062aa5feecb07d4e597daea542ebd2b5/filelock-3.17.0.tar.gz", hash = "sha256:ee4e77401ef576ebb38cd7f13b9b28893194acc20a8e68e18730ba9c0e54660e", size = 18027 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/ec/00d68c4ddfedfe64159999e5f8a98fb8442729a63e2077eb9dcd89623d27/filelock-3.17.0-py3-none-any.whl", hash = "sha256:533dc2f7ba78dc2f0f531fc6c4940addf7b70a481e269a5a3b93be94ffbe8338", size = 16164 },
 ]
 
 [[package]]

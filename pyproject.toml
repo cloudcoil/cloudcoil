@@ -25,7 +25,7 @@ keywords = ["cloud-native", "kubernetes", "pydantic", "python", "async"]
 cloudcoil-model-codegen = "cloudcoil.codegen.generator:main"
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "filelock", "pytest-asyncio"]
 codegen = ["datamodel-code-generator[http]~=0.26.4", "ruff"]
 cert-manager = ["cloudcoil.models.cert_manager"]
 fluxcd = ["cloudcoil.models.fluxcd"]
@@ -114,6 +114,7 @@ dev = [
     "pytest-asyncio>=0.25.0",
     "pytest-xdist>=3.6.1",
     "cloudcoil-models-kubernetes>=1.29.13.1",
+    "filelock>=3.17.0",
 ]
 
 [tool.mypy]
