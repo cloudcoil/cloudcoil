@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import httpx
+from filelock import FileLock
 
 DEFAULT_K3D_VERSION = "v5.7.5"
 DEFAULT_K8S_VERSION = "v1.31.4"
@@ -23,6 +24,9 @@ class BaseCluster:
     def __init__(self, cluster_name: str, remove: bool):
         self.cluster_name = cluster_name
         self.remove = remove
+        self._lock_dir = Path.home() / ".cache" / "cloudcoil" / "locks"
+        self._lock_dir.mkdir(parents=True, exist_ok=True)
+        self._lock_file = self._lock_dir / f"{self.cluster_name}.lock"
 
     def _compute_system_machine(self) -> tuple[str, str]:
         system = platform.system().lower()
@@ -33,21 +37,27 @@ class BaseCluster:
             machine = "arm64"
         return system, machine
 
+    def _get_binary_lock_file(self, binary_path: Path) -> Path:
+        return Path(str(binary_path) + ".download.lock")
+
     def _download_binary(self, url: str, binary_path: Path) -> str:
         if not binary_path.exists():
-            binary_path.parent.mkdir(parents=True, exist_ok=True)
-            response = httpx.get(url, follow_redirects=True)
-            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-                tmp_file.write(response.content)
-                tmp_path = Path(tmp_file.name)
-            tmp_path.chmod(0o755)
-            try:
-                tmp_path.rename(binary_path)
-            except OSError:
-                if not binary_path.exists():
-                    shutil.move(str(tmp_path), str(binary_path))
-                else:
-                    tmp_path.unlink()
+            binary_lock = self._get_binary_lock_file(binary_path)
+            with FileLock(binary_lock):
+                if not binary_path.exists():  # Check again under lock
+                    binary_path.parent.mkdir(parents=True, exist_ok=True)
+                    response = httpx.get(url, follow_redirects=True)
+                    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                        tmp_file.write(response.content)
+                        tmp_path = Path(tmp_file.name)
+                    tmp_path.chmod(0o755)
+                    try:
+                        tmp_path.rename(binary_path)
+                    except OSError:
+                        if not binary_path.exists():
+                            shutil.move(str(tmp_path), str(binary_path))
+                        else:
+                            tmp_path.unlink()
         return str(binary_path)
 
 
@@ -70,23 +80,24 @@ class K3DCluster(BaseCluster):
         self.binary = self._download_binary(url, self.binary_path)
 
     def create_cluster(self) -> None:
-        try:
-            subprocess.run(
-                [self.binary, "cluster", "get", self.cluster_name],
-                check=True,
-                capture_output=True,
-            )
-        except subprocess.CalledProcessError:
-            command = [
-                self.binary,
-                "cluster",
-                "create",
-                self.cluster_name,
-                "--wait",
-                "--kubeconfig-update-default=false",
-                f"--image={self.k8s_image}",
-            ]
-            subprocess.run(command, check=True)
+        with FileLock(self._lock_file):
+            try:
+                subprocess.run(
+                    [self.binary, "cluster", "get", self.cluster_name],
+                    check=True,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError:
+                command = [
+                    self.binary,
+                    "cluster",
+                    "create",
+                    self.cluster_name,
+                    "--wait",
+                    "--kubeconfig-update-default=false",
+                    f"--image={self.k8s_image}",
+                ]
+                subprocess.run(command, check=True)
 
     def get_kubeconfig(self) -> str:
         kubeconfig_file = tempfile.NamedTemporaryFile(delete=False)
@@ -99,7 +110,8 @@ class K3DCluster(BaseCluster):
         return kubeconfig_file.name
 
     def remove_cluster(self) -> None:
-        subprocess.run([self.binary, "cluster", "delete", self.cluster_name], check=True)
+        with FileLock(self._lock_file):
+            subprocess.run([self.binary, "cluster", "delete", self.cluster_name], check=True)
 
 
 class KindCluster(BaseCluster):
@@ -124,47 +136,50 @@ class KindCluster(BaseCluster):
         self._kubeconfig = tempfile.NamedTemporaryFile(delete=False).name
 
     def create_cluster(self) -> None:
-        clusters = (
-            subprocess.run(
-                [self.binary, "get", "clusters"],
-                check=True,
-                capture_output=True,
+        with FileLock(self._lock_file):
+            clusters = (
+                subprocess.run(
+                    [self.binary, "get", "clusters"],
+                    check=True,
+                    capture_output=True,
+                )
+                .stdout.decode()
+                .split("\n")
             )
-            .stdout.decode()
-            .split("\n")
-        )
-        if self.cluster_name not in clusters:
-            command = [
-                self.binary,
-                "create",
-                "cluster",
-                f"--name={self.cluster_name}",
-                f"--kubeconfig={self._kubeconfig}",
-                "--wait=5m",
-            ]
-            if self.k8s_image:
-                command.append(f"--image={self.k8s_image}")
-            subprocess.run(command, check=True)
-        else:
-            subprocess.run(
-                [
+            if self.cluster_name not in clusters:
+                command = [
                     self.binary,
-                    "export",
-                    "kubeconfig",
+                    "create",
+                    "cluster",
                     f"--name={self.cluster_name}",
                     f"--kubeconfig={self._kubeconfig}",
-                ],
-                check=True,
-            )
+                    "--wait=5m",
+                ]
+                if self.k8s_image:
+                    command.append(f"--image={self.k8s_image}")
+                subprocess.run(command, check=True)
+            else:
+                subprocess.run(
+                    [
+                        self.binary,
+                        "export",
+                        "kubeconfig",
+                        f"--name={self.cluster_name}",
+                        f"--kubeconfig={self._kubeconfig}",
+                    ],
+                    check=True,
+                )
 
     def get_kubeconfig(self) -> str:
         return self._kubeconfig
 
     def remove_cluster(self) -> None:
-        subprocess.run(
-            [self.binary, "delete", "cluster", f"--name={self.cluster_name}"], check=True
-        )
-        try:
-            Path(self._kubeconfig).unlink()
-        except FileNotFoundError:
-            pass
+        with FileLock(self._lock_file):
+            subprocess.run(
+                [self.binary, "delete", "cluster", f"--name={self.cluster_name}"], check=True
+            )
+            try:
+                Path(self._kubeconfig).unlink()
+            except FileNotFoundError:
+                pass
+        self._lock_file.unlink(missing_ok=True)
