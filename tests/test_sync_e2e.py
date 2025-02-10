@@ -215,7 +215,11 @@ def test_status_operations(test_config):
                 "template": {
                     "spec": {
                         "containers": [
-                            {"name": "test", "image": "busybox", "command": ["sh", "-c", "sleep 1"]}
+                            {
+                                "name": "test",
+                                "image": "busybox",
+                                "command": ["sh", "-c", "sleep infinity"],
+                            }
                         ],
                         "restartPolicy": "Never",
                     }
@@ -223,11 +227,11 @@ def test_status_operations(test_config):
             },
         )
         created = job.create()
-
+        created = created.fetch()
         # Test status update
         now = "2024-01-01T00:00:00+00:00"
         created.status.start_time = now
-        updated = created.update(with_status=True)
+        updated = created.update_status()
         assert updated.status.start_time.root.isoformat() == now
         job.remove()
         ns.remove()
@@ -282,62 +286,66 @@ def test_scale_operations(test_config):
     remove=False,
 )
 def test_crd_scale_operations(test_config):
-    """Test scaling operations on the WebService CRD."""
     with test_config:
+        ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
+
         # First delete the CRD if it exists
         try:
             k8s.apiextensions.v1.CustomResourceDefinition.delete("webservices.cloudcoil.io")
         except Exception:
             pass
 
-        # Register CRD using resource.parse
         crd_path = Path(__file__).parent / "data" / "scale_crd.yaml"
-        crd_obj = parse_file(crd_path).create()
+        crd = parse_file(crd_path)
+        crd = crd.create()
 
-        # Wait for CRD to be established
         def check_established(event_type, obj):
-            if event_type not in ["ADDED", "MODIFIED"]:
-                return False
-            if not obj.status:
-                return False
+            if event_type != "MODIFIED":
+                return None
             return any(
-                condition.type == "Established" and condition.status == "True"
-                for condition in obj.status.conditions or []
+                cond.type == "Established" and cond.status == "True"
+                for cond in obj.status.conditions or []
             )
 
-        crd_obj.wait_for(check_established, timeout=10)
-
-        # Refresh API resources after CRD is established
+        crd.wait_for(check_established, timeout=10)
         test_config.refresh_api_resources()
+        # Create a custom resource
+        DynamicWebService = get_dynamic_resource("WebService", "cloudcoil.io/v1alpha1")
+        webservice = DynamicWebService(
+            metadata={"name": "test-scale", "namespace": ns.name},
+            spec={"image": "nginx:latest", "size": 3},
+            status={"phase": "Pending"},
+        )
+        created = webservice.create()
+        assert created["spec"]["size"] == 3
 
-        # Create namespace
-        ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
-        namespace = ns.metadata.name
+        # Update status
+        created["status"] = {
+            "currentSize": 3,
+            "availableReplicas": 2,
+            "conditions": [
+                {
+                    "type": "Available",
+                    "status": "True",
+                    "lastTransitionTime": "2024-01-01T00:00:00Z",
+                    "reason": "MinimumReplicasAvailable",
+                    "message": "2 of 3 replicas are available",
+                }
+            ],
+        }
+        assert "status" in created.model_dump(mode="json", by_alias=True)
+        updated = created.update_status()
+        assert updated["status"]["availableReplicas"] == 2
+        assert updated["status"]["currentSize"] == 3
 
-        try:
-            # Create WebService instance using dynamic resource
-            DynamicWebService = get_dynamic_resource("WebService", "cloudcoil.io/v1alpha1")
-            webservice = DynamicWebService(
-                metadata={"name": "test-webservice", "namespace": namespace},
-                spec={"image": "nginx:latest"},  # Don't set size initially
-            ).create()
+        # Test scale subresource
+        scaled = created.scale(replicas=5)
+        assert scaled["spec"]["size"] == 5
 
-            # Test scaling
-            scaled = webservice.scale(replicas=3)
-            assert scaled["spec"]["size"] == 3  # Check size field is updated
-            if "status" in scaled:
-                assert scaled["status"]["currentSize"] == 3  # Check status if available
+        # Verify actual replicas
+        current = DynamicWebService.get("test-scale", ns.name)
+        assert current["spec"]["size"] == 5
 
-            # Verify actual size
-            current = DynamicWebService.get("test-webservice", namespace)
-            assert current["spec"]["size"] == 3
-            if "status" in current:
-                assert current["status"]["currentSize"] == 3
-
-        finally:
-            # Cleanup
-            try:
-                DynamicWebService.delete("test-webservice", namespace)
-            except Exception:
-                pass
-            k8s.core.v1.Namespace.delete(namespace)
+        DynamicWebService.delete("test-scale", ns.name)
+        crd.remove()
+        ns.remove()

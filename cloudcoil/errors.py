@@ -6,7 +6,7 @@ class ResourceNotFound(APIError):
     pass
 
 
-class ResourceAlreadyExists(APIError):
+class ResourceConflict(APIError):
     pass
 
 

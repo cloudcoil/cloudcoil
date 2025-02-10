@@ -141,33 +141,39 @@ class Resource(BaseResource):
         config = context.active_config
         return await config.client_for(self.__class__, sync=False).create(self, dry_run=dry_run)
 
-    def update(self, dry_run: bool = False, with_status: bool = False) -> Self:
+    def update(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return config.client_for(self.__class__, sync=True).update(
-            self, dry_run=dry_run, with_status=with_status
+        return config.client_for(self.__class__, sync=True).update(self, dry_run=dry_run)
+
+    async def async_update(self, dry_run: bool = False) -> Self:
+        config = context.active_config
+        return await config.client_for(self.__class__, sync=False).update(self, dry_run=dry_run)
+
+    def update_status(self, dry_run: bool = False) -> Self:
+        config = context.active_config
+        return config.client_for(self.__class__, sync=True).update_status(self, dry_run=dry_run)
+
+    async def async_update_status(self, dry_run: bool = False) -> Self:
+        config = context.active_config
+        return await config.client_for(self.__class__, sync=False).update_status(
+            self, dry_run=dry_run
         )
 
-    async def async_update(self, dry_run: bool = False, with_status: bool = False) -> Self:
-        config = context.active_config
-        return await config.client_for(self.__class__, sync=False).update(
-            self, dry_run=dry_run, with_status=with_status
-        )
-
-    def save(self, dry_run: bool = False, with_status: bool = False) -> Self:
+    def save(self, dry_run: bool = False) -> Self:
         try:
             self.fetch()
         except ResourceNotFound:
             return self.create(dry_run=dry_run)
         else:
-            return self.update(dry_run=dry_run, with_status=with_status)
+            return self.update(dry_run=dry_run)
 
-    async def async_save(self, dry_run: bool = False, with_status: bool = False) -> Self:
+    async def async_save(self, dry_run: bool = False) -> Self:
         try:
             await self.async_fetch()
         except ResourceNotFound:
             return await self.async_create(dry_run=dry_run)
         else:
-            return await self.async_update(dry_run=dry_run, with_status=with_status)
+            return await self.async_update(dry_run=dry_run)
 
     @classmethod
     def delete(
@@ -637,7 +643,7 @@ class Unstructured(Resource):
     def __setitem__(self, key: str, value: Any) -> None:
         self._data[key] = value
         # Also update the model data
-        object.__setattr__(self, key, value)
+        BaseModel.__setattr__(self, key, value)
 
     def __contains__(self, key: str) -> bool:
         return key in self._data
