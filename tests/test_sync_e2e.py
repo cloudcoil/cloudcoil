@@ -3,13 +3,14 @@ import random
 import threading
 import time
 from importlib.metadata import version
+from pathlib import Path
 
 import pytest
 
 import cloudcoil.models.kubernetes as k8s
 from cloudcoil.apimachinery import ObjectMeta
 from cloudcoil.errors import WaitTimeout
-from cloudcoil.resources import get_dynamic_resource
+from cloudcoil.resources import get_dynamic_resource, parse_file
 
 k8s_version = ".".join(version("cloudcoil.models.kubernetes").split(".")[:3])
 cluster_provider = os.environ.get("CLUSTER_PROVIDER", "kind")
@@ -230,3 +231,113 @@ def test_status_operations(test_config):
         assert updated.status.start_time.root.isoformat() == now
         job.remove()
         ns.remove()
+
+
+@pytest.mark.configure_test_cluster(
+    cluster_name=f"test-cloudcoil-sync-v{k8s_version}",
+    version=f"v{k8s_version}",
+    provider=cluster_provider,
+    remove=False,
+)
+def test_scale_operations(test_config):
+    with test_config:
+        ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
+
+        # Create a deployment
+        deployment = k8s.apps.v1.Deployment(
+            metadata=dict(name="test-scale", namespace=ns.name),
+            spec={
+                "selector": {"matchLabels": {"app": "test"}},
+                "replicas": 1,
+                "template": {
+                    "metadata": {"labels": {"app": "test"}},
+                    "spec": {
+                        "containers": [
+                            {
+                                "name": "nginx",
+                                "image": "nginx:latest",
+                            }
+                        ]
+                    },
+                },
+            },
+        ).create()
+
+        # Test scaling
+        scaled = deployment.scale(replicas=3)
+        assert scaled.spec.replicas == 3
+
+        # Verify actual replicas
+        current = k8s.apps.v1.Deployment.get("test-scale", ns.name)
+        assert current.spec.replicas == 3
+
+        deployment.remove()
+        ns.remove()
+
+
+@pytest.mark.configure_test_cluster(
+    cluster_name=f"test-cloudcoil-sync-v{k8s_version}",
+    version=f"v{k8s_version}",
+    provider=cluster_provider,
+    remove=False,
+)
+def test_crd_scale_operations(test_config):
+    """Test scaling operations on the WebService CRD."""
+    with test_config:
+        # First delete the CRD if it exists
+        try:
+            k8s.apiextensions.v1.CustomResourceDefinition.delete("webservices.cloudcoil.io")
+        except Exception:
+            pass
+
+        # Register CRD using resource.parse
+        crd_path = Path(__file__).parent / "data" / "scale_crd.yaml"
+        crd_obj = parse_file(crd_path).create()
+
+        # Wait for CRD to be established
+        def check_established(event_type, obj):
+            if event_type not in ["ADDED", "MODIFIED"]:
+                return False
+            if not obj.status:
+                return False
+            return any(
+                condition.type == "Established" and condition.status == "True"
+                for condition in obj.status.conditions or []
+            )
+
+        crd_obj.wait_for(check_established, timeout=10)
+
+        # Refresh API resources after CRD is established
+        test_config.refresh_api_resources()
+
+        # Create namespace
+        ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
+        namespace = ns.metadata.name
+
+        try:
+            # Create WebService instance using dynamic resource
+            DynamicWebService = get_dynamic_resource("WebService", "cloudcoil.io/v1alpha1")
+            webservice = DynamicWebService(
+                metadata={"name": "test-webservice", "namespace": namespace},
+                spec={"image": "nginx:latest"},  # Don't set size initially
+            ).create()
+
+            # Test scaling
+            scaled = webservice.scale(replicas=3)
+            assert scaled["spec"]["size"] == 3  # Check size field is updated
+            if "status" in scaled:
+                assert scaled["status"]["currentSize"] == 3  # Check status if available
+
+            # Verify actual size
+            current = DynamicWebService.get("test-webservice", namespace)
+            assert current["spec"]["size"] == 3
+            if "status" in current:
+                assert current["status"]["currentSize"] == 3
+
+        finally:
+            # Cleanup
+            try:
+                DynamicWebService.delete("test-webservice", namespace)
+            except Exception:
+                pass
+            k8s.core.v1.Namespace.delete(namespace)

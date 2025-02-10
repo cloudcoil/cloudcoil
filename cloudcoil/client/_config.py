@@ -374,3 +374,11 @@ class Config:
 
     def __exit__(self, *_):
         context._exit()
+
+    def refresh_api_resources(self) -> None:
+        """
+        Rediscover the kinds by reinitializing the REST mapper.
+        This clears the current REST mapping and performs a new discovery.
+        """
+        self._rest_mapping.clear()
+        self._create_rest_mapper()

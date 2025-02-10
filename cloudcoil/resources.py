@@ -413,6 +413,46 @@ class Resource(BaseResource):
         await client.wait_for(self, {"predicate": predicate}, timeout=timeout)
         return None
 
+    def scale(self, replicas: int) -> Self:
+        """Scale the resource to the specified number of replicas.
+
+        Args:
+            replicas: The desired number of replicas
+
+        Returns:
+            The updated resource after scaling
+
+        Raises:
+            ValueError: If the resource does not support scaling or metadata is not set
+            ResourceNotFound: If the resource does not exist
+            APIError: If the API request fails
+        """
+        config = context.active_config
+        return config.client_for(self.__class__, sync=True).scale(
+            self,
+            replicas=replicas,
+        )
+
+    async def async_scale(self, replicas: int) -> Self:
+        """Asynchronously scale the resource to the specified number of replicas.
+
+        Args:
+            replicas: The desired number of replicas
+
+        Returns:
+            The updated resource after scaling
+
+        Raises:
+            ValueError: If the resource does not support scaling or metadata is not set
+            ResourceNotFound: If the resource does not exist
+            APIError: If the API request fails
+        """
+        config = context.active_config
+        return await config.client_for(self.__class__, sync=False).scale(
+            self,
+            replicas=replicas,
+        )
+
 
 T = TypeVar("T", bound=Resource)
 
