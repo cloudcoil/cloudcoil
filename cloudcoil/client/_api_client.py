@@ -91,6 +91,15 @@ class _BaseAPIClient(Generic[T]):
             raise APIError(response.json())
         return self.kind.model_validate_json(response.content)  # type: ignore
 
+    def _handle_scale_response(self, response: httpx.Response, namespace: str, name: str) -> None:
+        """Handle response from scale operation. Base implementation handles errors only."""
+        if response.status_code == 404:
+            raise ResourceNotFound(
+                f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
+            )
+        if not response.is_success:
+            raise APIError(response.json())
+
     def _build_watch_params(
         self,
         namespace: str | None = None,
@@ -412,6 +421,24 @@ class APIClient(_BaseAPIClient[T]):
             # Ensure stop_event is set in case we hit an error before setting it
             stop_event.set()
 
+    def scale(self, body: T, replicas: int) -> T:
+        if not (body.metadata):
+            raise ValueError(f"metadata must be set for {body=}")
+        if "scale" not in self.subresources:
+            raise ValueError(f"Resource kind='{self.kind.gvk().kind}' does not support scale")
+        namespace = body.namespace or self.default_namespace if self.namespaced else None
+        name = body.name
+        if not name:
+            raise ValueError("name must be set for scale operation")
+        url = f"{self._build_url(namespace=namespace, name=name)}/scale"
+        # Match kubectl's simple patch format
+        scale_body = {"spec": {"replicas": replicas}}
+        response = self._client.patch(
+            url, json=scale_body, headers={"Content-Type": "application/merge-patch+json"}
+        )
+        self._handle_scale_response(response, namespace or "", name)
+        return self.get(name, namespace)
+
 
 class AsyncAPIClient(_BaseAPIClient[T]):
     def __init__(
@@ -671,3 +698,21 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             return await asyncio.wait_for(watch_and_evaluate(), timeout=timeout)
         except asyncio.TimeoutError:
             raise WaitTimeout("Timeout waiting for condition")
+
+    async def scale(self, body: T, replicas: int) -> T:
+        if not (body.metadata):
+            raise ValueError(f"metadata must be set for {body=}")
+        if "scale" not in self.subresources:
+            raise ValueError(f"Resource kind='{self.kind.gvk().kind}' does not support scale")
+        namespace = body.namespace or self.default_namespace if self.namespaced else None
+        name = body.name
+        if not name:
+            raise ValueError("name must be set for scale operation")
+        url = f"{self._build_url(namespace=namespace, name=name)}/scale"
+        # Match kubectl's simple patch format
+        scale_body = {"spec": {"replicas": replicas}}
+        response = await self._client.patch(
+            url, json=scale_body, headers={"Content-Type": "application/merge-patch+json"}
+        )
+        self._handle_scale_response(response, namespace or "", name)
+        return await self.get(name, namespace)
