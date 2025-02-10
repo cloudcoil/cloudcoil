@@ -12,7 +12,7 @@ from pydantic import TypeAdapter
 from cloudcoil.apimachinery import Status
 from cloudcoil.errors import (
     APIError,
-    ResourceAlreadyExists,
+    ResourceConflict,
     ResourceNotFound,
     WaitTimeout,
     WatchError,
@@ -86,7 +86,7 @@ class _BaseAPIClient(Generic[T]):
 
     def _handle_create_response(self, response: httpx.Response) -> T:
         if response.status_code == 409:
-            raise ResourceAlreadyExists(response.json()["details"])
+            raise ResourceConflict(response.json()["details"])
         if not response.is_success:
             raise APIError(response.json())
         return self.kind.model_validate_json(response.content)  # type: ignore
@@ -166,7 +166,7 @@ class APIClient(_BaseAPIClient[T]):
         )
         return self._handle_create_response(response)
 
-    def update(self, body: T, dry_run: bool = False, with_status: bool = False) -> T:
+    def update(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata must be set for {body=}")
         namespace = body.namespace or self.default_namespace
@@ -178,23 +178,23 @@ class APIClient(_BaseAPIClient[T]):
         response = self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
-        result = self._handle_create_response(response)
-        if (
-            with_status
-            and hasattr(body, "status")
-            and "status" in self.subresources
-            and body.status
-        ):
-            status_url = f"{url}/status"
-            response = self._client.patch(
-                status_url,
-                json={"status": body.status.model_dump(mode="json", by_alias=True)},
-                params=params,
-                headers={"Content-Type": "application/merge-patch+json"},
-            )
-            result = self._handle_create_response(response)
+        return self._handle_create_response(response)
 
-        return result
+    def update_status(self, body: T, dry_run: bool = False) -> T:
+        if not (body.metadata):
+            raise ValueError(f"metadata must be set for {body=}")
+        if "status" not in self.subresources:
+            raise ValueError(f"Resource {body.gvk().kind} does not support status updates")
+        namespace = body.namespace or self.default_namespace
+        name = body.name
+        url = f"{self._build_url(namespace=namespace, name=name)}/status"
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        response = self._client.put(
+            url, json=body.model_dump(mode="json", by_alias=True), params=params
+        )
+        return self._handle_create_response(response)
 
     def delete(
         self,
@@ -473,7 +473,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         )
         return self._handle_create_response(response)
 
-    async def update(self, body: T, dry_run: bool = False, with_status: bool = False) -> T:
+    async def update(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata must be set for {body=}")
         namespace = body.namespace or self.default_namespace
@@ -485,24 +485,23 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         response = await self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
-        result = self._handle_create_response(response)
+        return self._handle_create_response(response)
 
-        if (
-            with_status
-            and hasattr(body, "status")
-            and "status" in self.subresources
-            and body.status
-        ):
-            status_url = f"{url}/status"
-            response = await self._client.patch(
-                status_url,
-                json={"status": body.status.model_dump(mode="json", by_alias=True)},
-                params=params,
-                headers={"Content-Type": "application/merge-patch+json"},
-            )
-            result = self._handle_create_response(response)
-
-        return result
+    async def update_status(self, body: T, dry_run: bool = False) -> T:
+        if not (body.metadata):
+            raise ValueError(f"metadata must be set for {body=}")
+        if "status" not in self.subresources:
+            raise ValueError(f"Resource {body.gvk().kind} does not support status updates")
+        namespace = body.namespace or self.default_namespace
+        name = body.name
+        url = f"{self._build_url(namespace=namespace, name=name)}/status"
+        params: dict[str, Any] = {}
+        if dry_run:
+            params["dryRun"] = "All"
+        response = await self._client.put(
+            url, json=body.model_dump(mode="json", by_alias=True), params=params
+        )
+        return self._handle_create_response(response)
 
     async def delete(
         self,
