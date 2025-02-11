@@ -30,8 +30,8 @@ class ExecAuthenticator(httpx.Auth):
         if "args" in self.exec_config:
             cmd.extend(self.exec_config["args"])
 
-        env = {}
-        if "env" in self.exec_config:
+        env = os.environ.copy()
+        if self.exec_config.get("env"):
             for env_var in self.exec_config["env"]:
                 env[env_var["name"]] = env_var["value"]
 
@@ -52,7 +52,7 @@ class ExecAuthenticator(httpx.Auth):
             if now < self._token_expiry - 30:
                 return self._token_cache
 
-        status = self._execute_command()
+        status = self._execute_command()["status"]
         self._token_cache = status
 
         if "expirationTimestamp" in status:

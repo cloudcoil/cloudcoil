@@ -46,12 +46,16 @@ class GVK(BaseModel):
     def group(self) -> str:
         if self.api_version is None:
             raise ValueError("api_version is not set")
+        if "/" not in self.api_version:
+            return ""
         return self.api_version.split("/")[0]
 
     @property
     def version(self) -> str:
         if self.api_version is None:
             raise ValueError("api_version is not set")
+        if "/" not in self.api_version:
+            return self.api_version
         return self.api_version.split("/")[1]
 
 
@@ -513,7 +517,8 @@ class ResourceList(BaseResource, Generic[T]):
             resource_list = await resource_list.async_get_next_page()
 
     def __len__(self):
-        return len(self.items) + (self.metadata.remaining_item_count or 0)
+        remaining = self.metadata.remaining_item_count if self.metadata else 0
+        return len(self.items) + (remaining or 0)
 
 
 class _Scheme:
@@ -540,16 +545,24 @@ class _Scheme:
                     if inspect.isclass(obj) and issubclass(obj, Resource) and obj != Resource:
                         cls._registered_modules.add(module_name)
                         cls._register(obj)
-            except Exception as e:
-                print(f"Error importing module {module_name}: {e}")
+            except ImportError:
+                pass  # Skip modules that can't be imported
 
         if isinstance(module, str):
-            package = importlib.import_module(module)
+            try:
+                package = importlib.import_module(module)
+            except ImportError:
+                return  # Skip packages that can't be imported
         else:
             package = module
 
-        for _, module_name, _ in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
-            import_and_check_module(module_name)
+        try:
+            for _, module_name, _ in pkgutil.walk_packages(
+                package.__path__, package.__name__ + "."
+            ):
+                import_and_check_module(module_name)
+        except (AttributeError, ImportError):
+            pass  # Skip if package has no __path__ or can't be walked
 
     @classmethod
     def _get(cls, gvk: GVK) -> Type[Resource]:
@@ -621,9 +634,18 @@ def parse_file(path: str | Path, load_all: Literal[False]) -> Resource: ...
 
 
 def parse_file(path: str | Path, load_all: bool = False) -> list[Resource] | Resource:
-    if not load_all:
-        return parse(yaml.safe_load(Path(path).read_text()))
-    return parse(list(yaml.safe_load_all(Path(path).read_text())))
+    content = Path(path).read_text()
+    if not content.strip():
+        raise ValueError("Empty YAML document")
+    try:
+        if not load_all:
+            docs = list(yaml.safe_load_all(content))
+            if len(docs) > 1:
+                raise ValueError("Multiple YAML documents found when load_all=False")
+            return parse(docs[0])
+        return parse(list(yaml.safe_load_all(content)))
+    except yaml.YAMLError as e:
+        raise ValueError(f"Failed to parse YAML: {e}")
 
 
 def get_model(kind: str, *, api_version: str = "") -> Type[Resource]:
