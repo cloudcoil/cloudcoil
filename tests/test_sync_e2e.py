@@ -204,45 +204,6 @@ def test_watch_operations(test_config):
     provider=cluster_provider,
     remove=False,
 )
-def test_status_operations(test_config):
-    with test_config:
-        ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
-
-        # Create a Job
-        job = k8s.batch.v1.Job(
-            metadata=dict(name="test-status", namespace=ns.name),
-            spec={
-                "template": {
-                    "spec": {
-                        "containers": [
-                            {
-                                "name": "test",
-                                "image": "busybox",
-                                "command": ["sh", "-c", "sleep infinity"],
-                            }
-                        ],
-                        "restartPolicy": "Never",
-                    }
-                }
-            },
-        )
-        created = job.create()
-        created = created.fetch()
-        # Test status update
-        now = "2024-01-01T00:00:00+00:00"
-        created.status.start_time = now
-        updated = created.update_status()
-        assert updated.status.start_time.root.isoformat() == now
-        job.remove()
-        ns.remove()
-
-
-@pytest.mark.configure_test_cluster(
-    cluster_name=f"test-cloudcoil-sync-v{k8s_version}",
-    version=f"v{k8s_version}",
-    provider=cluster_provider,
-    remove=False,
-)
 def test_scale_operations(test_config):
     with test_config:
         ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()

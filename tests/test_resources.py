@@ -314,3 +314,72 @@ def test_resource_validation():
     # Test invalid resource
     with pytest.raises(ValidationError):
         TestResource(spec="invalid")
+
+
+def test_gvk_core_api():
+    """Test GVK behavior with core API versions that don't have a group."""
+    gvk = GVK(apiVersion="v1", kind="Pod")
+    assert gvk.group == ""
+    assert gvk.version == "v1"
+    assert gvk.api_version == "v1"
+    assert gvk.kind == "Pod"
+
+
+def test_resource_list_none_metadata():
+    """Test ResourceList behavior when metadata is None."""
+
+    class TestResource(Resource):
+        api_version: str = "test/v1"
+        kind: str = "Test"
+
+    resource_list = ResourceList[TestResource](
+        apiVersion="test/v1", kind="TestList", items=[], metadata=None
+    )
+    assert len(resource_list) == 0
+
+
+def test_parse_file_empty(tmp_path):
+    """Test parse_file behavior with empty files."""
+    empty_file = tmp_path / "empty.yaml"
+    empty_file.write_text("")
+
+    with pytest.raises(ValueError, match="Empty YAML document"):
+        parse_file(empty_file)
+
+    with pytest.raises(ValueError, match="Empty YAML document"):
+        parse_file(empty_file, load_all=True)
+
+
+def test_parse_file_multiple_docs_no_load_all(tmp_path):
+    """Test parse_file behavior when multiple documents are present but load_all=False."""
+    multi_doc = tmp_path / "multi.yaml"
+    multi_doc.write_text("""
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod-2
+""")
+
+    with pytest.raises(ValueError, match="Multiple YAML documents found when load_all=False"):
+        parse_file(multi_doc)
+
+
+def test_parse_file_invalid_yaml(tmp_path):
+    """Test parse_file behavior with invalid YAML."""
+    invalid_file = tmp_path / "invalid.yaml"
+    invalid_file.write_text("""
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  invalid:
+    - [
+""")
+
+    with pytest.raises(ValueError, match="Failed to parse YAML"):
+        parse_file(invalid_file)

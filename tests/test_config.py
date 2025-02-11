@@ -236,3 +236,221 @@ def test_exec_auth(kubeconfig_content, exec_output, expected_headers, tmp_path):
         assert args[0][0] == "aws"  # Command
         assert "eks" in args[0]  # Args
         assert kwargs["env"].get("AWS_PROFILE") == "test"  # Environment
+
+
+def test_exec_auth_environment_inheritance(tmp_path):
+    kubeconfig_content = {
+        "current-context": "test-context",
+        "contexts": [
+            {
+                "name": "test-context",
+                "context": {"cluster": "test-cluster", "user": "test-user"},
+            }
+        ],
+        "clusters": [
+            {
+                "name": "test-cluster",
+                "cluster": {"server": "https://test-server"},
+            }
+        ],
+        "users": [
+            {
+                "name": "test-user",
+                "user": {
+                    "exec": {
+                        "command": "echo",
+                        "args": ["{}"],
+                    }
+                },
+            }
+        ],
+    }
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text(yaml.dump(kubeconfig_content))
+
+    mock_transport = MockTransport()
+    test_env = {"TEST_VAR": "test_value", "PATH": "/test/path"}
+
+    with (
+        patch.dict(os.environ, test_env, clear=True),
+        patch.dict(os.environ, {"KUBECONFIG": str(kubeconfig)}),
+        patch("cloudcoil.client._config.subprocess.run") as mock_run,
+    ):
+        # Setup mock subprocess.run
+        mock_run.return_value.stdout = json.dumps(
+            {
+                "kind": "ExecCredential",
+                "apiVersion": "client.authentication.k8s.io/v1beta1",
+                "status": {
+                    "token": "test-exec-token",
+                },
+            }
+        )
+        mock_run.return_value.check = True
+
+        config = Config()
+        config.client._transport = mock_transport
+        config.client.get("/")
+
+        # Verify subprocess was called with inherited environment
+        mock_run.assert_called_once()
+        _, kwargs = mock_run.call_args
+        assert kwargs["env"]["TEST_VAR"] == "test_value"
+        assert kwargs["env"]["PATH"] == "/test/path"
+
+
+def test_exec_auth_environment_override(tmp_path):
+    kubeconfig_content = {
+        "current-context": "test-context",
+        "contexts": [
+            {
+                "name": "test-context",
+                "context": {"cluster": "test-cluster", "user": "test-user"},
+            }
+        ],
+        "clusters": [
+            {
+                "name": "test-cluster",
+                "cluster": {"server": "https://test-server"},
+            }
+        ],
+        "users": [
+            {
+                "name": "test-user",
+                "user": {
+                    "exec": {
+                        "command": "echo",
+                        "args": ["{}"],
+                        "env": [
+                            {"name": "TEST_VAR", "value": "override_value"},
+                            {"name": "NEW_VAR", "value": "new_value"},
+                        ],
+                    }
+                },
+            }
+        ],
+    }
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text(yaml.dump(kubeconfig_content))
+
+    mock_transport = MockTransport()
+    test_env = {"TEST_VAR": "test_value", "PATH": "/test/path"}
+
+    with (
+        patch.dict(os.environ, test_env, clear=True),
+        patch.dict(os.environ, {"KUBECONFIG": str(kubeconfig)}),
+        patch("cloudcoil.client._config.subprocess.run") as mock_run,
+    ):
+        # Setup mock subprocess.run
+        mock_run.return_value.stdout = json.dumps(
+            {
+                "kind": "ExecCredential",
+                "apiVersion": "client.authentication.k8s.io/v1beta1",
+                "status": {
+                    "token": "test-exec-token",
+                },
+            }
+        )
+        mock_run.return_value.check = True
+
+        config = Config()
+        config.client._transport = mock_transport
+        config.client.get("/")
+
+        # Verify subprocess was called with correct environment
+        mock_run.assert_called_once()
+        _, kwargs = mock_run.call_args
+        assert kwargs["env"]["TEST_VAR"] == "override_value"  # Overridden value
+        assert kwargs["env"]["NEW_VAR"] == "new_value"  # New variable
+        assert kwargs["env"]["PATH"] == "/test/path"  # Inherited value
+
+
+def test_exec_auth_token_in_headers(tmp_path):
+    """Test that ExecAuthenticator adds the token correctly to request headers."""
+    kubeconfig_content = {
+        "current-context": "test-context",
+        "contexts": [
+            {
+                "name": "test-context",
+                "context": {"cluster": "test-cluster", "user": "test-user"},
+            }
+        ],
+        "clusters": [
+            {
+                "name": "test-cluster",
+                "cluster": {"server": "https://test-server"},
+            }
+        ],
+        "users": [
+            {
+                "name": "test-user",
+                "user": {
+                    "exec": {
+                        "command": "echo",
+                        "args": ["{}"],
+                    }
+                },
+            }
+        ],
+    }
+    kubeconfig = tmp_path / "config"
+    kubeconfig.write_text(yaml.dump(kubeconfig_content))
+
+    class HeaderCapturingTransport(MockTransport):
+        def __init__(self):
+            self.captured_headers = None
+
+        def handle_request(self, request):
+            self.captured_headers = request.headers
+            return Response(200)
+
+    mock_transport = HeaderCapturingTransport()
+    test_token = "test-exec-token-12345"
+
+    with (
+        patch.dict(os.environ, {"KUBECONFIG": str(kubeconfig)}),
+        patch("cloudcoil.client._config.subprocess.run") as mock_run,
+    ):
+        # Setup mock subprocess.run
+        mock_run.return_value.stdout = json.dumps(
+            {
+                "kind": "ExecCredential",
+                "apiVersion": "client.authentication.k8s.io/v1beta1",
+                "status": {
+                    "token": test_token,
+                    "expirationTimestamp": "9999-12-31T23:59:59Z",
+                },
+            }
+        )
+        mock_run.return_value.check = True
+
+        config = Config()
+        config.client._transport = mock_transport
+
+        # First request should get a new token
+        config.client.get("/")
+        assert mock_transport.captured_headers["Authorization"] == f"Bearer {test_token}"
+
+        # Second request should use cached token
+        mock_transport.captured_headers = None
+        config.client.get("/")
+        assert mock_transport.captured_headers["Authorization"] == f"Bearer {test_token}"
+        assert mock_run.call_count == 1  # Token should be cached, no new exec call
+
+        # Test token expiry
+        mock_run.return_value.stdout = json.dumps(
+            {
+                "kind": "ExecCredential",
+                "apiVersion": "client.authentication.k8s.io/v1beta1",
+                "status": {
+                    "token": "new-token-after-expiry",
+                    "expirationTimestamp": "2024-12-31T23:59:59Z",
+                },
+            }
+        )
+
+        # Simulate token expiry
+        config.client.auth._token_expiry = 0
+        config.client.get("/")
+        assert mock_transport.captured_headers["Authorization"] == "Bearer new-token-after-expiry"
+        assert mock_run.call_count == 2  # Should have made a new exec call
