@@ -9,11 +9,11 @@
 
 > Modern, async-first Kubernetes client with elegant Pythonic syntax and full type safety
 
-## ⭐ Support the Project
+## 🤝 Support the Project
 
 If you find Cloudcoil useful, please consider giving it a star on GitHub! Your support helps the project grow and encourages continued development.
 
-[![Star on GitHub](https://img.shields.io/github/stars/cloudcoil/cloudcoil.svg?style=social)](https://github.com/cloudcoil/cloudcoil) 
+[![Star on GitHub](https://img.shields.io/github/stars/cloudcoil/cloudcoil.svg?style=social)](https://github.com/cloudcoil/cloudcoil)
 
 ## ✨ Features
 
@@ -651,3 +651,6 @@ For complete documentation, visit [cloudcoil.github.io/cloudcoil](https://cloudc
 ## 📜 License
 
 Apache License, Version 2.0 - see [LICENSE](LICENSE)
+
+## 🌟 Stargazers over time
+[![Stargazers over time](https://starchart.cc/cloudcoil/cloudcoil.svg?variant=adaptive)](https://starchart.cc/cloudcoil/cloudcoil)
