@@ -4,6 +4,7 @@ import json
 import os
 from unittest.mock import patch
 
+import ssl
 import pytest
 import yaml
 from httpx import Response
@@ -42,6 +43,7 @@ from cloudcoil.client._config import (
                 "server": "https://test-server",
                 "namespace": "test-ns",
                 "token": "test-token",
+                "ssl_verify_mode": ssl.CERT_REQUIRED
             },
         ),
         # Test case 2: Kubeconfig with certificate data
@@ -73,7 +75,38 @@ from cloudcoil.client._config import (
                     }
                 ],
             },
-            {"server": "https://test-server", "namespace": "default"},
+            {"server": "https://test-server", "namespace": "default", "ssl_verify_mode": ssl.CERT_REQUIRED},
+        ),
+        # Test case 3: Kubeconfig with insecure-skip-tls
+        (
+            {
+                "current-context": "test-context",
+                "contexts": [
+                    {
+                        "name": "test-context",
+                        "context": {"cluster": "test-cluster", "user": "test-user"},
+                    }
+                ],
+                "clusters": [
+                    {
+                        "name": "test-cluster",
+                        "cluster": {
+                            "server": "https://test-server",
+                            "insecure-skip-tls-verify": True
+                        },
+                    }
+                ],
+                "users": [
+                    {
+                        "name": "test-user",
+                        "user": {
+                            "client-certificate-data": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrakNDQVRlZ0F3SUJBZ0lJV2hxakpvUFR6Qkl3Q2dZSUtvWkl6ajBFQXdJd0l6RWhNQjhHQTFVRUF3d1kKYXpOekxXTnNhV1Z1ZEMxallVQXhOek0xTkRBM01qY3pNQjRYRFRJME1USXlPREUzTXpRek0xb1hEVEkxTVRJeQpPREUzTXpRek0xb3dNREVYTUJVR0ExVUVDaE1PYzNsemRHVnRPbTFoYzNSbGNuTXhGVEFUQmdOVkJBTVRESE41CmMzUmxiVHBoWkcxcGJqQlpNQk1HQnlxR1NNNDlBZ0VHQ0NxR1NNNDlBd0VIQTBJQUJBaXVzZ3ExcG9QYkM3S3AKbVU4UmRKZDU1K3BkY1dVZkF1Z3h1S29ucEMxVmpERHRXaEpEWkxycktsQWk4ZkxlMkJRV29aOEVXSDNkTmxtVwpmb093K2RXalNEQkdNQTRHQTFVZER3RUIvd1FFQXdJRm9EQVRCZ05WSFNVRUREQUtCZ2dyQmdFRkJRY0RBakFmCkJnTlZIU01FR0RBV2dCVHZTQlQrVk83b2s5MkJ5T2pkRnRacmo5a21oVEFLQmdncWhrak9QUVFEQWdOSkFEQkcKQWlFQXZVcGdYU3d2akpkaUdaUEJJVHhnTmNZdHA2VDVJbjN2eDUzRmZXeGVlcjRDSVFDWDhveWZwVGl5aTljSQplNGRlUTdSR1ZuaTErNDhabXBOL1M5QXRNd2pIV0E9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCi0tLS0tQkVHSU4gQ0VSVElGSUNBVEUtLS0tLQpNSUlCZHpDQ0FSMmdBd0lCQWdJQkFEQUtCZ2dxaGtqT1BRUURBakFqTVNFd0h3WURWUVFEREJock0zTXRZMnhwClpXNTBMV05oUURFM016VTBNRGN5TnpNd0hoY05NalF4TWpJNE1UY3pORE16V2hjTk16UXhNakkyTVRjek5ETXoKV2pBak1TRXdId1lEVlFRRERCaHJNM010WTJ4cFpXNTBMV05oUURFM016VTBNRGN5TnpNd1dUQVRCZ2NxaGtqTwpQUUlCQmdncWhrak9QUU1CQndOQ0FBU2hrNHpxa2dXNU96NnMzNWpoa0JzenBtazRwS0ROa2FKWGpaWTlIakcvCkR3N0VwcXFLT0prTEQvbEZjUk9nY1czdDBZajgxM3pOTmpXcmdUbTN4YjY3bzBJd1FEQU9CZ05WSFE4QkFmOEUKQkFNQ0FxUXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QWRCZ05WSFE0RUZnUVU3MGdVL2xUdTZKUGRnY2pvM1JiVwphNC9aSm9Vd0NnWUlLb1pJemowRUF3SURTQUF3UlFJZ2VvTWViOFcrRzFpTjZDcW5tQm5QOGg4TDYzNWsrTXhFCnJzNnBYYUN1SEFJQ0lRRERJVWRlR1BjTUQ2eW1JVE1xbnBuUVkxMFp3cGkzQWxZUVFJcDNjb05iM2c9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",  # base64 encoded "clientcert"
+                            "client-key-data": "LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0tCk1IY0NBUUVFSU8wN1hGT0lmTVFyS3Z6Skp4OEkrbnpCQXdnZmpuVGdWZ3o4L2JiRi9Sc1hvQW9HQ0NxR1NNNDkKQXdFSG9VUURRZ0FFQ0s2eUNyV21nOXNMc3FtWlR4RjBsM25uNmwxeFpSOEM2REc0cWlla0xWV01NTzFhRWtOawp1dXNxVUNMeDh0N1lGQmFobndSWWZkMDJXWlorZzdENTFRPT0KLS0tLS1FTkQgRUMgUFJJVkFURSBLRVktLS0tLQo=",  # base64 encoded "clientkey"
+                        },
+                    }
+                ],
+            },
+            {"server": "https://test-server", "namespace": "default", "ssl_verify_mode": ssl.CERT_NONE},
         ),
     ],
 )
@@ -87,6 +120,9 @@ def test_kubeconfig_initialization(kubeconfig_content, expected, tmp_path):
         assert client.namespace == expected["namespace"]
         if "token" in expected:
             assert client.token == expected["token"]
+
+        # Context information like `verify=<ctx or bool>` passed to the httpx.Client is only reflected on the transport pool 
+        assert client.client._transport._pool._ssl_context.verify_mode == expected["ssl_verify_mode"]
 
 
 @pytest.mark.parametrize(

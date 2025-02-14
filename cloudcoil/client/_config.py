@@ -103,6 +103,7 @@ class Config:
         self.certfile = None
         self.keyfile = None
         self.token = None
+        skip_tls = False
         tempdir = tempfile.TemporaryDirectory()
         kubeconfig = kubeconfig or os.environ.get("KUBECONFIG")
         if kubeconfig:
@@ -153,6 +154,9 @@ class Config:
                 cafile.write_bytes(base64.b64decode(cluster_data["certificate-authority-data"]))
                 self.cafile = cafile
 
+            if "insecure-skip-tls-verify" in cluster_data:
+                skip_tls = cluster_data["insecure-skip-tls-verify"]
+
             if "namespace" in context_data:
                 self.namespace = context_data["namespace"]
             if "exec" in user_data:
@@ -184,9 +188,13 @@ class Config:
         self.cafile = cafile or self.cafile
         self.certfile = certfile or self.certfile
         self.keyfile = keyfile or self.keyfile
-        ctx = ssl.create_default_context(cafile=self.cafile)
-        if self.certfile and self.keyfile:
-            ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+
+        ctx: ssl.SSLContext | bool = False
+        if not skip_tls:
+            ctx = ssl.create_default_context(cafile=self.cafile)
+            if self.certfile and self.keyfile:
+                ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+        
         headers = {
             # Add a custom User-Agent to identify the client
             # similar to kubectl
