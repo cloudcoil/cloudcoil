@@ -95,6 +95,7 @@ class Config:
         certfile: Path | None = None,
         keyfile: Path | None = None,
         context: str | None = None,
+        skip_verify: bool = False,
     ) -> None:
         self.server = None
         self.namespace = "default"
@@ -103,7 +104,7 @@ class Config:
         self.certfile = None
         self.keyfile = None
         self.token = None
-        insecure_skip_tls_verify = False
+        self.skip_verify = False
         tempdir = tempfile.TemporaryDirectory()
         kubeconfig = kubeconfig or os.environ.get("KUBECONFIG")
         if kubeconfig:
@@ -155,7 +156,7 @@ class Config:
                 self.cafile = cafile
 
             if "insecure-skip-tls-verify" in cluster_data:
-                insecure_skip_tls_verify = cluster_data["insecure-skip-tls-verify"]
+                self.skip_verify = cluster_data["insecure-skip-tls-verify"]
 
             if "namespace" in context_data:
                 self.namespace = context_data["namespace"]
@@ -188,9 +189,9 @@ class Config:
         self.cafile = cafile or self.cafile
         self.certfile = certfile or self.certfile
         self.keyfile = keyfile or self.keyfile
-
-        ctx: ssl.SSLContext | bool = False
-        if not insecure_skip_tls_verify:
+        self.skip_verify = skip_verify or self.skip_verify
+        ctx: ssl.SSLContext | None = None
+        if not self.skip_verify:
             ctx = ssl.create_default_context(cafile=self.cafile)
             if self.certfile and self.keyfile:
                 ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
@@ -202,11 +203,12 @@ class Config:
         }
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
+        verify = ctx if ctx else False
         self.client = httpx.Client(
-            verify=ctx, auth=self.auth or None, base_url=self.server, headers=headers
+            verify=verify, auth=self.auth or None, base_url=self.server, headers=headers
         )
         self.async_client = httpx.AsyncClient(
-            verify=ctx, auth=self.auth or None, base_url=self.server
+            verify=verify, auth=self.auth or None, base_url=self.server
         )
         self._rest_mapping: dict[GVK, Any] = {}
 
