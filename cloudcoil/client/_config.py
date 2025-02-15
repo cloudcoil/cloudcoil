@@ -8,7 +8,7 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, Literal, Optional, Type, TypeVar, overload
+from typing import Any, Callable, Dict, Generator, Literal, Optional, Type, TypeVar, Union, overload
 
 import httpx
 import yaml
@@ -17,6 +17,14 @@ from cloudcoil._context import context
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
 from cloudcoil.resources import GVK, Resource
 from cloudcoil.version import __version__
+
+DEFAULT_SSL_CONTEXT: Union[ssl.SSLContext, "truststore.SSLContext"]
+try:
+    import truststore
+
+    DEFAULT_SSL_CONTEXT = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+except ImportError:
+    DEFAULT_SSL_CONTEXT = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
 
 
 class ExecAuthenticator(httpx.Auth):
@@ -191,10 +199,16 @@ class Config:
         self.keyfile = keyfile or self.keyfile
         self.skip_verify = skip_verify or self.skip_verify
         ctx: ssl.SSLContext | None = None
-        if not self.skip_verify:
+        if self.cafile:
             ctx = ssl.create_default_context(cafile=self.cafile)
-            if self.certfile and self.keyfile:
-                ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+        else:
+            ctx = DEFAULT_SSL_CONTEXT
+        if self.certfile:
+            ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+        if self.skip_verify:
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
 
         headers = {
             # Add a custom User-Agent to identify the client
@@ -203,12 +217,11 @@ class Config:
         }
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
-        verify = ctx if ctx else False
         self.client = httpx.Client(
-            verify=verify, auth=self.auth or None, base_url=self.server, headers=headers
+            verify=ctx, auth=self.auth or None, base_url=self.server, headers=headers
         )
         self.async_client = httpx.AsyncClient(
-            verify=verify, auth=self.auth or None, base_url=self.server
+            verify=ctx, auth=self.auth or None, base_url=self.server
         )
         self._rest_mapping: dict[GVK, Any] = {}
 
