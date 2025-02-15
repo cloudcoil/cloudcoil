@@ -2,9 +2,9 @@
 
 import json
 import os
+import ssl
 from unittest.mock import patch
 
-import ssl
 import pytest
 import yaml
 from httpx import Response
@@ -43,7 +43,7 @@ from cloudcoil.client._config import (
                 "server": "https://test-server",
                 "namespace": "test-ns",
                 "token": "test-token",
-                "ssl_verify_mode": ssl.CERT_REQUIRED
+                "ssl_verify_mode": ssl.CERT_REQUIRED,
             },
         ),
         # Test case 2: Kubeconfig with certificate data
@@ -75,7 +75,11 @@ from cloudcoil.client._config import (
                     }
                 ],
             },
-            {"server": "https://test-server", "namespace": "default", "ssl_verify_mode": ssl.CERT_REQUIRED},
+            {
+                "server": "https://test-server",
+                "namespace": "default",
+                "ssl_verify_mode": ssl.CERT_REQUIRED,
+            },
         ),
         # Test case 3: Kubeconfig with insecure-skip-tls
         (
@@ -92,7 +96,7 @@ from cloudcoil.client._config import (
                         "name": "test-cluster",
                         "cluster": {
                             "server": "https://test-server",
-                            "insecure-skip-tls-verify": True
+                            "insecure-skip-tls-verify": True,
                         },
                     }
                 ],
@@ -106,7 +110,11 @@ from cloudcoil.client._config import (
                     }
                 ],
             },
-            {"server": "https://test-server", "namespace": "default", "ssl_verify_mode": ssl.CERT_NONE},
+            {
+                "server": "https://test-server",
+                "namespace": "default",
+                "ssl_verify_mode": ssl.CERT_NONE,
+            },
         ),
     ],
 )
@@ -121,8 +129,10 @@ def test_kubeconfig_initialization(kubeconfig_content, expected, tmp_path):
         if "token" in expected:
             assert client.token == expected["token"]
 
-        # Context information like `verify=<ctx or bool>` passed to the httpx.Client is only reflected on the transport pool 
-        assert client.client._transport._pool._ssl_context.verify_mode == expected["ssl_verify_mode"]
+        # Context information like `verify=<ctx or bool>` passed to the httpx.Client is only reflected on the transport pool
+        assert (
+            client.client._transport._pool._ssl_context.verify_mode == expected["ssl_verify_mode"]
+        )
 
 
 @pytest.mark.parametrize(

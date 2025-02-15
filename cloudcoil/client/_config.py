@@ -194,7 +194,7 @@ class Config:
             ctx = ssl.create_default_context(cafile=self.cafile)
             if self.certfile and self.keyfile:
                 ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
-        
+
         headers = {
             # Add a custom User-Agent to identify the client
             # similar to kubectl
