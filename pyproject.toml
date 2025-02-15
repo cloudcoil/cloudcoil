@@ -43,6 +43,7 @@ kyverno = ["cloudcoil.models.kyverno"]
 prometheus-operator = ["cloudcoil.models.prometheus_operator"]
 sealed-secrets = ["cloudcoil.models.sealed_secrets"]
 velero = ["cloudcoil.models.velero"]
+truststore = ["truststore>=0.8.0"]
 all-models = [
     "cloudcoil.models.cert_manager",
     "cloudcoil.models.fluxcd",
@@ -115,6 +116,7 @@ dev = [
     "pytest-xdist>=3.6.1",
     "cloudcoil-models-kubernetes>=1.29.13.1",
     "filelock>=3.17.0",
+    "truststore>=0.8.0",
 ]
 
 [tool.mypy]
