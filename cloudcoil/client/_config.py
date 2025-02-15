@@ -103,7 +103,7 @@ class Config:
         self.certfile = None
         self.keyfile = None
         self.token = None
-        skip_tls = False
+        insecure_skip_tls_verify = False
         tempdir = tempfile.TemporaryDirectory()
         kubeconfig = kubeconfig or os.environ.get("KUBECONFIG")
         if kubeconfig:
@@ -155,7 +155,7 @@ class Config:
                 self.cafile = cafile
 
             if "insecure-skip-tls-verify" in cluster_data:
-                skip_tls = cluster_data["insecure-skip-tls-verify"]
+                insecure_skip_tls_verify = cluster_data["insecure-skip-tls-verify"]
 
             if "namespace" in context_data:
                 self.namespace = context_data["namespace"]
@@ -190,7 +190,7 @@ class Config:
         self.keyfile = keyfile or self.keyfile
 
         ctx: ssl.SSLContext | bool = False
-        if not skip_tls:
+        if not insecure_skip_tls_verify:
             ctx = ssl.create_default_context(cafile=self.cafile)
             if self.certfile and self.keyfile:
                 ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
