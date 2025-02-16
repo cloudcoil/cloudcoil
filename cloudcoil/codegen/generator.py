@@ -1,6 +1,7 @@
 import argparse
 import ast
 import json
+import logging
 import re
 import shutil
 import subprocess
@@ -18,6 +19,8 @@ from datamodel_code_generator.__main__ import (
     main as generate_code,
 )
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
+
+logger = logging.getLogger(__name__)
 
 if sys.version_info > (3, 11):
     import tomllib
@@ -94,6 +97,7 @@ class ModelConfig(BaseModel):
         list[str], Field(alias="additional-datamodel-codegen-args")
     ] = []
     aliases: list[Alias] = []
+    log_level: Annotated[str, Field(alias="log-level")] = "INFO"
 
     @model_validator(mode="after")
     def _add_namespace(self):
@@ -547,54 +551,75 @@ def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
     if not isinstance(config.input_, list):
         config.input_ = [config.input_]
 
+    logger.debug("Processing input sources: %s", config.input_)
     schemas = []
     for input_ in config.input_:
         if input_.startswith("http"):
+            logger.info("Fetching remote schema from %s", input_)
             content = fetch_remote_content(input_)
             if input_.endswith((".yaml", ".yml")):
+                logger.debug("Processing YAML content from %s", input_)
                 for doc in load_yaml_content(content):
                     if doc and is_crd(doc):
+                        logger.debug("Found CRD in YAML content")
                         schemas.append(convert_crd_to_schema(doc))
             else:
+                logger.debug("Processing JSON content from %s", input_)
                 schema = json.loads(content)
                 schemas.append(schema)
         else:
             if input_.endswith((".yaml", ".yml")):
+                logger.debug("Processing local YAML file: %s", input_)
                 for doc in load_yaml_documents(input_):
                     if doc and is_crd(doc):
+                        logger.debug("Found CRD in YAML file")
                         schemas.append(convert_crd_to_schema(doc))
             else:
+                logger.debug("Processing local JSON file: %s", input_)
                 with open(input_, "r") as f:
                     content = f.read()
                 schema = json.loads(content)
                 schemas.append(schema)
 
     if not schemas:
+        logger.error("No valid CRDs or schemas found in input sources")
         raise ValueError(f"No valid CRDs found in {config.input_}")
+
+    logger.info("Found %d valid schemas", len(schemas))
     if len(schemas) == 1:
         schema = schemas[0]
     else:
+        logger.debug("Merging multiple schemas")
         schema = merge_schemas(schemas)
 
     # Process transformations first
+    logger.info("Applying %d transformations", len(config.transformations))
     schema = process_transformations(config.transformations, schema)
 
     # Then apply any updates
-    process_updates(config.updates, schema)
+    if config.updates:
+        logger.info("Applying %d updates", len(config.updates))
+        process_updates(config.updates, schema)
 
     # Continue with definition processing
+    logger.debug("Processing schema definitions")
     process_definitions(schema)
 
     if detect_schema_type(schema) == "openapi":
+        logger.debug("Detected OpenAPI schema")
         config.additional_datamodel_codegen_args.extend(["--input-file-type", "openapi"])
     else:
+        logger.debug("Detected JSONSchema schema")
         config.additional_datamodel_codegen_args.extend(["--input-file-type", "jsonschema"])
 
+    logger.debug("Generating extra data")
     extra_data = generate_extra_data(schema)
 
     # Write schema and extra data files
+    logger.debug("Writing schema to %s", schema_file)
     with open(schema_file, "w") as f:
         json.dump(schema, f, indent=2)
+    logger.debug("Writing extra data to %s", extra_data_file)
     with open(extra_data_file, "w") as f:
         json.dump(extra_data, f, indent=2)
 
@@ -795,13 +820,23 @@ def find_duplicate_models(workdir: Path) -> Dict[str, Set[str]]:
 
 
 def generate(config: ModelConfig):
+    logger.debug("Starting code generation with config: %s", config.model_dump())
+
     ruff = shutil.which("ruff")
     if not ruff:
+        logger.error("ruff executable not found in PATH")
         raise ValueError("ruff executable not found")
+
+    logger.info("Using ruff from: %s", ruff)
     generated_path = Path(config.namespace.replace(".", "/"))
     workdir = Path(tempfile.mkdtemp())
     workdir.mkdir(parents=True, exist_ok=True)
+    logger.debug("Created temporary working directory: %s", workdir)
+
+    logger.info("Processing input files...")
     input_file, extra_data_file = process_input(config, workdir)
+    logger.debug("Generated schema file: %s", input_file)
+    logger.debug("Generated extra data file: %s", extra_data_file)
 
     args = []
     base_class = "cloudcoil.pydantic.BaseModel"
@@ -821,6 +856,7 @@ def generate(config: ModelConfig):
         "cloudcoil.pydantic.Never",
     ]
     if config.mode == "resource":
+        logger.debug("Using resource mode with Resource base class")
         base_class = "cloudcoil.resources.Resource"
         additional_imports += [
             "cloudcoil.resources.ResourceList",
@@ -829,11 +865,14 @@ def generate(config: ModelConfig):
 
     args.append(f"--additional-imports={','.join(additional_imports)}")
     if config.aliases:
+        logger.debug("Processing %d aliases", len(config.aliases))
         (workdir / "aliases.json").write_text(
             json.dumps({alias.from_: alias.to for alias in config.aliases}, indent=2)
         )
         args.append(f"--aliases={str(workdir / 'aliases.json')}")
     header = f"# Generated by cloudcoil-model-codegen v{__version__}\n# DO NOT EDIT"
+
+    logger.info("Generating code...")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         generate_code(
@@ -868,16 +907,24 @@ def generate(config: ModelConfig):
                 *config.additional_datamodel_codegen_args,
             ]
         )
+    logger.debug("Code generation completed")
+
+    logger.info("Rewriting imports...")
     rewrite_imports(config.namespace, workdir)
 
     if config.generate_init:
+        logger.debug("Generating __init__.py files")
         Path(workdir / generated_path / "__init__.py").touch()
         generate_init_imports(workdir / generated_path)
     else:
+        logger.debug("Skipping __init__.py generation")
         Path(workdir / generated_path / "__init__.py").unlink()
+
     if config.generate_py_typed:
+        logger.debug("Generating py.typed marker")
         Path(workdir / generated_path / "py.typed").touch()
 
+    logger.info("Running ruff checks and formatting...")
     ruff_check_fix_args = [
         ruff,
         "check",
@@ -896,20 +943,22 @@ def generate(config: ModelConfig):
         str(Path(__file__).parent / "ruff.toml"),
     ]
     subprocess.run(ruff_format_args, check=True)
-    # Continue with the existing move operations
+
     output_dir = config.output or Path(".")
-    # Move the entire generated package from workdir / generated_path to the output directory
-    # if the output directory exists
-    # merge the generated package with the existing package
-    # handle files and directories with the same name
+    logger.info("Moving generated files to output directory: %s", output_dir)
+
     if (output_dir / generated_path).exists():
+        logger.debug("Merging with existing package at %s", output_dir / generated_path)
         for item in (workdir / generated_path).iterdir():
             if item.is_dir():
                 shutil.move(item, output_dir / generated_path / item.name)
             else:
                 shutil.move(item, output_dir / generated_path)
     else:
+        logger.debug("Creating new package at %s", output_dir / generated_path)
         shutil.move(workdir / generated_path, output_dir / generated_path)
+
+    logger.info("Code generation completed successfully")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -966,6 +1015,12 @@ def create_parser() -> argparse.ArgumentParser:
         dest="additional_datamodel_codegen_args",
         default=[],
     )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Set the logging level",
+    )
     return parser
 
 
@@ -1016,6 +1071,7 @@ def create_model_config_from_args(args: argparse.Namespace) -> ModelConfig | Non
         crd_namespace=args.crd_namespace,
         additional_datamodel_codegen_args=args.additional_datamodel_codegen_args,
         exclude_unknown=args.exclude_unknown,
+        log_level=args.log_level,
     )
 
 
@@ -1048,6 +1104,16 @@ def main() -> None:
     parser = create_parser()
     args = parser.parse_args()
 
+    # Configure logging
+    logging.basicConfig(
+        level=args.log_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    logger.debug("Starting cloudcoil-model-codegen v%s", __version__)
+
     if not process_cli_args(args) and not process_config_file(args.config):
+        logger.error("No valid configuration found")
         parser.print_help()
         sys.exit(1)
