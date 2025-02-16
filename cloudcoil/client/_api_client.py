@@ -48,6 +48,12 @@ class _BaseAPIClient(Generic[T]):
         self.default_namespace = default_namespace
         self.namespaced = namespaced
         self.subresources = subresources
+        logger.debug(
+            "Initialized API client for %s/%s (namespaced=%s)",
+            api_version,
+            resource,
+            namespaced,
+        )
 
     def _build_url(self, namespace: str | None = None, name: str | None = None) -> str:
         api_base = f"/api/{self.api_version}"
@@ -70,6 +76,12 @@ class _BaseAPIClient(Generic[T]):
 
     def _handle_get_response(self, response: httpx.Response, namespace: str, name: str) -> T:
         if response.status_code == 404:
+            logger.debug(
+                "Resource not found: kind=%s namespace=%s name=%s",
+                self.kind.gvk().kind,
+                namespace,
+                name,
+            )
             raise ResourceNotFound(
                 f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
             )
@@ -79,6 +91,12 @@ class _BaseAPIClient(Generic[T]):
         self, response: httpx.Response, namespace: str, name: str
     ) -> T | Status:
         if response.status_code == 404:
+            logger.debug(
+                "Resource not found for deletion: kind=%s namespace=%s name=%s",
+                self.kind.gvk().kind,
+                namespace,
+                name,
+            )
             raise ResourceNotFound(
                 f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
             )
@@ -86,18 +104,27 @@ class _BaseAPIClient(Generic[T]):
 
     def _handle_create_response(self, response: httpx.Response) -> T:
         if response.status_code == 409:
+            logger.debug("Resource creation failed due to conflict: %s", response.json()["details"])
             raise ResourceConflict(response.json()["details"])
         if not response.is_success:
+            logger.error("Resource creation failed: %s", response.json())
             raise APIError(response.json())
         return self.kind.model_validate_json(response.content)  # type: ignore
 
     def _handle_scale_response(self, response: httpx.Response, namespace: str, name: str) -> None:
         """Handle response from scale operation. Base implementation handles errors only."""
         if response.status_code == 404:
+            logger.debug(
+                "Resource not found for scaling: kind=%s namespace=%s name=%s",
+                self.kind.gvk().kind,
+                namespace,
+                name,
+            )
             raise ResourceNotFound(
                 f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
             )
         if not response.is_success:
+            logger.error("Scale operation failed: %s", response.json())
             raise APIError(response.json())
 
     def _build_watch_params(
@@ -124,13 +151,18 @@ class _BaseAPIClient(Generic[T]):
             params["fieldSelector"] = field_selector
         if label_selector:
             params["labelSelector"] = label_selector
+        logger.debug("Built watch parameters: url=%s params=%s", url, params)
         return url, params
 
     def _get_backoff_time(self, retry_count: int) -> float:
         """Calculate exponential backoff with jitter."""
         backoff = min(10.0, 0.1 * (2**retry_count))  # Cap at 10 seconds
         jitter = random.uniform(0, 0.1 * backoff)  # 10% jitter
-        return backoff + jitter
+        total_backoff = backoff + jitter
+        logger.debug(
+            "Calculated backoff time: %0.2f seconds (retry=%d)", total_backoff, retry_count
+        )
+        return total_backoff
 
 
 class APIClient(_BaseAPIClient[T]):
@@ -150,6 +182,7 @@ class APIClient(_BaseAPIClient[T]):
     def get(self, name: str, namespace: str | None = None) -> T:
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
+        logger.debug("Getting resource: %s", url)
         response = self._client.get(url)
         return self._handle_get_response(response, namespace, name)
 
@@ -161,6 +194,12 @@ class APIClient(_BaseAPIClient[T]):
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
+        logger.debug(
+            "Creating resource: kind=%s namespace=%s name=%s",
+            body.gvk().kind,
+            namespace,
+            body.name,
+        )
         response = self._client.post(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
@@ -175,6 +214,12 @@ class APIClient(_BaseAPIClient[T]):
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
+        logger.debug(
+            "Updating resource: kind=%s namespace=%s name=%s",
+            body.gvk().kind,
+            namespace,
+            name,
+        )
         response = self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
@@ -191,6 +236,12 @@ class APIClient(_BaseAPIClient[T]):
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
+        logger.debug(
+            "Updating resource status: kind=%s namespace=%s name=%s",
+            body.gvk().kind,
+            namespace,
+            name,
+        )
         response = self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
@@ -213,6 +264,14 @@ class APIClient(_BaseAPIClient[T]):
             params["propagationPolicy"] = propagation_policy.capitalize()
         if grace_period_seconds:
             params["gracePeriodSeconds"] = grace_period_seconds
+        logger.debug(
+            "Deleting resource: kind=%s namespace=%s name=%s policy=%s grace=%s",
+            self.kind.gvk().kind,
+            namespace,
+            name,
+            propagation_policy,
+            grace_period_seconds,
+        )
         response = self._client.delete(url, params=params)
         return self._handle_delete_response(response, namespace, name)
 
@@ -257,8 +316,18 @@ class APIClient(_BaseAPIClient[T]):
             params["labelSelector"] = label_selector
         if limit:
             params["limit"] = limit
+        logger.debug(
+            "Listing resources: kind=%s namespace=%s all_namespaces=%s field_selector=%s label_selector=%s limit=%d",
+            self.kind.gvk().kind,
+            namespace,
+            all_namespaces,
+            field_selector,
+            label_selector,
+            limit,
+        )
         response = self._client.get(url, params=params)
         if not response.is_success:
+            logger.error("Failed to list resources: %s", response.json())
             raise APIError(response.json())
         output = ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
         assert output.metadata
@@ -272,7 +341,7 @@ class APIClient(_BaseAPIClient[T]):
         }
         return output
 
-    def delete_all(  # renamed from delete_collection
+    def delete_all(
         self,
         namespace: str | None = None,
         dry_run: bool = True,
@@ -294,8 +363,18 @@ class APIClient(_BaseAPIClient[T]):
             params["labelSelector"] = label_selector
         if field_selector:
             params["fieldSelector"] = field_selector
+        logger.warning(
+            "Deleting all resources: kind=%s namespace=%s policy=%s grace=%s label_selector=%s field_selector=%s",
+            self.kind.gvk().kind,
+            namespace,
+            propagation_policy,
+            grace_period_seconds,
+            label_selector,
+            field_selector,
+        )
         response = self._client.delete(url, params=params)
         if not response.is_success:
+            logger.error("Failed to delete all resources: %s", response.json())
             raise APIError(response.json())
         return ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
 
@@ -320,10 +399,22 @@ class APIClient(_BaseAPIClient[T]):
                     resource_version=curr_resource_version,
                 )
 
+                logger.debug(
+                    "Starting watch: kind=%s namespace=%s resource_version=%s",
+                    self.kind.gvk().kind,
+                    namespace,
+                    curr_resource_version,
+                )
+
                 with self._client.stream(
                     "GET", url, params=params, timeout=_WATCH_TIMEOUT_SECONDS + 5
                 ) as response:
                     if response.status_code == 410:  # Gone
+                        logger.debug(
+                            "Watch resource version expired, restarting: kind=%s namespace=%s",
+                            self.kind.gvk().kind,
+                            namespace,
+                        )
                         curr_resource_version = None
                         continue
 
@@ -343,8 +434,14 @@ class APIClient(_BaseAPIClient[T]):
                                 if status == "Failure":
                                     reason = event["object"].get("reason", "")
                                     if reason == "Expired":
+                                        logger.debug(
+                                            "Watch resource version expired, restarting: kind=%s namespace=%s",
+                                            self.kind.gvk().kind,
+                                            namespace,
+                                        )
                                         curr_resource_version = None
                                         break
+                            logger.error("Watch error event received: %s", event)
                             raise WatchError(f"Watch error: {event}")
 
                         if obj.metadata and obj.metadata.resource_version:
@@ -354,14 +451,28 @@ class APIClient(_BaseAPIClient[T]):
             except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
                 if isinstance(e, httpx.HTTPStatusError):
                     if e.response.status_code == 410:  # Gone
+                        logger.debug(
+                            "Watch resource version expired, restarting: kind=%s namespace=%s",
+                            self.kind.gvk().kind,
+                            namespace,
+                        )
                         curr_resource_version = None
                         continue
                     if e.response.status_code == 404:  # Not Found
+                        logger.error(
+                            "Watch endpoint not found: kind=%s namespace=%s",
+                            self.kind.gvk().kind,
+                            namespace,
+                        )
                         raise ResourceNotFound("Watch endpoint not found") from e
 
                 retry_count += 1
                 backoff = self._get_backoff_time(retry_count)
-                logger.warning(f"Watch connection failed, retrying in {backoff:.1f}s: {e}")
+                logger.warning(
+                    "Watch connection failed, retrying in %0.1fs: %s",
+                    backoff,
+                    str(e),
+                )
                 time.sleep(backoff)
 
     def wait_for(
@@ -380,6 +491,13 @@ class APIClient(_BaseAPIClient[T]):
 
         def watch_and_evaluate() -> None:
             try:
+                logger.debug(
+                    "Starting wait_for watch: kind=%s namespace=%s name=%s timeout=%s",
+                    resource.gvk().kind,
+                    resource.namespace,
+                    resource.name,
+                    timeout,
+                )
                 for event_type, obj in self.watch(
                     namespace=resource.namespace,
                     field_selector=f"metadata.name={resource.name}",
@@ -390,10 +508,24 @@ class APIClient(_BaseAPIClient[T]):
 
                     for name, predicate in predicates.items():
                         if predicate(event_type, obj):
+                            logger.debug(
+                                "Wait condition met: kind=%s namespace=%s name=%s condition=%s",
+                                resource.gvk().kind,
+                                resource.namespace,
+                                resource.name,
+                                name,
+                            )
                             result.predicate_name = name
                             return
 
             except Exception as e:
+                logger.error(
+                    "Error in wait_for watch: kind=%s namespace=%s name=%s error=%s",
+                    resource.gvk().kind,
+                    resource.namespace,
+                    resource.name,
+                    str(e),
+                )
                 result.error = e
 
         # Start the watch in a separate thread
@@ -406,6 +538,13 @@ class APIClient(_BaseAPIClient[T]):
 
             # Handle timeout case
             if watch_thread.is_alive():
+                logger.debug(
+                    "Wait timeout: kind=%s namespace=%s name=%s timeout=%s",
+                    resource.gvk().kind,
+                    resource.namespace,
+                    resource.name,
+                    timeout,
+                )
                 raise WaitTimeout("Timeout waiting for condition")
 
             # Handle error case
@@ -414,6 +553,12 @@ class APIClient(_BaseAPIClient[T]):
 
             # Handle unexpected termination
             if result.predicate_name is None:
+                logger.error(
+                    "Watch ended unexpectedly: kind=%s namespace=%s name=%s",
+                    resource.gvk().kind,
+                    resource.namespace,
+                    resource.name,
+                )
                 raise RuntimeError("Watch ended unexpectedly")
 
             return result.predicate_name
@@ -433,6 +578,13 @@ class APIClient(_BaseAPIClient[T]):
         url = f"{self._build_url(namespace=namespace, name=name)}/scale"
         # Match kubectl's simple patch format
         scale_body = {"spec": {"replicas": replicas}}
+        logger.debug(
+            "Scaling resource: kind=%s namespace=%s name=%s replicas=%d",
+            body.gvk().kind,
+            namespace,
+            name,
+            replicas,
+        )
         response = self._client.patch(
             url, json=scale_body, headers={"Content-Type": "application/merge-patch+json"}
         )
@@ -457,6 +609,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
     async def get(self, name: str, namespace: str | None = None) -> T:
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
+        logger.debug("Getting resource: %s", url)
         response = await self._client.get(url)
         return self._handle_get_response(response, namespace, name)
 
@@ -468,6 +621,12 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
+        logger.debug(
+            "Creating resource: kind=%s namespace=%s name=%s",
+            body.gvk().kind,
+            namespace,
+            body.name,
+        )
         response = await self._client.post(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
@@ -482,6 +641,12 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
+        logger.debug(
+            "Updating resource: kind=%s namespace=%s name=%s",
+            body.gvk().kind,
+            namespace,
+            name,
+        )
         response = await self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
@@ -498,6 +663,12 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
+        logger.debug(
+            "Updating resource status: kind=%s namespace=%s name=%s",
+            body.gvk().kind,
+            namespace,
+            name,
+        )
         response = await self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
@@ -520,6 +691,14 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             params["propagationPolicy"] = propagation_policy.capitalize()
         if grace_period_seconds:
             params["gracePeriodSeconds"] = grace_period_seconds
+        logger.debug(
+            "Deleting resource: kind=%s namespace=%s name=%s policy=%s grace=%s",
+            self.kind.gvk().kind,
+            namespace,
+            name,
+            propagation_policy,
+            grace_period_seconds,
+        )
         response = await self._client.delete(url, params=params)
         return self._handle_delete_response(response, namespace, name)
 
@@ -564,8 +743,18 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             params["labelSelector"] = label_selector
         if limit:
             params["limit"] = limit
+        logger.debug(
+            "Listing resources: kind=%s namespace=%s all_namespaces=%s field_selector=%s label_selector=%s limit=%d",
+            self.kind.gvk().kind,
+            namespace,
+            all_namespaces,
+            field_selector,
+            label_selector,
+            limit,
+        )
         response = await self._client.get(url, params=params)
         if not response.is_success:
+            logger.error("Failed to list resources: %s", response.json())
             raise APIError(response.json())
         output = ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
         assert output.metadata
@@ -579,7 +768,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         }
         return output
 
-    async def delete_all(  # renamed from delete_collection
+    async def delete_all(
         self,
         namespace: str | None = None,
         dry_run: bool = True,
@@ -601,8 +790,18 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             params["labelSelector"] = label_selector
         if field_selector:
             params["fieldSelector"] = field_selector
+        logger.warning(
+            "Deleting all resources: kind=%s namespace=%s policy=%s grace=%s label_selector=%s field_selector=%s",
+            self.kind.gvk().kind,
+            namespace,
+            propagation_policy,
+            grace_period_seconds,
+            label_selector,
+            field_selector,
+        )
         response = await self._client.delete(url, params=params)
         if not response.is_success:
+            logger.error("Failed to delete all resources: %s", response.json())
             raise APIError(response.json())
         return ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
 
@@ -629,10 +828,22 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                     resource_version=curr_resource_version,
                 )
 
+                logger.debug(
+                    "Starting watch: kind=%s namespace=%s resource_version=%s",
+                    self.kind.gvk().kind,
+                    namespace,
+                    curr_resource_version,
+                )
+
                 async with self._client.stream(
                     "GET", url, params=params, timeout=_WATCH_TIMEOUT_SECONDS + 5
                 ) as response:
                     if response.status_code == 410:  # Gone
+                        logger.info(
+                            "Watch resource version expired, restarting: kind=%s namespace=%s",
+                            self.kind.gvk().kind,
+                            namespace,
+                        )
                         curr_resource_version = None
                         continue
 
@@ -652,8 +863,14 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                                 if status == "Failure":
                                     reason = event["object"].get("reason", "")
                                     if reason == "Expired":
+                                        logger.info(
+                                            "Watch resource version expired, restarting: kind=%s namespace=%s",
+                                            self.kind.gvk().kind,
+                                            namespace,
+                                        )
                                         curr_resource_version = None
                                         break
+                            logger.error("Watch error event received: %s", event)
                             raise WatchError(f"Watch error: {event}")
 
                         if obj.metadata and obj.metadata.resource_version:
@@ -663,14 +880,28 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
                 if isinstance(e, httpx.HTTPStatusError):
                     if e.response.status_code == 410:  # Gone
+                        logger.info(
+                            "Watch resource version expired, restarting: kind=%s namespace=%s",
+                            self.kind.gvk().kind,
+                            namespace,
+                        )
                         curr_resource_version = None
                         continue
                     if e.response.status_code == 404:  # Not Found
+                        logger.error(
+                            "Watch endpoint not found: kind=%s namespace=%s",
+                            self.kind.gvk().kind,
+                            namespace,
+                        )
                         raise ResourceNotFound("Watch endpoint not found") from e
 
                 retry_count += 1
                 backoff = self._get_backoff_time(retry_count)
-                logger.warning(f"Watch connection failed, retrying in {backoff:.1f}s: {e}")
+                logger.warning(
+                    "Watch connection failed, retrying in %0.1fs: %s",
+                    backoff,
+                    str(e),
+                )
                 await asyncio.sleep(backoff)
 
     async def wait_for(
@@ -710,6 +941,13 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         url = f"{self._build_url(namespace=namespace, name=name)}/scale"
         # Match kubectl's simple patch format
         scale_body = {"spec": {"replicas": replicas}}
+        logger.info(
+            "Scaling resource: kind=%s namespace=%s name=%s replicas=%d",
+            body.gvk().kind,
+            namespace,
+            name,
+            replicas,
+        )
         response = await self._client.patch(
             url, json=scale_body, headers={"Content-Type": "application/merge-patch+json"}
         )
