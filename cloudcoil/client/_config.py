@@ -262,8 +262,7 @@ class Config:
             ctx.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
 
         if self.skip_verify:
-            logger.warning("Creating insecure SSL context (verify=False)")
-            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            logger.warning("Using insecure SSL context (verify=False)")
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
 
