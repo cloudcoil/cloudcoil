@@ -4,5 +4,5 @@ default_context:
   author_email: sambhavs.email@gmail.com
   crd_namespace: io.cert-manager
   crd_urls: https://github.com/cert-manager/cert-manager/releases/download/v1.16.3/cert-manager.crds.yaml
-  versions: "'1.16.3'"
+  versions: "'1.17.1'"
   version_replacement_sed: releases/download/v
