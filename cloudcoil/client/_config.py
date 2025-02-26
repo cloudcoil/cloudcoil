@@ -278,7 +278,7 @@ class Config:
             verify=ctx, auth=self.auth or None, base_url=self.server, headers=headers
         )
         self.async_client = httpx.AsyncClient(
-            verify=ctx, auth=self.auth or None, base_url=self.server
+            verify=ctx, auth=self.auth or None, base_url=self.server, headers=headers
         )
         self._rest_mapping: dict[GVK, Any] = {}
 
