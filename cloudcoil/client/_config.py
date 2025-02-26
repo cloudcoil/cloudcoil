@@ -289,8 +289,8 @@ class Config:
             logger.error("Failed to get Kubernetes version: %s", version_response.text)
             raise ValueError(f"Failed to get version: {version_response.text}")
         version_data = version_response.json()
-        major = int(version_data["major"])
-        minor = int(version_data["minor"].rstrip('+'))
+        major = int("".join(filter(str.isdigit, version_data["major"])))
+        minor = int("".join(filter(str.isdigit, version_data["minor"])))
         logger.debug("Connected to Kubernetes %s.%s", major, minor)
 
         if major > 1 or (major == 1 and minor >= 30):
