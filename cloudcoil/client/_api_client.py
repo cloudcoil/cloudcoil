@@ -426,7 +426,6 @@ class APIClient(_BaseAPIClient[T]):
                             continue
                         event = json.loads(line)
                         type_ = event["type"]
-                        obj = self.kind.model_validate(event["object"])
 
                         if type_ == "ERROR":
                             if "status" in event["object"]:
@@ -444,6 +443,7 @@ class APIClient(_BaseAPIClient[T]):
                             logger.error("Watch error event received: %s", event)
                             raise WatchError(f"Watch error: {event}")
 
+                        obj = self.kind.model_validate(event["object"])
                         if obj.metadata and obj.metadata.resource_version:
                             curr_resource_version = obj.metadata.resource_version
                         yield type_, obj
@@ -855,7 +855,6 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                             continue
                         event = json.loads(line)
                         type_ = event["type"]
-                        obj = self.kind.model_validate(event["object"])
 
                         if type_ == "ERROR":
                             if "status" in event["object"]:
@@ -873,6 +872,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                             logger.error("Watch error event received: %s", event)
                             raise WatchError(f"Watch error: {event}")
 
+                        obj = self.kind.model_validate(event["object"])
                         if obj.metadata and obj.metadata.resource_version:
                             curr_resource_version = obj.metadata.resource_version
                         yield type_, obj
