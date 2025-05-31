@@ -33,7 +33,8 @@ else:
 
 
 DEFAULT_PAGE_LIMIT = 50
-WatchEvent = Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"]
+WatchEvent = Literal["ADDED", "MODIFIED", "DELETED", "ERROR"]
+BookmarkEvent = Literal["BOOKMARK"]
 WaitPredicate = Callable[[WatchEvent, "Resource"], bool]
 
 
@@ -331,15 +332,17 @@ class Resource(BaseResource):
         field_selector: str | None = None,
         label_selector: str | None = None,
         resource_version: str | None = None,
-    ) -> Iterator[tuple[WatchEvent, "Self"]]:
+    ) -> Iterator[tuple[WatchEvent, "Self"] | tuple[BookmarkEvent, "Unstructured"]]:
         config = context.active_config
-        return config.client_for(cls, sync=True).watch(
+        client_result = config.client_for(cls, sync=True).watch(
             namespace=namespace,
             all_namespaces=all_namespaces,
             field_selector=field_selector,
             label_selector=label_selector,
             resource_version=resource_version,
         )
+        # Type cast to ensure proper return type is recognized
+        return client_result  # type: ignore
 
     @classmethod
     async def async_watch(
@@ -349,15 +352,17 @@ class Resource(BaseResource):
         field_selector: str | None = None,
         label_selector: str | None = None,
         resource_version: str | None = None,
-    ) -> AsyncGenerator[tuple[WatchEvent, "Self"], None]:
+    ) -> AsyncGenerator[tuple[WatchEvent, "Self"] | tuple[BookmarkEvent, "Unstructured"], None]:
         config = context.active_config
-        return config.client_for(cls, sync=False).watch(
+        client_result = config.client_for(cls, sync=False).watch(
             namespace=namespace,
             all_namespaces=all_namespaces,
             field_selector=field_selector,
             label_selector=label_selector,
             resource_version=resource_version,
         )
+        # Type cast to ensure proper return type is recognized
+        return client_result  # type: ignore
 
     @overload
     def wait_for(
