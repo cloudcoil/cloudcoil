@@ -19,8 +19,10 @@ from cloudcoil.errors import (
 )
 from cloudcoil.resources import (
     DEFAULT_PAGE_LIMIT,
+    BookmarkEvent,
     Resource,
     ResourceList,
+    Unstructured,
     WaitPredicate,
     WatchEvent,
 )
@@ -385,7 +387,7 @@ class APIClient(_BaseAPIClient[T]):
         field_selector: str | None = None,
         label_selector: str | None = None,
         resource_version: str | None = None,
-    ) -> Iterator[tuple[WatchEvent, T]]:
+    ) -> Iterator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured]]:
         retry_count = 0
         curr_resource_version = resource_version
 
@@ -443,10 +445,20 @@ class APIClient(_BaseAPIClient[T]):
                             logger.error("Watch error event received: %s", event)
                             raise WatchError(f"Watch error: {event}")
 
-                        obj = self.kind.model_validate(event["object"])
-                        if obj.metadata and obj.metadata.resource_version:
-                            curr_resource_version = obj.metadata.resource_version
-                        yield type_, obj
+                        # Handle bookmark events specially - they only contain minimal data
+                        if type_ == "BOOKMARK":
+                            # For bookmark events, create an Unstructured object to avoid validation errors
+                            bookmark_obj: Unstructured = Unstructured.model_validate(
+                                event["object"]
+                            )
+                            if bookmark_obj.metadata and bookmark_obj.metadata.resource_version:
+                                curr_resource_version = bookmark_obj.metadata.resource_version
+                            yield type_, bookmark_obj
+                        else:
+                            obj = self.kind.model_validate(event["object"])
+                            if obj.metadata and obj.metadata.resource_version:
+                                curr_resource_version = obj.metadata.resource_version
+                            yield type_, obj
 
             except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
                 if isinstance(e, httpx.HTTPStatusError):
@@ -506,6 +518,9 @@ class APIClient(_BaseAPIClient[T]):
                     if stop_event.is_set():
                         return
 
+                    if event_type == "BOOKMARK":
+                        continue
+                    assert isinstance(obj, self.kind), f"Expected {self.kind}, got {type(obj)}"
                     for name, predicate in predicates.items():
                         if predicate(event_type, obj):
                             logger.debug(
@@ -812,9 +827,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         field_selector: str | None = None,
         label_selector: str | None = None,
         resource_version: str | None = None,
-    ) -> AsyncGenerator[
-        tuple[Literal["ADDED", "MODIFIED", "DELETED", "ERROR", "BOOKMARK"], T], None
-    ]:
+    ) -> AsyncGenerator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured], None]:
         retry_count = 0
         curr_resource_version = resource_version
 
@@ -872,10 +885,18 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                             logger.error("Watch error event received: %s", event)
                             raise WatchError(f"Watch error: {event}")
 
-                        obj = self.kind.model_validate(event["object"])
-                        if obj.metadata and obj.metadata.resource_version:
-                            curr_resource_version = obj.metadata.resource_version
-                        yield type_, obj
+                        # Handle bookmark events specially - they only contain minimal data
+                        if type_ == "BOOKMARK":
+                            # For bookmark events, create an Unstructured object to avoid validation errors
+                            bookmark_obj: Unstructured = Unstructured(**event["object"])
+                            if bookmark_obj.metadata and bookmark_obj.metadata.resource_version:
+                                curr_resource_version = bookmark_obj.metadata.resource_version
+                            yield type_, bookmark_obj
+                        else:
+                            obj = self.kind.model_validate(event["object"])
+                            if obj.metadata and obj.metadata.resource_version:
+                                curr_resource_version = obj.metadata.resource_version
+                            yield type_, obj
 
             except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
                 if isinstance(e, httpx.HTTPStatusError):
@@ -918,6 +939,10 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                 field_selector=f"metadata.name={resource.name}",
                 resource_version=resource.resource_version,
             ):
+                if event_type == "BOOKMARK":
+                    continue
+
+                assert isinstance(obj, self.kind), f"Expected {self.kind}, got {type(obj)}"
                 for name, predicate in predicates.items():
                     result = predicate(event_type, obj)
                     if result:
