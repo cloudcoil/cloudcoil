@@ -33,7 +33,7 @@ async def test_async_informer_large_dataset(test_config):
         ).async_create()
 
         # Wait for cache to sync
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait(timeout=30.0)
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
         assert informer is not None
 
@@ -126,7 +126,7 @@ async def test_async_informer_rapid_updates(test_config):
             if new_obj.metadata and new_obj.metadata.name:
                 final_values[new_obj.metadata.name] = new_obj.data.copy() if new_obj.data else {}
 
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait(timeout=30.0)
 
         # Create initial ConfigMap
         cm = await k8s.core.v1.ConfigMap(
@@ -179,7 +179,7 @@ async def test_async_informer_complex_selectors(test_config):
             metadata=ObjectMeta(generate_name="test-complex-")
         ).async_create()
 
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait(timeout=30.0)
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
         assert informer is not None
 
@@ -267,7 +267,7 @@ async def test_async_informer_error_handling(test_config):
                 error_count += 1
                 raise RuntimeError("Simulated handler error")
 
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait(timeout=30.0)
 
         # Create ConfigMaps, some that will trigger errors
         cm_normal = await k8s.core.v1.ConfigMap(
@@ -311,7 +311,7 @@ async def test_async_informer_concurrent_operations(test_config):
             metadata=ObjectMeta(generate_name="test-concurrent-")
         ).async_create()
 
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait(timeout=30.0)
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
         assert informer is not None
 
@@ -377,7 +377,7 @@ async def test_async_informer_memory_efficiency(test_config):
             metadata=ObjectMeta(generate_name="test-memory-")
         ).async_create()
 
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait(timeout=30.0)
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
         assert informer is not None
 
@@ -436,7 +436,7 @@ async def test_async_informer_resource_version_handling(test_config):
             metadata=ObjectMeta(generate_name="test-rv-")
         ).async_create()
 
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait(timeout=30.0)
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
         assert informer is not None
 
@@ -482,7 +482,7 @@ def test_sync_informer_basic_patterns(test_config):
         ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-sync-basic-")).create()
 
         # Wait for sync
-        assert config.cache.sync_wait_for_sync(timeout=30.0)
+        assert config.cache.wait(timeout=30.0)
 
         # Get sync informer
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap, sync=True)
@@ -521,7 +521,7 @@ async def test_async_cache_integration_with_resource_operations(test_config):
             metadata=ObjectMeta(generate_name="test-integration-")
         ).async_create()
 
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait(timeout=30.0)
 
         # In fallback mode, get operations should try cache first, then API
         # This test documents expected behavior for future integration
