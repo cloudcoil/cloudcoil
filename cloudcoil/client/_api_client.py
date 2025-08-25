@@ -709,7 +709,14 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         response = await self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
-        return self._handle_create_response(response)
+        updated = self._handle_create_response(response)
+
+        # Update cache with updated resource
+        if self.cache_informer and not dry_run:
+            if hasattr(self.cache_informer, "_handle_update"):
+                await self.cache_informer._handle_update(updated)
+
+        return updated
 
     async def update_status(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
@@ -759,7 +766,25 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             grace_period_seconds,
         )
         response = await self._client.delete(url, params=params)
-        return self._handle_delete_response(response, namespace, name)
+        result = self._handle_delete_response(response, namespace, name)
+
+        # Update cache by removing deleted resource
+        if self.cache_informer and not dry_run:
+            if hasattr(self.cache_informer, "_handle_delete"):
+                # For delete, we need to pass the deleted object or construct one with metadata
+                if isinstance(result, self.kind):
+                    await self.cache_informer._handle_delete(result)
+                else:
+                    # Create a minimal object with just metadata for cache removal
+                    from cloudcoil.apimachinery import ObjectMeta
+
+                    metadata = ObjectMeta(name=name, namespace=namespace)
+                    deleted_obj = self.kind(
+                        api_version=self.api_version, kind=self.kind.gvk().kind, metadata=metadata
+                    )
+                    await self.cache_informer._handle_delete(deleted_obj)
+
+        return result
 
     async def remove(
         self,
