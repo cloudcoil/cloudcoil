@@ -534,7 +534,7 @@ class Config:
             # Start cache synchronously
             self.cache.start()
             if self.cache.wait_for_sync:
-                if not self.cache.sync_wait_for_sync():
+                if not self.cache.wait_for_cache_sync():
                     if self.cache.mode == "strict":
                         from cloudcoil.errors import APIError
 

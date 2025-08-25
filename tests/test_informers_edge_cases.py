@@ -482,7 +482,7 @@ def test_sync_informer_basic_patterns(test_config):
         ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-sync-basic-")).create()
 
         # Wait for sync
-        assert config.cache.sync_wait_for_sync(timeout=30.0)
+        assert config.cache.wait_for_cache_sync(timeout=30.0)
 
         # Get sync informer
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap, sync=True)

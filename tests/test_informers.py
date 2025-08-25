@@ -88,7 +88,7 @@ def test_sync_cache_basic_functionality(test_config):
         ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-cache-")).create()
 
         # Wait for cache to sync
-        assert config.cache.sync_wait_for_sync(timeout=30.0)
+        assert config.cache.wait_for_cache_sync(timeout=30.0)
         assert config.cache.ready()
 
         # Get informer for ConfigMaps
@@ -632,7 +632,7 @@ def test_sync_informer_event_handlers(test_config):
         informer.on_delete(handle_delete)
 
         # Wait for sync
-        config.cache.sync_wait_for_sync(timeout=30.0)
+        config.cache.wait_for_cache_sync(timeout=30.0)
 
         # Create a ConfigMap
         cm = k8s.core.v1.ConfigMap(
