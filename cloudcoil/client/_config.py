@@ -313,9 +313,9 @@ class Config:
             raise ValueError("cache must be bool or Cache object")
 
         # Set client factory on cache if enabled
-        # This eliminates the circular dependency - no more factory needed!
+        # Pass the client_for method as the factory
         if self.cache.enabled:
-            self.cache.set_client_factory(self._create_base_client)
+            self.cache.set_client_factory(self.client_for)
 
     def _create_rest_mapper(self):
         logger.debug("Fetching Kubernetes version")
@@ -454,13 +454,30 @@ class Config:
                 if subresource["name"].startswith(f"{resource_name}/"):
                     subresources.append(subresource["name"].split("/", 1)[1])
 
-    def _create_base_client(
-        self, resource: Type[T], sync: bool = True
-    ) -> APIClient[T] | AsyncAPIClient[T]:
-        """Create a base client without any caching logic.
+    @overload
+    def client_for(
+        self, resource: Type[T], sync: Literal[True] = True, cached: bool | None = None
+    ) -> APIClient[T]: ...
 
-        This method is used by the factory to create clients without
-        circular dependencies.
+    @overload
+    def client_for(
+        self, resource: Type[T], sync: Literal[False] = False, cached: bool | None = None
+    ) -> AsyncAPIClient[T]: ...
+
+    def client_for(
+        self, resource: Type[T], sync: Literal[False, True] = True, cached: bool | None = None
+    ) -> APIClient[T] | AsyncAPIClient[T]:
+        """Get a client for the specified resource type.
+
+        Args:
+            resource: The resource type to get a client for
+            sync: Whether to return a sync or async client
+            cached: Whether to use caching. If None, uses cache config setting.
+                   If True, forces cached client (requires cache to be enabled).
+                   If False, forces non-cached client.
+
+        Returns:
+            A client that may use caching based on configuration
         """
         self.initialize()
         if not issubclass(resource, Resource):
@@ -471,8 +488,48 @@ class Config:
             logger.error("Resource not registered with API server: %s", gvk)
             raise ValueError(f"Resource with {gvk=} is not registered with the server")
 
-        logger.debug("Creating base %s client for %s", "sync" if sync else "async", gvk)
+        logger.debug("Creating %s client for %s", "sync" if sync else "async", gvk)
 
+        # Determine if we should use caching
+        use_cache = cached if cached is not None else self.cache.enabled
+
+        # If caching requested, check if we can provide it
+        if use_cache:
+            if not self.cache.enabled:
+                raise ValueError("Cannot create cached client when cache is disabled")
+
+            informer = self.cache.get_informer(resource, sync=sync)
+            if informer:
+                # Import cached clients
+                from cloudcoil.caching._cached_client import AsyncCachedClient, CachedClient
+
+                strict = self.cache.mode == "strict"
+                if sync:
+                    return CachedClient(
+                        api_version=gvk.api_version,
+                        kind=resource,
+                        resource=self._rest_mapping[gvk]["resource"],
+                        namespaced=self._rest_mapping[gvk]["namespaced"],
+                        subresources=self._rest_mapping[gvk]["subresources"],
+                        default_namespace=self.namespace,
+                        client=self.client,
+                        informer=informer,  # type: ignore[arg-type]
+                        strict=strict,
+                    )
+                else:
+                    return AsyncCachedClient(
+                        api_version=gvk.api_version,
+                        kind=resource,
+                        resource=self._rest_mapping[gvk]["resource"],
+                        namespaced=self._rest_mapping[gvk]["namespaced"],
+                        subresources=self._rest_mapping[gvk]["subresources"],
+                        default_namespace=self.namespace,
+                        client=self.async_client,
+                        informer=informer,  # type: ignore[arg-type]
+                        strict=strict,
+                    )
+
+        # Return non-cached client
         if sync:
             return APIClient(
                 api_version=gvk.api_version,
@@ -492,42 +549,6 @@ class Config:
             default_namespace=self.namespace,
             client=self.async_client,
         )
-
-    @overload
-    def client_for(self, resource: Type[T], sync: Literal[True] = True) -> APIClient[T]: ...
-
-    @overload
-    def client_for(self, resource: Type[T], sync: Literal[False] = False) -> AsyncAPIClient[T]: ...
-
-    def client_for(
-        self, resource: Type[T], sync: Literal[False, True] = True
-    ) -> APIClient[T] | AsyncAPIClient[T]:
-        """Get a client for the specified resource type.
-
-        Returns a client that may use caching if enabled.
-        """
-        # Always create the base client
-        base_client = self._create_base_client(resource, sync)
-
-        # Check if caching is enabled and get informer
-        if self.cache.enabled:
-            informer = self.cache.get_informer(resource, sync=sync)
-            if informer:
-                # Wrap client with caching based on mode
-                # Import cached clients
-                from cloudcoil.caching._cached_client import AsyncCachedClient, CachedClient
-
-                # Wrap client with caching based on mode
-                strict = self.cache.mode == "strict"
-                if sync:
-                    # Type narrowing: if sync is True, base_client is APIClient and informer is SyncInformer
-                    return CachedClient(base_client, informer, strict=strict)  # type: ignore[arg-type, return-value]
-                else:
-                    # Type narrowing: if sync is False, base_client is AsyncAPIClient and informer is AsyncInformer
-                    return AsyncCachedClient(base_client, informer, strict=strict)  # type: ignore[arg-type, return-value]
-
-        # No caching, return base client
-        return base_client
 
     def set_default(self) -> None:
         logger.debug("Setting as default config")
