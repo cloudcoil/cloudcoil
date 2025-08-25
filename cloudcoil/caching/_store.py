@@ -283,7 +283,6 @@ class ConcurrentStore(Generic[T]):
     def _replace_internal(self, items: List[T]) -> None:
         """Internal replace implementation (must be called with lock held)."""
         # Clear existing items and indices
-        self._items.copy()
         self._items.clear()
 
         # Clear indices

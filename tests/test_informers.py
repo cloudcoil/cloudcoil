@@ -11,6 +11,7 @@ import pytest
 import cloudcoil.models.kubernetes as k8s
 from cloudcoil.apimachinery import ObjectMeta
 from cloudcoil.caching import Cache, CacheStatus
+from tests.test_utils import sync_wait_for_condition, wait_for_condition
 
 k8s_version = ".".join(version("cloudcoil.models.kubernetes").split(".")[:3])
 cluster_provider = os.environ.get("CLUSTER_PROVIDER", "kind")
@@ -53,8 +54,12 @@ async def test_async_cache_basic_functionality(test_config):
             metadata=dict(name="test-cache-cm", namespace=ns.name), data={"key": "value"}
         ).async_create()
 
-        # Give informer time to process the event
-        await asyncio.sleep(1)
+        # Wait for ConfigMap to appear in cache
+        await wait_for_condition(
+            lambda: informer.get("test-cache-cm", ns.name) is not None,
+            timeout=5.0,
+            message="ConfigMap to appear in cache",
+        )
 
         # Test cache retrieval
         cached_cm = informer.get("test-cache-cm", ns.name)
@@ -100,15 +105,12 @@ def test_sync_cache_basic_functionality(test_config):
             metadata=dict(name="test-cache-cm", namespace=ns.name), data={"key": "value"}
         ).create()
 
-        # Give informer time to process the event
-        time.sleep(3)  # Increase wait time
-
-        # Debug: list all items in the cache
-        all_items = informer.list()
-        print(f"DEBUG: Total items in cache: {len(all_items)}")
-        for item in all_items:
-            if hasattr(item, "metadata") and item.metadata:
-                print(f"DEBUG: Item in cache: {item.metadata.namespace}/{item.metadata.name}")
+        # Wait for ConfigMap to appear in cache
+        sync_wait_for_condition(
+            lambda: informer.get("test-cache-cm", ns.name) is not None,
+            timeout=5.0,
+            message="ConfigMap to appear in cache",
+        )
 
         # Test cache retrieval
         cached_cm = informer.get("test-cache-cm", ns.name)
@@ -172,7 +174,7 @@ async def test_async_informer_event_handlers(test_config):
         ).async_create()
 
         # Wait for add event
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
         assert len(added_items) >= 1
         assert any(item.metadata.name == "test-events-cm" for item in added_items)
 
@@ -181,14 +183,14 @@ async def test_async_informer_event_handlers(test_config):
         cm = await cm.async_update()  # Update returns the new object
 
         # Wait for update event
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
         assert len(updated_items) >= 1
 
         # Delete the ConfigMap
         await cm.async_remove()
 
         # Wait for delete event
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
         assert len(deleted_items) >= 1
         assert any(item.metadata.name == "test-events-cm" for item in deleted_items)
 
@@ -238,7 +240,7 @@ async def test_async_informer_filtering(test_config):
         assert informer is not None
 
         # Wait for initial sync to complete
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
 
         # Test that only matching ConfigMap is in cache
         # The informer should only have resources that match the label selector
@@ -310,7 +312,7 @@ async def test_async_informer_custom_indexing(test_config):
         ).async_create()
 
         # Wait for events to be processed
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
 
         # Test custom index queries
         app_cms = informer.get_by_index("by_data_key", "app")
@@ -356,7 +358,10 @@ async def test_async_cache_modes(test_config):
             metadata=dict(name="test-strict-cm", namespace=ns.name), data={"key": "value"}
         ).async_create()
 
-        await asyncio.sleep(1)  # Let informer catch up
+        # Wait for all ConfigMaps to be cached
+        await wait_for_condition(
+            lambda: len(informer.list()) == 3, timeout=5.0, message="All ConfigMaps in cache"
+        )
 
         # In strict mode, get should work from cache
         informer = strict_config.cache.get_informer(k8s.core.v1.ConfigMap)
@@ -383,7 +388,10 @@ async def test_async_cache_modes(test_config):
             metadata=dict(name="test-fallback-cm", namespace=ns.name), data={"key": "value"}
         ).async_create()
 
-        await asyncio.sleep(1)  # Let informer catch up
+        # Wait for all ConfigMaps to be cached
+        await wait_for_condition(
+            lambda: len(informer.list()) == 3, timeout=5.0, message="All ConfigMaps in cache"
+        )
 
         # In fallback mode, get should also work from cache
         informer = fallback_config.cache.get_informer(k8s.core.v1.ConfigMap)
@@ -473,7 +481,7 @@ async def test_async_cache_performance_comparison(test_config):
         assert informer is not None
 
         # Wait a bit for the informer to catch up with the existing resources
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
 
         start_time = time.time()
         for i in range(10):
@@ -483,7 +491,8 @@ async def test_async_cache_performance_comparison(test_config):
         cache_time = time.time() - start_time
 
     # Cache should be significantly faster
-    print(f"No cache time: {no_cache_time:.4f}s, Cache time: {cache_time:.4f}s")
+    # Performance improvement verified: cache is faster than API calls
+    assert cache_time < no_cache_time
     assert cache_time < no_cache_time * 0.5  # Cache should be at least 2x faster
 
     # Clean up
@@ -532,7 +541,7 @@ async def test_async_multiple_resource_types(test_config):
         ).async_create()
 
         # Wait for events to be processed
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
 
         # Test both informers work independently
         cached_cm = cm_informer.get("test-multi-cm", ns.name)
@@ -588,7 +597,7 @@ async def test_async_informer_reconnection(test_config):
         cm.data["key"] = "updated"
         await cm.async_update()
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
 
         # Verify update is reflected in cache
         updated_cm = informer.get("test-reconnect-cm", ns.name)
@@ -640,7 +649,9 @@ def test_sync_informer_event_handlers(test_config):
         ).create()
 
         # Wait for add event
-        time.sleep(2)
+        sync_wait_for_condition(
+            lambda: len(added_items) >= 1, timeout=5.0, message="Add event to be processed"
+        )
         assert len(added_items) >= 1
         assert any(item.metadata.name == "test-sync-events-cm" for item in added_items)
 
@@ -648,7 +659,9 @@ def test_sync_informer_event_handlers(test_config):
         cm.remove()
 
         # Wait for delete event
-        time.sleep(2)
+        sync_wait_for_condition(
+            lambda: len(deleted_items) >= 1, timeout=5.0, message="Delete event to be processed"
+        )
         assert len(deleted_items) >= 1
         assert any(item.metadata.name == "test-sync-events-cm" for item in deleted_items)
 
@@ -731,7 +744,7 @@ async def test_async_namespace_scoped_informer(test_config):
             metadata=dict(name="test-cm", namespace=ns2.name), data={"ns": "2"}
         ).async_create()
 
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.5)  # Brief delay for event processing
 
         # Each namespace-scoped informer should only see its namespace's resources
         ns1_items = ns1_informer.list()
