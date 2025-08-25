@@ -58,14 +58,14 @@ class Cache(CacheConfig):
             self._started = False
             logger.debug("Cache stopped")
 
-    async def async_wait_for_cache_sync(self, timeout: Optional[float] = None) -> bool:
-        """Wait for cache to sync asynchronously.
+    async def async_wait(self, timeout: Optional[float] = None) -> bool:
+        """Wait for cache to be ready asynchronously.
 
         Args:
             timeout: Maximum time to wait (uses sync_timeout if not provided)
 
         Returns:
-            True if synced, False if timeout
+            True if ready, False if timeout
         """
         if not self.enabled or not self._factory:
             return True
@@ -87,14 +87,14 @@ class Cache(CacheConfig):
             self._factory.stop()
             self._started = False
 
-    def wait_for_cache_sync(self, timeout: Optional[float] = None) -> bool:
-        """Wait for cache to sync synchronously.
+    def wait(self, timeout: Optional[float] = None) -> bool:
+        """Wait for cache to be ready synchronously.
 
         Args:
             timeout: Maximum time to wait (uses sync_timeout if not provided)
 
         Returns:
-            True if synced, False if timeout
+            True if ready, False if timeout
         """
         if not self.enabled or not self._factory:
             return True
