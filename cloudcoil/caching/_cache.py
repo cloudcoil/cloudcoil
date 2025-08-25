@@ -58,7 +58,7 @@ class Cache(CacheConfig):
             self._started = False
             logger.debug("Cache stopped")
 
-    async def async_wait_for_sync(self, timeout: Optional[float] = None) -> bool:
+    async def async_wait_for_cache_sync(self, timeout: Optional[float] = None) -> bool:
         """Wait for cache to sync asynchronously.
 
         Args:

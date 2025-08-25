@@ -34,7 +34,7 @@ async def test_async_cache_basic_functionality(test_config):
         ).async_create()
 
         # Wait for cache to sync
-        assert await config.cache.async_wait_for_sync(timeout=30.0)
+        assert await config.cache.async_wait_for_cache_sync(timeout=30.0)
         assert config.cache.ready()
 
         # Test cache status
@@ -164,7 +164,7 @@ async def test_async_informer_event_handlers(test_config):
         informer.on_delete(handle_delete)
 
         # Wait for sync
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         # Create a ConfigMap
         cm = await k8s.core.v1.ConfigMap(
@@ -231,7 +231,7 @@ async def test_async_informer_filtering(test_config):
 
     async with config:
         # Wait for cache to sync
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         # Get informer
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
@@ -294,7 +294,7 @@ async def test_async_informer_custom_indexing(test_config):
         informer.add_index("by_data_key", index_by_data_key)
 
         # Wait for sync
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         # Create ConfigMaps with different data keys
         cm1 = await k8s.core.v1.ConfigMap(
@@ -349,7 +349,7 @@ async def test_async_cache_modes(test_config):
         ).async_create()
 
         # In strict mode, operations should use cache only after sync
-        await strict_config.cache.async_wait_for_sync(timeout=30.0)
+        await strict_config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         # Create a ConfigMap through API (not cache)
         cm = await k8s.core.v1.ConfigMap(
@@ -376,7 +376,7 @@ async def test_async_cache_modes(test_config):
         ).async_create()
 
         # Wait for cache sync
-        await fallback_config.cache.async_wait_for_sync(timeout=30.0)
+        await fallback_config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         # Create a ConfigMap
         cm = await k8s.core.v1.ConfigMap(
@@ -406,7 +406,7 @@ async def test_async_cache_context_managers(test_config):
     config = test_config.with_cache(cache_config)
 
     async with config:
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         # Test pause context manager
         assert config.cache.enabled
@@ -467,7 +467,7 @@ async def test_async_cache_performance_comparison(test_config):
     # Test performance with cache
     async with cached_config:
         # Wait for cache to sync
-        await cached_config.cache.async_wait_for_sync(timeout=30.0)
+        await cached_config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         informer = cached_config.cache.get_informer(k8s.core.v1.ConfigMap)
         assert informer is not None
@@ -510,7 +510,7 @@ async def test_async_multiple_resource_types(test_config):
         ).async_create()
 
         # Wait for cache to sync
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         # Get informers for different resource types
         cm_informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
@@ -567,7 +567,7 @@ async def test_async_informer_reconnection(test_config):
         ).async_create()
 
         # Wait for initial sync
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
         assert informer is not None
@@ -681,7 +681,7 @@ async def test_async_cache_disabled(test_config):
         assert informer is None
 
         # Wait for sync should return True immediately
-        assert await config.cache.async_wait_for_sync(timeout=1.0)
+        assert await config.cache.async_wait_for_cache_sync(timeout=1.0)
 
 
 @pytest.mark.configure_test_cluster(
@@ -710,7 +710,7 @@ async def test_async_namespace_scoped_informer(test_config):
 
     async with config:
         # Wait for cache to sync
-        await config.cache.async_wait_for_sync(timeout=30.0)
+        await config.cache.async_wait_for_cache_sync(timeout=30.0)
 
         # Get namespace-scoped informers
         # These should create different informers scoped to each namespace

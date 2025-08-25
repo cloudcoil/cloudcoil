@@ -555,7 +555,7 @@ class Config:
         if self.cache.enabled:
             await self.cache.async_start()
             if self.cache.wait_for_sync:
-                if not await self.cache.async_wait_for_sync():
+                if not await self.cache.async_wait_for_cache_sync():
                     if self.cache.mode == "strict":
                         from cloudcoil.errors import APIError
 
