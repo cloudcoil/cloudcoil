@@ -4,7 +4,17 @@ import logging
 import random
 import threading
 import time
-from typing import Any, AsyncGenerator, Callable, Generic, Iterator, Literal, Type, TypeVar
+from typing import (
+    Any,
+    AsyncGenerator,
+    Callable,
+    Generic,
+    Iterator,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+)
 
 import httpx
 from pydantic import TypeAdapter
@@ -426,8 +436,12 @@ class APIClient(_BaseAPIClient[T]):
                     for line in response.iter_lines():
                         if not line:
                             continue
+                        logger.debug(
+                            "Watch received line: %s", line[:200] if len(line) > 200 else line
+                        )
                         event = json.loads(line)
                         type_ = event["type"]
+                        logger.debug("Watch event type: %s", type_)
 
                         if type_ == "ERROR":
                             if "status" in event["object"]:
@@ -617,14 +631,37 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         default_namespace: str,
         namespaced: bool,
         client: httpx.AsyncClient,
+        cache_informer: Optional[Any] = None,  # AsyncInformer type
+        cache_mode: Literal["strict", "fallback"] = "fallback",
     ) -> None:
         super().__init__(api_version, kind, resource, subresources, default_namespace, namespaced)
         self._client = client
+        self.cache_informer = cache_informer
+        self.cache_mode = cache_mode
 
     async def get(self, name: str, namespace: str | None = None) -> T:
         namespace = namespace or self.default_namespace
+
+        # Try cache first if available
+        if self.cache_informer and self.cache_informer.has_synced():
+            obj = self.cache_informer.get(name, namespace)
+            if obj:
+                logger.debug("Cache hit for %s/%s", namespace, name)
+                return obj
+
+            # Cache miss - behavior depends on mode
+            if self.cache_mode == "strict":
+                logger.debug("Cache miss for %s/%s in strict mode", namespace, name)
+                raise ResourceNotFound(
+                    f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found in cache"
+                )
+
+            # Fallback mode - try API
+            logger.debug("Cache miss for %s/%s, falling back to API", namespace, name)
+
+        # No cache or fallback mode - fetch from API
         url = self._build_url(name=name, namespace=namespace)
-        logger.debug("Getting resource: %s", url)
+        logger.debug("Getting resource from API: %s", url)
         response = await self._client.get(url)
         return self._handle_get_response(response, namespace, name)
 
@@ -645,7 +682,14 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         response = await self._client.post(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
-        return self._handle_create_response(response)
+        created = self._handle_create_response(response)
+
+        # Update cache with created resource
+        if self.cache_informer and not dry_run:
+            if hasattr(self.cache_informer, "_handle_add"):
+                await self.cache_informer._handle_add(created)
+
+        return created
 
     async def update(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
@@ -748,6 +792,34 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         namespace = namespace or self.default_namespace
         if all_namespaces:
             namespace = None
+
+        # Try cache first if available and not paging
+        if (
+            self.cache_informer
+            and self.cache_informer.has_synced()
+            and not continue_
+            and limit == DEFAULT_PAGE_LIMIT
+        ):
+            logger.debug("Using cache for list operation")
+            cached_items = self.cache_informer.list(
+                namespace=namespace,
+                label_selector=label_selector,
+                field_selector=field_selector,
+            )
+
+            # Create a ResourceList from cached items
+            from cloudcoil.apimachinery import ListMeta
+
+            return ResourceList(
+                api_version=self.api_version,
+                kind=f"{self.kind.__name__}List",
+                items=cached_items,
+                metadata=ListMeta(
+                    resource_version="",  # Cache doesn't track this
+                    continue_="",
+                ),
+            )
+
         url = self._build_url(namespace=namespace)
         params: dict[str, str | int] = {}
         if continue_:
@@ -759,7 +831,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         if limit:
             params["limit"] = limit
         logger.debug(
-            "Listing resources: kind=%s namespace=%s all_namespaces=%s field_selector=%s label_selector=%s limit=%d",
+            "Listing resources from API: kind=%s namespace=%s all_namespaces=%s field_selector=%s label_selector=%s limit=%d",
             self.kind.gvk().kind,
             namespace,
             all_namespaces,

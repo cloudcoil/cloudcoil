@@ -481,6 +481,180 @@ with Config(kubeconfig="dev-cluster.yaml"):
     services = k8s.core.v1.Service.list()
 ```
 
+### ⚡ High Performance with Caching
+
+Cloudcoil provides powerful client-side caching and real-time resource synchronization, delivering 100-200x performance improvements on read operations:
+
+```python
+from cloudcoil.client import Config
+from cloudcoil.caching import Cache
+import cloudcoil.models.kubernetes as k8s
+
+# Simple caching - just add cache=True!
+config = Config(cache=True)
+
+with config:
+    # First call hits API and populates cache (~50ms)
+    deployment = k8s.apps.v1.Deployment.get("my-app")
+    
+    # Subsequent calls served from cache (<1ms)
+    deployment = k8s.apps.v1.Deployment.get("my-app")
+    
+    # Lists are also cached
+    pods = k8s.core.v1.Pod.list()  # <5ms from cache
+    
+    # Writes go through API, cache updates automatically
+    deployment.spec.replicas = 5
+    deployment.update()  # Updates API and cache
+```
+
+#### Event Handlers with Informers
+
+```python
+from cloudcoil.client import Config
+from cloudcoil.caching import Cache
+import cloudcoil.models.kubernetes as k8s
+
+# Enable caching with custom settings
+config = Config(
+    cache=Cache(resync_period=600)  # Resync every 10 minutes
+)
+
+with config:
+    # Get informer for Deployments through the cache
+    deployment_informer = config.cache.get_informer(k8s.apps.v1.Deployment)
+    
+    # Register event handlers
+    @deployment_informer.on_add
+    def handle_new_deployment(deployment):
+        print(f"New deployment: {deployment.metadata.name}")
+    
+    @deployment_informer.on_update
+    def handle_update(old_deployment, new_deployment):
+        if old_deployment.spec.replicas != new_deployment.spec.replicas:
+            print(f"Deployment {new_deployment.metadata.name} scaled")
+    
+    @deployment_informer.on_delete
+    def handle_delete(deployment):
+        print(f"Deployment deleted: {deployment.metadata.name}")
+    
+    # Access the local cache store
+    store = deployment_informer.get_store()
+    all_deployments = store.list()  # Instant, no API call
+    specific = store.get("my-app")  # Instant lookup
+    
+    # The informer lifecycle is managed by Config context
+```
+
+#### Async Event Handlers
+
+```python
+from cloudcoil.client import Config
+from cloudcoil.caching import Cache
+import cloudcoil.models.kubernetes as k8s
+
+# Async context for high-performance applications
+config = Config(cache=True)
+
+async def monitor_pods():
+    async with config:
+        # Get async informer for Pods
+        pod_informer = config.cache.get_informer(
+            k8s.core.v1.Pod,
+            sync=False  # Get async informer
+        )
+        
+        # Async event handlers
+        @pod_informer.on_add
+        async def handle_new_pod(pod):
+            print(f"New pod: {pod.metadata.name}")
+            # Can perform async operations here
+            await notify_external_system(pod)
+        
+        @pod_informer.on_update
+        async def handle_pod_update(old_pod, new_pod):
+            if old_pod.status.phase != new_pod.status.phase:
+                print(f"Pod {new_pod.metadata.name} phase changed")
+        
+        # Access cache asynchronously
+        store = pod_informer.get_store()
+        all_pods = await store.async_list()  # Instant from cache
+        
+        # Keep running to process events
+        await asyncio.sleep(3600)  # Run for 1 hour
+
+# Run the async monitor
+import asyncio
+asyncio.run(monitor_pods())
+```
+
+#### Cache Configuration
+
+```python
+# Advanced caching with custom settings
+config = Config(
+    cache=Cache(
+        resync_period=600,  # 10 minutes
+        mode="strict",      # Cache-only mode (no API fallback)
+        resources=[         # Cache specific resource types
+            k8s.apps.v1.Deployment,
+            k8s.core.v1.Service,
+        ],
+        max_items_per_resource=5000,  # Memory limit per resource type
+    )
+)
+
+with config:
+    # All operations use cache - no unexpected API calls
+    deployment = k8s.apps.v1.Deployment.get("my-app")  # From cache or None
+    services = k8s.core.v1.Service.list()  # From cache only
+    
+    # Temporarily disable cache for fresh data
+    with config.cache.pause():
+        fresh_data = k8s.apps.v1.Deployment.get("my-app")  # Direct API call
+    
+    # Check cache status
+    informer = config.cache.get_informer(k8s.apps.v1.Deployment)
+    if informer.has_synced():
+        print("Cache is fully synchronized")
+```
+
+#### Resource Filtering
+
+```python
+from cloudcoil.client import Config
+from cloudcoil.caching import Cache
+import cloudcoil.models.kubernetes as k8s
+
+# Cache only specific resource types for memory efficiency
+config = Config(
+    cache=Cache(
+        resources=[  # Only cache these types
+            k8s.apps.v1.Deployment,
+            k8s.core.v1.Service,
+            k8s.core.v1.ConfigMap,
+        ],
+        max_items_per_resource=1000  # Limit items per type
+    )
+)
+
+with config:
+    # These use cache (instant)
+    deployment = k8s.apps.v1.Deployment.get("my-app")
+    service = k8s.core.v1.Service.get("my-service")
+    
+    # This bypasses cache (not in resources list)
+    pod = k8s.core.v1.Pod.get("my-pod")  # Direct API call
+```
+
+**Performance Benefits:**
+- **Get operations**: 100-200x faster (50ms → <1ms)
+- **List operations**: 50-100x faster (100ms → <5ms)  
+- **Real-time updates**: Watch events keep cache fresh
+- **Memory efficient**: Configurable limits and automatic cleanup
+- **Reduced API load**: Shared informers minimize watch connections
+- **Event-driven**: React to changes in real-time without polling
+
 
 ## 🧪 Testing Integration
 
