@@ -9,7 +9,19 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, Literal, Optional, Type, TypeVar, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import httpx
 import yaml
@@ -17,6 +29,9 @@ import yaml
 from cloudcoil._context import context
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
 from cloudcoil.resources import GVK, Resource
+
+if TYPE_CHECKING:
+    from cloudcoil.caching import Cache
 from cloudcoil.version import __version__
 
 logger = logging.getLogger(__name__)
@@ -116,6 +131,7 @@ class Config:
         keyfile: Path | None = None,
         context: str | None = None,
         skip_verify: bool = False,
+        cache: Union[bool, "Cache"] = False,
     ) -> None:
         self.server = None
         self.namespace = "default"
@@ -125,6 +141,7 @@ class Config:
         self.keyfile = None
         self.token = None
         self.skip_verify = False
+        self.kubeconfig_path = None  # Store original kubeconfig path
         tempdir = tempfile.TemporaryDirectory()
         kubeconfig = kubeconfig or os.environ.get("KUBECONFIG")
         if kubeconfig:
@@ -137,6 +154,7 @@ class Config:
             logger.debug("Using default kubeconfig: %s", kubeconfig)
 
         if kubeconfig.is_file():
+            self.kubeconfig_path = kubeconfig  # Store the kubeconfig path
             logger.debug("Loading kubeconfig from: %s", kubeconfig)
             kubeconfig_data = yaml.safe_load(kubeconfig.read_text())
             if "clusters" not in kubeconfig_data:
@@ -282,6 +300,24 @@ class Config:
         )
         self._rest_mapping: dict[GVK, Any] = {}
 
+        # Parse cache parameter
+        from cloudcoil.caching import Cache
+        from cloudcoil.caching._factory import SharedInformerFactory
+
+        if cache is True:
+            self.cache = Cache()  # Use defaults
+        elif cache is False:
+            self.cache = Cache(enabled=False)
+        elif isinstance(cache, Cache):
+            self.cache = cache
+        else:
+            raise ValueError("cache must be bool or Cache object")
+
+        # Create factory if cache enabled
+        if self.cache.enabled:
+            factory = SharedInformerFactory(self, self.cache)
+            self.cache.set_factory(factory)
+
     def _create_rest_mapper(self):
         logger.debug("Fetching Kubernetes version")
         version_response = self.client.get("/version")
@@ -420,13 +456,17 @@ class Config:
                     subresources.append(subresource["name"].split("/", 1)[1])
 
     @overload
-    def client_for(self, resource: Type[T], sync: Literal[True] = True) -> APIClient[T]: ...
+    def client_for(
+        self, resource: Type[T], sync: Literal[True] = True, _skip_cache: bool = False
+    ) -> APIClient[T]: ...
 
     @overload
-    def client_for(self, resource: Type[T], sync: Literal[False] = False) -> AsyncAPIClient[T]: ...
+    def client_for(
+        self, resource: Type[T], sync: Literal[False] = False, _skip_cache: bool = False
+    ) -> AsyncAPIClient[T]: ...
 
     def client_for(
-        self, resource: Type[T], sync: Literal[False, True] = True
+        self, resource: Type[T], sync: Literal[False, True] = True, _skip_cache: bool = False
     ) -> APIClient[T] | AsyncAPIClient[T]:
         self.initialize()
         if not issubclass(resource, Resource):
@@ -438,7 +478,16 @@ class Config:
             raise ValueError(f"Resource with {gvk=} is not registered with the server")
 
         logger.debug("Creating %s client for %s", "sync" if sync else "async", gvk)
+
+        # Get cache informer if caching is enabled (but skip if called from informer creation to avoid recursion)
+        cache_informer = None
+        cache_mode: Literal["strict", "fallback"] = "fallback"
+        if self.cache.enabled and not _skip_cache:
+            cache_informer = self.cache.get_informer(resource, sync=sync)
+            cache_mode = self.cache.mode
+
         if sync:
+            # Sync APIClient doesn't support cache parameters - caching is handled at the resource level
             return APIClient(
                 api_version=gvk.api_version,
                 kind=resource,
@@ -456,6 +505,8 @@ class Config:
             subresources=self._rest_mapping[gvk]["subresources"],
             default_namespace=self.namespace,
             client=self.async_client,
+            cache_informer=cache_informer,
+            cache_mode=cache_mode,
         )
 
     def set_default(self) -> None:
@@ -478,12 +529,85 @@ class Config:
     def __enter__(self):
         self.initialize()
         context._enter(self)
+
+        if self.cache.enabled:
+            # Start cache synchronously
+            self.cache.start()
+            if self.cache.wait_for_sync:
+                if not self.cache.sync_wait_for_sync():
+                    if self.cache.mode == "strict":
+                        from cloudcoil.errors import APIError
+
+                        raise APIError(f"Cache failed to sync within {self.cache.sync_timeout}s")
+                    logger.warning("Cache sync timeout, continuing with fallback")
         return self
 
     def __exit__(self, *_):
+        if self.cache.enabled:
+            self.cache.stop()
+        context._exit()
+
+    async def __aenter__(self):
+        """Async enter - starts cache asynchronously."""
+        self.initialize()
+        context._enter(self)
+
+        if self.cache.enabled:
+            await self.cache.async_start()
+            if self.cache.wait_for_sync:
+                if not await self.cache.async_wait_for_sync():
+                    if self.cache.mode == "strict":
+                        from cloudcoil.errors import APIError
+
+                        raise APIError(f"Cache failed to sync within {self.cache.sync_timeout}s")
+                    logger.warning("Cache sync timeout, continuing with fallback")
+        return self
+
+    async def __aexit__(self, *_):
+        """Async exit - stops cache asynchronously."""
+        if self.cache.enabled:
+            await self.cache.async_stop()
         context._exit()
 
     def refresh_api_resources(self) -> None:
         logger.debug("Refreshing API resource mapping")
         self._rest_mapping.clear()
         self._create_rest_mapper()
+
+    def clone(self, **overrides) -> "Config":
+        """Create a new Config instance with the same parameters but with specified overrides.
+
+        This method creates a new Config using the original kubeconfig path if available,
+        ensuring proper certificate handling, and applies any specified overrides.
+
+        Args:
+            **overrides: Any Config constructor parameters to override
+
+        Returns:
+            A new Config instance with the same base configuration but with overrides applied
+        """
+        # If we have the original kubeconfig path, use it to ensure proper cert handling
+        base_params: Dict[str, Any]
+        if hasattr(self, "kubeconfig_path") and self.kubeconfig_path:
+            base_params = {"kubeconfig": self.kubeconfig_path}
+        else:
+            # Fall back to copying current parameters
+            base_params = {
+                "server": self.server,
+                "namespace": self.namespace,
+                "token": self.token,
+                "auth": self.auth,
+                "cafile": self.cafile,
+                "certfile": self.certfile,
+                "keyfile": self.keyfile,
+                "skip_verify": self.skip_verify,
+            }
+
+        # Apply overrides
+        base_params.update(overrides)
+
+        return Config(**base_params)
+
+    def with_cache(self, cache: Union[bool, "Cache"]) -> "Config":
+        """Create a new Config instance with the same parameters but different cache settings."""
+        return self.clone(cache=cache)
