@@ -1,16 +1,30 @@
 """Cache implementation for informer system."""
 
+import asyncio
 import logging
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Generator, Optional, Type, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    overload,
+)
 
 from ._types import Cache as CacheConfig
-from ._types import CacheStatus
+from ._types import CacheStatus, InformerOptions
 
 if TYPE_CHECKING:
+    from cloudcoil.client._api_client import APIClient, AsyncAPIClient
     from cloudcoil.resources import Resource
 
-    from ._factory import SharedInformerFactory
     from ._informer import AsyncInformer
     from ._sync_informer import SyncInformer
 
@@ -32,31 +46,89 @@ class Cache(CacheConfig):
     def __init__(self, **data: Any) -> None:
         """Initialize cache with configuration."""
         super().__init__(**data)
-        self._factory: Optional["SharedInformerFactory"] = None
+        self._client_factory: Optional[
+            Callable[[Type["Resource"], bool], Union["APIClient", "AsyncAPIClient"]]
+        ] = None
+        self._async_informers: Dict[str, "AsyncInformer"] = {}
+        self._sync_informers: Dict[str, "SyncInformer"] = {}
         self._started: bool = False
+        self._start_tasks: List[asyncio.Task] = []  # Track informer start tasks
         self._pause_count: int = 0  # For nested pause context managers
         self._original_enabled: Optional[bool] = None  # Store original state
 
-    def set_factory(self, factory: "SharedInformerFactory") -> None:
-        """Set the informer factory (called by Config)."""
-        self._factory = factory
+    def set_client_factory(
+        self, factory: Callable[[Type["Resource"], bool], Union["APIClient", "AsyncAPIClient"]]
+    ) -> None:
+        """Set the client factory function (called by Config)."""
+        self._client_factory = factory
+
+    @overload
+    def _create_client(self, resource_type: Type[T], sync: Literal[True]) -> "APIClient[T]": ...
+
+    @overload
+    def _create_client(
+        self, resource_type: Type[T], sync: Literal[False]
+    ) -> "AsyncAPIClient[T]": ...
+
+    def _create_client(
+        self, resource_type: Type[T], sync: bool
+    ) -> Union["APIClient[T]", "AsyncAPIClient[T]"]:
+        """Create a properly typed client using the factory."""
+        if not self._client_factory:
+            raise RuntimeError("Client factory not set")
+        return self._client_factory(resource_type, sync)  # type: ignore[return-value]
 
     # Async methods (CloudCoil async_ prefix pattern)
     async def async_start(self) -> None:
         """Start all informers asynchronously."""
         if not self.enabled or self._started:
             return
-        if self._factory:
-            await self._factory.async_start()
-            self._started = True
-            logger.debug("Cache started")
+
+        self._started = True
+
+        # Pre-create informers for configured resources
+        if self.resources:
+            logger.debug("Pre-creating informers for %d configured resources", len(self.resources))
+            for resource_type in self.resources:
+                # This will create the informer if it doesn't exist
+                self.get_informer(resource_type, sync=False)
+
+        # Start all async informers and track tasks
+        self._start_tasks = []
+        if self._async_informers:
+            from ._informer import AsyncInformer
+
+            for key, informer in self._async_informers.items():
+                if isinstance(informer, AsyncInformer):
+                    logger.debug("Starting informer for %s", key)
+                    task = asyncio.create_task(informer._start())
+                    self._start_tasks.append(task)
+
+            # Wait for all informers to start
+            if self._start_tasks:
+                await asyncio.gather(*self._start_tasks, return_exceptions=True)
+
+        logger.debug("Cache started with %d async informers", len(self._async_informers))
 
     async def async_stop(self) -> None:
         """Stop all informers asynchronously."""
-        if self._factory and self._started:
-            await self._factory.async_stop()
-            self._started = False
-            logger.debug("Cache stopped")
+        if not self._started:
+            return
+
+        self._started = False
+
+        # Stop all async informers
+        if self._async_informers:
+            from ._informer import AsyncInformer
+
+            tasks = []
+            for informer in self._async_informers.values():
+                if isinstance(informer, AsyncInformer):
+                    tasks.append(informer._stop())
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+        logger.debug("Cache stopped")
 
     async def async_wait(self, timeout: Optional[float] = None) -> bool:
         """Wait for cache to be ready asynchronously.
@@ -67,25 +139,77 @@ class Cache(CacheConfig):
         Returns:
             True if ready, False if timeout
         """
-        if not self.enabled or not self._factory:
+        if not self.enabled:
             return True
+
+        # If resources are configured but no informers created yet, that's not ready
+        if self.resources and not self._async_informers and not self._sync_informers:
+            logger.warning("Cache has configured resources but no informers created yet")
+            return False
+
+        # If no informers at all and no resources configured, that's OK
+        if not self._async_informers and not self._sync_informers and not self.resources:
+            return True
+
         timeout = timeout or self.sync_timeout
-        return await self._factory.async_wait_for_sync(timeout)
+
+        # First wait for any pending start tasks
+        if self._start_tasks:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*self._start_tasks, return_exceptions=True),
+                    timeout=timeout / 2,  # Use half timeout for starting
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Timeout waiting for informers to start")
+                return False
+
+        # Then wait for all async informers to sync
+        from ._informer import AsyncInformer
+
+        sync_tasks = []
+        for informer in self._async_informers.values():
+            if isinstance(informer, AsyncInformer):
+                sync_tasks.append(informer._wait_for_sync(timeout))
+
+        if sync_tasks:
+            results = await asyncio.gather(*sync_tasks, return_exceptions=True)
+            return all(r is True for r in results if not isinstance(r, Exception))
+
+        return True
 
     # Synchronous methods (verb-based naming)
     def start(self) -> None:
         """Start all informers synchronously (blocks until started)."""
         if not self.enabled or self._started:
             return
-        if self._factory:
-            self._factory.start()
-            self._started = True
+
+        self._started = True
+
+        # Start all sync informers
+        from ._sync_informer import SyncInformer
+
+        for informer in self._sync_informers.values():
+            if isinstance(informer, SyncInformer):
+                informer._start()
+
+        logger.debug("Cache started with %d sync informers", len(self._sync_informers))
 
     def stop(self) -> None:
         """Stop all informers synchronously (blocks until stopped)."""
-        if self._factory and self._started:
-            self._factory.stop()
-            self._started = False
+        if not self._started:
+            return
+
+        self._started = False
+
+        # Stop all sync informers
+        from ._sync_informer import SyncInformer
+
+        for informer in self._sync_informers.values():
+            if isinstance(informer, SyncInformer):
+                informer._stop()
+
+        logger.debug("Cache stopped")
 
     def wait(self, timeout: Optional[float] = None) -> bool:
         """Wait for cache to be ready synchronously.
@@ -96,19 +220,46 @@ class Cache(CacheConfig):
         Returns:
             True if ready, False if timeout
         """
-        if not self.enabled or not self._factory:
+        if not self.enabled or not self._sync_informers:
             return True
+
         timeout = timeout or self.sync_timeout
-        return self._factory.wait_for_sync(timeout)
+
+        # Wait for all sync informers to sync
+        import time
+
+        from ._sync_informer import SyncInformer
+
+        start_time = time.time()
+        for informer in self._sync_informers.values():
+            if isinstance(informer, SyncInformer):
+                remaining = max(0, timeout - (time.time() - start_time))
+                if not informer._wait_for_sync(remaining):
+                    return False
+
+        return True
 
     # Non-blocking methods (no I/O)
     def ready(self) -> bool:
         """Check if cache is synced and ready (non-blocking check)."""
         if not self.enabled:
             return True
-        if not self._factory or not self._started:
+        if not self._started:
             return False
-        return self._factory.has_synced()
+
+        # Check if all informers have synced
+        from ._informer import AsyncInformer
+        from ._sync_informer import SyncInformer
+
+        for informer in self._async_informers.values():
+            if isinstance(informer, AsyncInformer) and not informer._has_synced():
+                return False
+
+        for informer in self._sync_informers.values():
+            if isinstance(informer, SyncInformer) and not informer._has_synced():
+                return False
+
+        return True
 
     def get_informer(
         self,
@@ -116,7 +267,7 @@ class Cache(CacheConfig):
         sync: bool = False,
         namespace: Optional[str] = None,
     ) -> Optional[Union["AsyncInformer[T]", "SyncInformer[T]"]]:
-        """Get informer for a specific resource type (no I/O needed).
+        """Get or create informer for a specific resource type.
 
         Args:
             resource_type: The resource type
@@ -126,9 +277,78 @@ class Cache(CacheConfig):
         Returns:
             The informer instance, or None if not available
         """
-        if not self.enabled or not self._factory:
+        if not self.enabled or not self._client_factory:
             return None
-        return self._factory.get_informer(resource_type, sync=sync, namespace=namespace)
+
+        # Check if we should cache this resource
+        if not self.should_cache(resource_type):
+            return None
+
+        # Create cache key
+        key = f"{resource_type.__module__}.{resource_type.__name__}"
+        if namespace:
+            key += f":{namespace}"
+
+        if sync:
+            # Get or create sync informer
+            if key not in self._sync_informers:
+                from ._sync_informer import SyncInformer
+
+                # Create sync client using factory
+                client = self._create_client(resource_type, True)
+                options = self._create_options(resource_type, namespace)
+
+                informer = SyncInformer(client, options)
+                self._sync_informers[key] = informer
+
+                # Auto-start if cache is running
+                if self._started:
+                    informer._start()
+                    # Note: Sync informers start synchronously, no task tracking needed
+
+            return self._sync_informers[key]  # type: ignore[return-value]
+        else:
+            # Get or create async informer
+            if key not in self._async_informers:
+                from ._informer import AsyncInformer
+
+                # Create async client using factory
+                client = self._create_client(resource_type, False)
+                options = self._create_options(resource_type, namespace)
+
+                informer = AsyncInformer(client, options)
+                self._async_informers[key] = informer
+
+                # Auto-start if cache is running
+                if self._started:
+                    task = asyncio.create_task(informer._start())
+                    self._start_tasks.append(task)
+
+                    # Also create a task to wait for initial sync
+                    async def wait_for_sync():
+                        try:
+                            await task  # Wait for start to complete
+                            await informer._wait_for_sync(self.sync_timeout)
+                        except Exception as e:
+                            logger.error("Error starting informer for %s: %s", key, e)
+
+                    asyncio.create_task(wait_for_sync())
+
+            return self._async_informers[key]  # type: ignore[return-value]
+
+    def _create_options(
+        self,
+        resource_type: Type["Resource"],
+        namespace: Optional[str],
+    ) -> InformerOptions:
+        """Create informer options for resource type."""
+        return InformerOptions(
+            resync_period=self.resync_period,
+            namespace=namespace,
+            all_namespaces=namespace is None,
+            label_selector=self.label_selector,
+            field_selector=self.field_selector,
+        )
 
     # Context managers
     @contextmanager
@@ -177,13 +397,20 @@ class Cache(CacheConfig):
         if not self.enabled:
             return CacheStatus(enabled=False)
 
-        if not self._factory:
+        if not self._client_factory:
             return CacheStatus(enabled=True, ready=False)
+
+        # Count total resources across all informers
+        resource_count = 0
+        for informer in self._async_informers.values():
+            resource_count += informer._store.size()
+        for informer in self._sync_informers.values():
+            resource_count += informer._store.size()
 
         return CacheStatus(
             enabled=True,
             started=self._started,
             ready=self.ready(),
-            resource_count=self._factory.resource_count(),
-            informer_count=len(self._factory._async_informers) + len(self._factory._sync_informers),
+            resource_count=resource_count,
+            informer_count=len(self._async_informers) + len(self._sync_informers),
         )
