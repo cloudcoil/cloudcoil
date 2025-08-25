@@ -301,7 +301,7 @@ class AsyncInformer(Generic[T]):
 
     async def _handle_initial_items(self, items: List[T], resource_version: str) -> None:
         """Handle initial list of items."""
-        await self._store.replace(items)
+        await self._store.async_replace(items)
         self._sync_event.set()
         logger.info(
             "Initial sync complete for %s: %d items", self._client.kind.__name__, len(items)
@@ -323,19 +323,19 @@ class AsyncInformer(Generic[T]):
 
     async def _handle_add(self, obj: T) -> None:
         """Handle resource add."""
-        await self._store.add(obj)
+        await self._store.async_add(obj)
         await self._dispatcher.dispatch_add(obj)
 
     async def _handle_update(self, obj: T) -> None:
         """Handle resource update."""
         key = self._get_key(obj)
         old_obj = self._store.get(key) if key else None
-        await self._store.add(obj)  # add acts as update
+        await self._store.async_add(obj)  # add acts as update
         await self._dispatcher.dispatch_update(old_obj, obj)
 
     async def _handle_delete(self, obj: T) -> None:
         """Handle resource delete."""
-        await self._store.delete(obj)
+        await self._store.async_delete(obj)
         await self._dispatcher.dispatch_delete(obj)
 
     def _get_key(self, obj: T) -> Optional[str]:
@@ -618,7 +618,7 @@ class SyncInformer(Generic[T]):
 
     def _handle_initial_items(self, items: List[T], resource_version: str) -> None:
         """Handle initial list of items."""
-        self._store.sync_replace(items)  # Use sync version
+        self._store.replace(items)  # Use sync version
         self._sync_event.set()
         logger.info(
             "Initial sync complete for %s: %d items", self._client.kind.__name__, len(items)
@@ -639,19 +639,19 @@ class SyncInformer(Generic[T]):
 
     def _handle_add(self, obj: T) -> None:
         """Handle resource add."""
-        self._store.sync_add(obj)
+        self._store.add(obj)
         self._dispatcher.dispatch_add(obj)
 
     def _handle_update(self, obj: T) -> None:
         """Handle resource update."""
         key = self._get_key(obj)
         old_obj = self._store.get(key) if key else None
-        self._store.sync_add(obj)  # add works as update too
+        self._store.add(obj)  # add works as update too
         self._dispatcher.dispatch_update(old_obj, obj)
 
     def _handle_delete(self, obj: T) -> None:
         """Handle resource delete."""
-        self._store.sync_delete(obj)
+        self._store.delete(obj)
         self._dispatcher.dispatch_delete(obj)
 
     def _get_key(self, obj: T) -> Optional[str]:

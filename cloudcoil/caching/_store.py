@@ -126,7 +126,7 @@ class ConcurrentStore(Generic[T]):
             raise KeyError(f"Index {index_name} not found")
         return list(self._indices[index_name].keys())
 
-    async def add(self, obj: T) -> None:
+    async def async_add(self, obj: T) -> None:
         """Add or update an object in the store (async-safe).
 
         Args:
@@ -135,7 +135,7 @@ class ConcurrentStore(Generic[T]):
         async with self._async_lock:
             self._add_internal(obj)
 
-    def sync_add(self, obj: T) -> None:
+    def add(self, obj: T) -> None:
         """Add or update an object in the store (thread-safe for sync wrapper).
 
         Args:
@@ -233,7 +233,7 @@ class ConcurrentStore(Generic[T]):
         """
         return list(self._items.keys())
 
-    async def delete(self, obj: T) -> None:
+    async def async_delete(self, obj: T) -> None:
         """Delete an object from the store (async-safe).
 
         Args:
@@ -244,7 +244,7 @@ class ConcurrentStore(Generic[T]):
             if key:
                 self._delete_internal(key)
 
-    def sync_delete(self, obj: T) -> None:
+    def delete(self, obj: T) -> None:
         """Delete an object from the store (thread-safe for sync wrapper).
 
         Args:
@@ -262,7 +262,7 @@ class ConcurrentStore(Generic[T]):
             del self._items[key]
             self._update_indices(key, obj, None)
 
-    async def replace(self, items: List[T]) -> None:
+    async def async_replace(self, items: List[T]) -> None:
         """Replace all items in the store (async-safe).
 
         Args:
@@ -271,7 +271,7 @@ class ConcurrentStore(Generic[T]):
         async with self._async_lock:
             self._replace_internal(items)
 
-    def sync_replace(self, items: List[T]) -> None:
+    def replace(self, items: List[T]) -> None:
         """Replace all items in the store (thread-safe for sync wrapper).
 
         Args:

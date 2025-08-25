@@ -87,7 +87,7 @@ class Cache(CacheConfig):
             self._factory.stop()
             self._started = False
 
-    def sync_wait_for_sync(self, timeout: Optional[float] = None) -> bool:
+    def wait_for_cache_sync(self, timeout: Optional[float] = None) -> bool:
         """Wait for cache to sync synchronously.
 
         Args:
