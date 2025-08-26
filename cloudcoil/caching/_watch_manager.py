@@ -131,6 +131,7 @@ class _AsyncWatchManager(Generic[T]):
             label_selector=self._options.label_selector,
             field_selector=self._options.field_selector,
             resource_version=self._resource_version,
+            timeout_seconds=self._options.timeout_seconds,
         ):
             if self._stop_event.is_set():
                 break
@@ -263,6 +264,7 @@ class _SyncWatchManager(Generic[T]):
             label_selector=self._options.label_selector,
             field_selector=self._options.field_selector,
             resource_version=self._resource_version,
+            timeout_seconds=self._options.timeout_seconds,
         ):
             if self._stop_event.is_set():
                 break
