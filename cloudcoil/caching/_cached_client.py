@@ -19,7 +19,16 @@ T = TypeVar("T", bound=Resource)
 
 
 class CachedClient(APIClient[T]):
-    """Sync client wrapper that uses informer cache for read operations."""
+    """Sync client wrapper that uses informer cache for read operations.
+
+    This client extends the base APIClient to use an informer's cache for get/list
+    operations, improving performance by avoiding unnecessary API calls.
+
+    Behavioral differences from base client:
+    - In strict mode: Cache misses raise ResourceNotFound (same as base client)
+    - In non-strict mode: Cache misses fall back to API calls
+    - List operations return empty results if cache not synced in strict mode
+    """
 
     def __init__(
         self,
@@ -44,7 +53,9 @@ class CachedClient(APIClient[T]):
             namespaced: Whether resource is namespaced
             client: The httpx.Client instance
             informer: The informer providing cached data
-            strict: If True, only use cache (never fall back to API)
+            strict: If True, only use cache (never fall back to API).
+                In strict mode, cache misses raise ResourceNotFound instead of
+                falling back to the API, matching base client behavior
         """
         # Initialize parent with all required attributes
         super().__init__(
@@ -69,18 +80,18 @@ class CachedClient(APIClient[T]):
         # Try cache first
         cached = self._informer.get(name, namespace)
         if cached is not None:
-            logger.debug("Cache hit for %s/%s", namespace or "default", name)
+            logger.debug("Cache hit for %s/%s", namespace, name)
             return cached
 
         # In strict mode, raise error like base client would
         if self._strict:
-            logger.debug("Cache miss for %s/%s (strict mode)", namespace or "default", name)
+            logger.debug("Cache miss for %s/%s (strict mode)", namespace, name)
             raise ResourceNotFound(
-                f"Resource kind='{self.kind.gvk().kind}', namespace={namespace or 'default'}, name={name} not found in cache"
+                f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found in cache"
             )
 
         # Fall back to API using parent's implementation
-        logger.debug("Cache miss for %s/%s, fetching from API", namespace or "default", name)
+        logger.debug("Cache miss for %s/%s, fetching from API", namespace, name)
         return super().get(name, namespace)
 
     def list(
@@ -136,7 +147,16 @@ class CachedClient(APIClient[T]):
 
 
 class AsyncCachedClient(AsyncAPIClient[T]):
-    """Async client wrapper that uses informer cache for read operations."""
+    """Async client wrapper that uses informer cache for read operations.
+
+    This client extends the base AsyncAPIClient to use an informer's cache for get/list
+    operations, improving performance by avoiding unnecessary API calls.
+
+    Behavioral differences from base client:
+    - In strict mode: Cache misses raise ResourceNotFound (same as base client)
+    - In non-strict mode: Cache misses fall back to API calls
+    - List operations return empty results if cache not synced in strict mode
+    """
 
     def __init__(
         self,
@@ -161,7 +181,9 @@ class AsyncCachedClient(AsyncAPIClient[T]):
             namespaced: Whether resource is namespaced
             client: The httpx.AsyncClient instance
             informer: The async informer providing cached data
-            strict: If True, only use cache (never fall back to API)
+            strict: If True, only use cache (never fall back to API).
+                In strict mode, cache misses raise ResourceNotFound instead of
+                falling back to the API, matching base client behavior
         """
         # Initialize parent with all required attributes
         super().__init__(
@@ -186,18 +208,18 @@ class AsyncCachedClient(AsyncAPIClient[T]):
         # Try cache first (cache reads are synchronous even in async informer)
         cached = self._informer.get(name, namespace)
         if cached is not None:
-            logger.debug("Cache hit for %s/%s", namespace or "default", name)
+            logger.debug("Cache hit for %s/%s", namespace, name)
             return cached
 
         # In strict mode, raise error like base client would
         if self._strict:
-            logger.debug("Cache miss for %s/%s (strict mode)", namespace or "default", name)
+            logger.debug("Cache miss for %s/%s (strict mode)", namespace, name)
             raise ResourceNotFound(
-                f"Resource kind='{self.kind.gvk().kind}', namespace={namespace or 'default'}, name={name} not found in cache"
+                f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found in cache"
             )
 
         # Fall back to API using parent's implementation
-        logger.debug("Cache miss for %s/%s, fetching from API", namespace or "default", name)
+        logger.debug("Cache miss for %s/%s, fetching from API", namespace, name)
         return await super().get(name, namespace)
 
     async def list(
