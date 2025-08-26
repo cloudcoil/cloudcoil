@@ -11,7 +11,6 @@ from typing import (
     Generic,
     Iterator,
     Literal,
-    Optional,
     Type,
     TypeVar,
 )
@@ -631,37 +630,14 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         default_namespace: str,
         namespaced: bool,
         client: httpx.AsyncClient,
-        cache_informer: Optional[Any] = None,  # AsyncInformer type
-        cache_mode: Literal["strict", "fallback"] = "fallback",
     ) -> None:
         super().__init__(api_version, kind, resource, subresources, default_namespace, namespaced)
         self._client = client
-        self.cache_informer = cache_informer
-        self.cache_mode = cache_mode
 
     async def get(self, name: str, namespace: str | None = None) -> T:
         namespace = namespace or self.default_namespace
-
-        # Try cache first if available
-        if self.cache_informer and self.cache_informer.has_synced():
-            obj = self.cache_informer.get(name, namespace)
-            if obj:
-                logger.debug("Cache hit for %s/%s", namespace, name)
-                return obj
-
-            # Cache miss - behavior depends on mode
-            if self.cache_mode == "strict":
-                logger.debug("Cache miss for %s/%s in strict mode", namespace, name)
-                raise ResourceNotFound(
-                    f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found in cache"
-                )
-
-            # Fallback mode - try API
-            logger.debug("Cache miss for %s/%s, falling back to API", namespace, name)
-
-        # No cache or fallback mode - fetch from API
         url = self._build_url(name=name, namespace=namespace)
-        logger.debug("Getting resource from API: %s", url)
+        logger.debug("Getting resource: %s", url)
         response = await self._client.get(url)
         return self._handle_get_response(response, namespace, name)
 
@@ -682,14 +658,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         response = await self._client.post(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
-        created = self._handle_create_response(response)
-
-        # Update cache with created resource
-        if self.cache_informer and not dry_run:
-            if hasattr(self.cache_informer, "_handle_add"):
-                await self.cache_informer._handle_add(created)
-
-        return created
+        return self._handle_create_response(response)
 
     async def update(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
@@ -709,14 +678,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         response = await self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True), params=params
         )
-        updated = self._handle_create_response(response)
-
-        # Update cache with updated resource
-        if self.cache_informer and not dry_run:
-            if hasattr(self.cache_informer, "_handle_update"):
-                await self.cache_informer._handle_update(updated)
-
-        return updated
+        return self._handle_create_response(response)
 
     async def update_status(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
@@ -766,25 +728,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             grace_period_seconds,
         )
         response = await self._client.delete(url, params=params)
-        result = self._handle_delete_response(response, namespace, name)
-
-        # Update cache by removing deleted resource
-        if self.cache_informer and not dry_run:
-            if hasattr(self.cache_informer, "_handle_delete"):
-                # For delete, we need to pass the deleted object or construct one with metadata
-                if isinstance(result, self.kind):
-                    await self.cache_informer._handle_delete(result)
-                else:
-                    # Create a minimal object with just metadata for cache removal
-                    from cloudcoil.apimachinery import ObjectMeta
-
-                    metadata = ObjectMeta(name=name, namespace=namespace)
-                    deleted_obj = self.kind(
-                        api_version=self.api_version, kind=self.kind.gvk().kind, metadata=metadata
-                    )
-                    await self.cache_informer._handle_delete(deleted_obj)
-
-        return result
+        return self._handle_delete_response(response, namespace, name)
 
     async def remove(
         self,
@@ -817,33 +761,6 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         namespace = namespace or self.default_namespace
         if all_namespaces:
             namespace = None
-
-        # Try cache first if available and not paging
-        if (
-            self.cache_informer
-            and self.cache_informer.has_synced()
-            and not continue_
-            and limit == DEFAULT_PAGE_LIMIT
-        ):
-            logger.debug("Using cache for list operation")
-            cached_items = self.cache_informer.list(
-                namespace=namespace,
-                label_selector=label_selector,
-                field_selector=field_selector,
-            )
-
-            # Create a ResourceList from cached items
-            from cloudcoil.apimachinery import ListMeta
-
-            return ResourceList(
-                api_version=self.api_version,
-                kind=f"{self.kind.__name__}List",
-                items=cached_items,
-                metadata=ListMeta(
-                    resource_version="",  # Cache doesn't track this
-                    continue_="",
-                ),
-            )
 
         url = self._build_url(namespace=namespace)
         params: dict[str, str | int] = {}

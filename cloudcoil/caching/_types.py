@@ -137,7 +137,6 @@ class Cache(BaseModel):
     )
 
     # Runtime state (set internally)
-    _factory: Optional[Any] = PrivateAttr(default=None)  # SharedInformerFactory
     _started: bool = PrivateAttr(default=False)
 
     @model_validator(mode="after")

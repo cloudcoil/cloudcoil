@@ -1,13 +1,13 @@
 """CloudCoil Caching - Efficient client-side caching for Kubernetes resources.
 
 This module provides a caching system powered by informers that watch Kubernetes
-resources and maintain a local cache, similar to client-go's SharedInformerFactory.
+resources and maintain a local cache, similar to client-go's informer pattern.
 
 Key components:
 - Cache: Configuration and control for the informer system
 - AsyncInformer/SyncInformer: Watch and cache individual resource types
 - ConcurrentStore: Thread-safe storage with custom indexing
-- SharedInformerFactory: Manages informer lifecycle
+- CachedClient/AsyncCachedClient: Client wrappers that use cache for reads
 
 Example usage:
 
@@ -39,6 +39,7 @@ Example usage:
 """
 
 from ._cache import Cache
+from ._cached_client import AsyncCachedClient, CachedClient
 from ._informer import AsyncInformer
 from ._store import ConcurrentStore
 from ._sync_informer import SyncInformer
@@ -51,6 +52,9 @@ __all__ = [
     # Informer types (for type hints)
     "AsyncInformer",
     "SyncInformer",
+    # Cached clients
+    "CachedClient",
+    "AsyncCachedClient",
     # Store for direct cache access
     "ConcurrentStore",
 ]
