@@ -10,7 +10,6 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -27,11 +26,11 @@ import httpx
 import yaml
 
 from cloudcoil._context import context
+from cloudcoil.caching import Cache
+from cloudcoil.caching._cached_client import AsyncCachedClient, CachedClient
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
+from cloudcoil.errors import APIError
 from cloudcoil.resources import GVK, Resource
-
-if TYPE_CHECKING:
-    from cloudcoil.caching import Cache
 from cloudcoil.version import __version__
 
 logger = logging.getLogger(__name__)
@@ -301,8 +300,6 @@ class Config:
         self._rest_mapping: dict[GVK, Any] = {}
 
         # Parse cache parameter
-        from cloudcoil.caching import Cache
-
         if cache is True:
             self.cache = Cache()  # Use defaults
         elif cache is False:
@@ -500,9 +497,6 @@ class Config:
 
             informer = self.cache.get_informer(resource, sync=sync)
             if informer:
-                # Import cached clients
-                from cloudcoil.caching._cached_client import AsyncCachedClient, CachedClient
-
                 strict = self.cache.mode == "strict"
                 if sync:
                     return CachedClient(
@@ -577,8 +571,6 @@ class Config:
             if self.cache.wait_for_sync:
                 if not self.cache.wait():
                     if self.cache.mode == "strict":
-                        from cloudcoil.errors import APIError
-
                         raise APIError(f"Cache failed to sync within {self.cache.sync_timeout}s")
                     logger.warning("Cache sync timeout, continuing with fallback")
         return self
@@ -598,8 +590,6 @@ class Config:
             if self.cache.wait_for_sync:
                 if not await self.cache.async_wait():
                     if self.cache.mode == "strict":
-                        from cloudcoil.errors import APIError
-
                         raise APIError(f"Cache failed to sync within {self.cache.sync_timeout}s")
                     logger.warning("Cache sync timeout, continuing with fallback")
         return self
