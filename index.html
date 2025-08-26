@@ -1,0 +1,1945 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Cloud-native made easy with Python">
+      
+      
+        <meta name="author" content="Sambhav Kothari">
+      
+      
+      
+      
+        <link rel="next" href="api/">
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.50">
+    
+    
+      
+        <title>cloudcoil</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.a40c8224.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#cloudcoil" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="cloudcoil" class="md-header__button md-logo" aria-label="cloudcoil" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cloudcoil
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Home
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cloudcoil/cloudcoil" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudcoil/cloudcoil
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="." class="md-tabs__link">
+        
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="api/" class="md-tabs__link">
+        
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="cloudcoil" class="md-nav__button md-logo" aria-label="cloudcoil" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cloudcoil
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cloudcoil/cloudcoil" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8M97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudcoil/cloudcoil
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#support-the-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      🤝 Support the Project
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      ✨ Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔧 Installation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔌 Integrations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      💡 Examples
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="💡 Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reading-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reading Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building resources
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Building resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Models
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-fluent-builder-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the Fluent Builder API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-context-manager-builder-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the Context Manager Builder API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mixing-builder-styles" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mixing Builder Styles
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modifying-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modifying Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deleting-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deleting Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#watching-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Watching Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#waiting-for-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Waiting for Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dynamic-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dynamic Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-parsing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Parsing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#context-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Context Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-performance-with-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      ⚡ High Performance with Caching
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="⚡ High Performance with Caching">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#event-handlers-with-informers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Event Handlers with Informers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#async-event-handlers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Async Event Handlers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cache Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Filtering
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      🧪 Testing Integration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🧪 Testing Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installation_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Usage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-clusters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Shared Clusters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parallel-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parallel Testing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-fixtures-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Fixtures API
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mypy-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      🛡️ MyPy Integration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      🏗️ Model Generation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🏗️ Model Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-the-cookiecutter-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the Cookiecutter Template
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codegen-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      Codegen Config
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      📚 Documentation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      📜 License
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stargazers-over-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      🌟 Stargazers over time
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="api/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    API Reference
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#support-the-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      🤝 Support the Project
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      ✨ Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔧 Installation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#integrations" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔌 Integrations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      💡 Examples
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="💡 Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reading-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reading Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#building-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building resources
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Building resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Models
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-fluent-builder-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the Fluent Builder API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-context-manager-builder-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the Context Manager Builder API
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mixing-builder-styles" class="md-nav__link">
+    <span class="md-ellipsis">
+      Mixing Builder Styles
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#creating-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modifying-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modifying Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deleting-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deleting Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#watching-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Watching Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#waiting-for-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Waiting for Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dynamic-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dynamic Resources
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-parsing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Parsing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#context-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      Context Management
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-performance-with-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      ⚡ High Performance with Caching
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="⚡ High Performance with Caching">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#event-handlers-with-informers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Event Handlers with Informers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#async-event-handlers" class="md-nav__link">
+    <span class="md-ellipsis">
+      Async Event Handlers
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cache-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cache Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Filtering
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      🧪 Testing Integration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🧪 Testing Integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#installation_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Installation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Usage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-clusters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Shared Clusters
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parallel-testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parallel Testing
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testing-fixtures-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Fixtures API
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mypy-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      🛡️ MyPy Integration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#model-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      🏗️ Model Generation
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="🏗️ Model Generation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#using-the-cookiecutter-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using the Cookiecutter Template
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codegen-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      Codegen Config
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      📚 Documentation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license" class="md-nav__link">
+    <span class="md-ellipsis">
+      📜 License
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stargazers-over-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      🌟 Stargazers over time
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="cloudcoil">cloudcoil</h1>
+<p>🚀 Cloud native operations made beautifully simple with Python</p>
+<p><a href="https://pypi.python.org/pypi/cloudcoil"><img alt="PyPI" src="https://img.shields.io/pypi/v/cloudcoil.svg" /></a>
+<a href="https://pepy.tech/project/cloudcoil"><img alt="Downloads" src="https://static.pepy.tech/badge/cloudcoil" /></a>
+<a href="https://opensource.org/license/apache-2-0/"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" /></a>
+<a href="https://github.com/cloudcoil/cloudcoil/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/cloudcoil/cloudcoil/actions/workflows/ci.yml/badge.svg" /></a></p>
+<blockquote>
+<p>Modern, async-first Kubernetes client with elegant Pythonic syntax and full type safety</p>
+</blockquote>
+<h2 id="support-the-project">🤝 Support the Project</h2>
+<p>If you find Cloudcoil useful, please consider giving it a star on GitHub! Your support helps the project grow and encourages continued development.</p>
+<p><a href="https://github.com/cloudcoil/cloudcoil"><img alt="Star on GitHub" src="https://img.shields.io/github/stars/cloudcoil/cloudcoil.svg?style=social" /></a></p>
+<h2 id="features">✨ Features</h2>
+<ul>
+<li>🔥 <strong>Elegant, Pythonic API</strong> - Feels natural to Python developers including fluent and context manager style resource builders</li>
+<li>⚡ <strong>Async First</strong> - Native async/await support for high performance</li>
+<li>🛡️ <strong>Type Safe</strong> - Full mypy support and runtime validation</li>
+<li>🧪 <strong>Testing Ready</strong> - Built-in pytest fixtures for K8s integration tests</li>
+<li>📦 <strong>Zero Config</strong> - Works with your existing kubeconfig</li>
+<li>🪶 <strong>Minimal Dependencies</strong> - Only requires httpx, pydantic, and pyyaml</li>
+</ul>
+<h2 id="installation">🔧 Installation</h2>
+<blockquote>
+<p>[!NOTE]
+For versioning information and compatibility, see the <a href="https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md">Versioning Guide</a>.</p>
+</blockquote>
+<p>Using <a href="https://github.com/astral-sh/uv">uv</a> (recommended):</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Install with Kubernetes support</span>
+uv<span class="w"> </span>add<span class="w"> </span>cloudcoil<span class="o">[</span>kubernetes<span class="o">]</span>
+
+<span class="c1"># Install with specific Kubernetes version compatibility</span>
+uv<span class="w"> </span>add<span class="w"> </span>cloudcoil<span class="o">[</span>kubernetes-1-29<span class="o">]</span>
+uv<span class="w"> </span>add<span class="w"> </span>cloudcoil<span class="o">[</span>kubernetes-1-30<span class="o">]</span>
+uv<span class="w"> </span>add<span class="w"> </span>cloudcoil<span class="o">[</span>kubernetes-1-31<span class="o">]</span>
+uv<span class="w"> </span>add<span class="w"> </span>cloudcoil<span class="o">[</span>kubernetes-1-32<span class="o">]</span>
+</code></pre></div>
+<p>Using pip:</p>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>cloudcoil<span class="o">[</span>kubernetes<span class="o">]</span>
+</code></pre></div>
+<h2 id="integrations">🔌 Integrations</h2>
+<p>Discover more Cloudcoil model integrations for popular Kubernetes operators and CRDs at <a href="https://github.com/topics/cloudcoil-models">cloudcoil-models on GitHub</a>.</p>
+<p>Current first-class integrations include:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Github</th>
+<th>PyPI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/cert-manager/cert-manager">cert-manager</a></td>
+<td><a href="https://github.com/cloudcoil/models-cert-manager">models-cert-manager</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.cert-manager">cloudcoil.models.cert_manager</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/fluxcd/flux2">fluxcd</a></td>
+<td><a href="https://github.com/cloudcoil/models-fluxcd">models-fluxcd</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.fluxcd">cloudcoil.models.fluxcd</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/istio/istio">istio</a></td>
+<td><a href="https://github.com/cloudcoil/models-istio">models-istio</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.istio">cloudcoil.models.istio</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/kedacore/keda">keda</a></td>
+<td><a href="https://github.com/cloudcoil/models-keda">models-keda</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.keda">cloudcoil.models.keda</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/knative/serving">knative-serving</a></td>
+<td><a href="https://github.com/cloudcoil/models-knative-serving">models-knative-serving</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.knative-serving">cloudcoil.models.knative_serving</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/knative/eventing">knative-eventing</a></td>
+<td><a href="https://github.com/cloudcoil/models-knative-eventing">models-knative-eventing</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.knative-eventing">cloudcoil.models.knative_eventing</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/pivotal/kpack">kpack</a></td>
+<td><a href="https://github.com/cloudcoil/models-kpack">models-kpack</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.kpack">cloudcoil.models.kpack</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/kyverno/kyverno">kyverno</a></td>
+<td><a href="https://github.com/cloudcoil/models-kyverno">models-kyverno</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.kyverno">cloudcoil.models.kyverno</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/prometheus-operator/prometheus-operator">prometheus-operator</a></td>
+<td><a href="https://github.com/cloudcoil/models-prometheus-operator">models-prometheus-operator</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.prometheus_operator">cloudcoil.models.prometheus_operator</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/bitnami-labs/sealed-secrets">sealed-secrets</a></td>
+<td><a href="https://github.com/cloudcoil/models-sealed-secrets">models-sealed-secrets</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.sealed_secrets">cloudcoil.models.sealed_secrets</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/vmware-tanzu/velero">velero</a></td>
+<td><a href="https://github.com/cloudcoil/models-velero">models-velero</a></td>
+<td><a href="https://pypi.org/project/cloudcoil.models.velero">cloudcoil.models.velero</a></td>
+</tr>
+</tbody>
+</table>
+<p>You can install these integrations using</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>add<span class="w"> </span>cloudcoil<span class="o">[</span>kyverno<span class="o">]</span>
+<span class="c1"># You can also install multiple dependencies at once</span>
+uv<span class="w"> </span>add<span class="w"> </span>cloudcoil<span class="o">[</span>cert-manager,fluxcd,kyverno<span class="o">]</span>
+<span class="c1"># You can also install all available models in cloudcoil using</span>
+uv<span class="w"> </span>add<span class="w"> </span>cloudcoil<span class="o">[</span>all-models<span class="o">]</span>
+</code></pre></div>
+<blockquote>
+<p>Missing an integration you need? <a href="https://github.com/cloudcoil/cloudcoil/issues/new?template=%F0%9F%94%8C-model-request.md">Open a model request</a> to suggest a new integration!</p>
+</blockquote>
+<h2 id="examples">💡 Examples</h2>
+<h3 id="reading-resources">Reading Resources</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">k8s</span>
+
+<span class="c1"># Get a resource - as simple as that!</span>
+<span class="n">service</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Service</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;kubernetes&quot;</span><span class="p">)</span>
+
+<span class="c1"># List resources with elegant pagination</span>
+<span class="k">for</span> <span class="n">pod</span> <span class="ow">in</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">list</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found pod: </span><span class="si">{</span><span class="n">pod</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Async support out of the box</span>
+<span class="k">async</span> <span class="k">for</span> <span class="n">pod</span> <span class="ow">in</span> <span class="k">await</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">async_list</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found pod: </span><span class="si">{</span><span class="n">pod</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="building-resources">Building resources</h3>
+<h4 id="using-models">Using Models</h4>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil</span><span class="w"> </span><span class="kn">import</span> <span class="n">apimachinery</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.core.v1</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">k8score</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.apps.v1</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">k8sapps</span>
+
+<span class="c1"># Create a Deployment</span>
+<span class="n">deployment</span> <span class="o">=</span> <span class="n">k8sapps</span><span class="o">.</span><span class="n">Deployment</span><span class="p">(</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="n">apimachinery</span><span class="o">.</span><span class="n">ObjectMeta</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;nginx&quot;</span><span class="p">),</span>
+    <span class="n">spec</span><span class="o">=</span><span class="n">k8sapps</span><span class="o">.</span><span class="n">DeploymentSpec</span><span class="p">(</span>
+        <span class="n">replicas</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">selector</span><span class="o">=</span><span class="n">apimachinery</span><span class="o">.</span><span class="n">LabelSelector</span><span class="p">(</span>
+            <span class="n">match_labels</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">}</span>
+        <span class="p">),</span>
+        <span class="n">template</span><span class="o">=</span><span class="n">k8score</span><span class="o">.</span><span class="n">PodTemplateSpec</span><span class="p">(</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">apimachinery</span><span class="o">.</span><span class="n">ObjectMeta</span><span class="p">(</span>
+                <span class="n">labels</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">}</span>
+            <span class="p">),</span>
+            <span class="n">spec</span><span class="o">=</span><span class="n">k8score</span><span class="o">.</span><span class="n">PodSpec</span><span class="p">(</span>
+                <span class="n">containers</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">k8score</span><span class="o">.</span><span class="n">Container</span><span class="p">(</span>
+                        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;nginx&quot;</span><span class="p">,</span>
+                        <span class="n">image</span><span class="o">=</span><span class="s2">&quot;nginx:latest&quot;</span><span class="p">,</span>
+                        <span class="n">ports</span><span class="o">=</span><span class="p">[</span><span class="n">k8score</span><span class="o">.</span><span class="n">ContainerPort</span><span class="p">(</span><span class="n">container_port</span><span class="o">=</span><span class="mi">80</span><span class="p">)]</span>
+                    <span class="p">)</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+<span class="p">)</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1"># Create a Service</span>
+<span class="n">service</span> <span class="o">=</span> <span class="n">k8score</span><span class="o">.</span><span class="n">Service</span><span class="p">(</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="n">apimachinery</span><span class="o">.</span><span class="n">ObjectMeta</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;nginx&quot;</span><span class="p">),</span>
+    <span class="n">spec</span><span class="o">=</span><span class="n">k8score</span><span class="o">.</span><span class="n">ServiceSpec</span><span class="p">(</span>
+        <span class="n">selector</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">},</span>
+        <span class="n">ports</span><span class="o">=</span><span class="p">[</span><span class="n">k8score</span><span class="o">.</span><span class="n">ServicePort</span><span class="p">(</span><span class="n">port</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">target_port</span><span class="o">=</span><span class="mi">80</span><span class="p">)]</span>
+    <span class="p">)</span>
+<span class="p">)</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1"># List Deployments</span>
+<span class="k">for</span> <span class="n">deploy</span> <span class="ow">in</span> <span class="n">k8sapps</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">list</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found deployment: </span><span class="si">{</span><span class="n">deploy</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1"># Update a Deployment</span>
+<span class="n">deployment</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="n">deployment</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+
+<span class="c1"># Delete resources</span>
+<span class="n">k8score</span><span class="o">.</span><span class="n">Service</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+<span class="n">k8sapps</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="using-the-fluent-builder-api">Using the Fluent Builder API</h4>
+<p>Cloudcoil provides a powerful fluent builder API for Kubernetes resources with full IDE support and rich autocomplete capabilities:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.apps.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Deployment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.core.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Service</span>
+
+<span class="c1"># Create a Deployment using the fluent builder</span>
+<span class="c1"># The fluent style is great for one-liners and simple configurations</span>
+<span class="n">nginx_deployment</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Deployment</span><span class="o">.</span><span class="n">builder</span><span class="p">()</span>
+    <span class="c1"># Metadata can be configured in a single chain for simple objects</span>
+    <span class="o">.</span><span class="n">metadata</span><span class="p">(</span><span class="k">lambda</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">metadata</span>
+        <span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">namespace</span><span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="c1"># Complex nested structures can be built using nested lambda functions</span>
+    <span class="o">.</span><span class="n">spec</span><span class="p">(</span><span class="k">lambda</span> <span class="n">deployment_spec</span><span class="p">:</span> <span class="n">deployment_spec</span>
+        <span class="o">.</span><span class="n">replicas</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="c1"># Each level of nesting gets its own lambda for clarity</span>
+        <span class="o">.</span><span class="n">selector</span><span class="p">(</span><span class="k">lambda</span> <span class="n">label_selector</span><span class="p">:</span> <span class="n">label_selector</span>
+            <span class="o">.</span><span class="n">match_labels</span><span class="p">({</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">})</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">template</span><span class="p">(</span><span class="k">lambda</span> <span class="n">pod_template</span><span class="p">:</span> <span class="n">pod_template</span>
+            <span class="o">.</span><span class="n">metadata</span><span class="p">(</span><span class="k">lambda</span> <span class="n">pod_metadata</span><span class="p">:</span> <span class="n">pod_metadata</span>
+                <span class="o">.</span><span class="n">labels</span><span class="p">({</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">})</span>
+            <span class="p">)</span>
+            <span class="o">.</span><span class="n">spec</span><span class="p">(</span><span class="k">lambda</span> <span class="n">pod_spec</span><span class="p">:</span> <span class="n">pod_spec</span>
+                <span class="c1"># Lists can be built using array literals with lambda items</span>
+                <span class="o">.</span><span class="n">containers</span><span class="p">([</span>
+                    <span class="k">lambda</span> <span class="n">container</span><span class="p">:</span> <span class="n">container</span>
+                    <span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">image</span><span class="p">(</span><span class="s2">&quot;nginx:latest&quot;</span><span class="p">)</span>
+                    <span class="c1"># Nested collections can use the add() helper</span>
+                    <span class="o">.</span><span class="n">ports</span><span class="p">(</span><span class="k">lambda</span> <span class="n">port_list</span><span class="p">:</span> <span class="n">port_list</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+                        <span class="k">lambda</span> <span class="n">port</span><span class="p">:</span> <span class="n">port</span><span class="o">.</span><span class="n">container_port</span><span class="p">(</span><span class="mi">80</span><span class="p">)</span>
+                    <span class="p">))</span>
+                <span class="p">])</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a Service using the builder</span>
+<span class="n">service</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">Service</span><span class="o">.</span><span class="n">builder</span><span class="p">()</span>
+    <span class="o">.</span><span class="n">metadata</span><span class="p">(</span><span class="k">lambda</span> <span class="n">m</span><span class="p">:</span> <span class="n">m</span>
+        <span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">namespace</span><span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">spec</span><span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span>
+        <span class="o">.</span><span class="n">selector</span><span class="p">({</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">})</span>
+        <span class="o">.</span><span class="n">ports</span><span class="p">(</span><span class="k">lambda</span> <span class="n">ports</span><span class="p">:</span> <span class="n">ports</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">container_port</span><span class="p">(</span><span class="mi">80</span><span class="p">)))</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">build</span><span class="p">()</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The fluent builder provides:
+- ✨ Full IDE support with detailed type information
+- 🔍 Rich autocomplete for all fields and nested objects
+- ⚡ Compile-time validation of your configuration
+- 🎯 Clear and chainable API that guides you through resource creation</p>
+<h4 id="using-the-context-manager-builder-api">Using the Context Manager Builder API</h4>
+<p>For complex nested resources, Cloudcoil also provides a context manager-based builder pattern that can make the structure more clear:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.apps.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Deployment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.core.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Service</span>
+
+<span class="c1"># Create a deployment using context managers</span>
+<span class="c1"># Context managers are ideal for deeply nested structures</span>
+<span class="k">with</span> <span class="n">Deployment</span><span class="o">.</span><span class="n">new</span><span class="p">()</span> <span class="k">as</span> <span class="n">nginx_deployment</span><span class="p">:</span>
+    <span class="c1"># Each context creates a clear visual scope</span>
+    <span class="k">with</span> <span class="n">nginx_deployment</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span> <span class="k">as</span> <span class="n">deployment_metadata</span><span class="p">:</span>
+        <span class="n">deployment_metadata</span><span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+        <span class="n">deployment_metadata</span><span class="o">.</span><span class="n">namespace</span><span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">nginx_deployment</span><span class="o">.</span><span class="n">spec</span><span class="p">()</span> <span class="k">as</span> <span class="n">deployment_spec</span><span class="p">:</span>
+        <span class="c1"># Simple fields can be set directly</span>
+        <span class="n">deployment_spec</span><span class="o">.</span><span class="n">replicas</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+        <span class="c1"># Each nested object gets its own context</span>
+        <span class="k">with</span> <span class="n">deployment_spec</span><span class="o">.</span><span class="n">selector</span><span class="p">()</span> <span class="k">as</span> <span class="n">label_selector</span><span class="p">:</span>
+            <span class="n">label_selector</span><span class="o">.</span><span class="n">match_labels</span><span class="p">({</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">})</span>
+
+        <span class="k">with</span> <span class="n">deployment_spec</span><span class="o">.</span><span class="n">template</span><span class="p">()</span> <span class="k">as</span> <span class="n">pod_template</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">pod_template</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span> <span class="k">as</span> <span class="n">pod_metadata</span><span class="p">:</span>
+                <span class="n">pod_metadata</span><span class="o">.</span><span class="n">labels</span><span class="p">({</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">})</span>
+
+            <span class="k">with</span> <span class="n">pod_template</span><span class="o">.</span><span class="n">spec</span><span class="p">()</span> <span class="k">as</span> <span class="n">pod_spec</span><span class="p">:</span>
+                <span class="c1"># Collections use a parent context for the list</span>
+                <span class="k">with</span> <span class="n">pod_spec</span><span class="o">.</span><span class="n">containers</span><span class="p">()</span> <span class="k">as</span> <span class="n">container_list</span><span class="p">:</span>
+                    <span class="c1"># And child contexts for each item</span>
+                    <span class="k">with</span> <span class="n">container_list</span><span class="o">.</span><span class="n">add</span><span class="p">()</span> <span class="k">as</span> <span class="n">nginx_container</span><span class="p">:</span>
+                        <span class="n">nginx_container</span><span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+                        <span class="n">nginx_container</span><span class="o">.</span><span class="n">image</span><span class="p">(</span><span class="s2">&quot;nginx:latest&quot;</span><span class="p">)</span>
+                        <span class="c1"># Ports can be added one by one</span>
+                        <span class="k">with</span> <span class="n">nginx_container</span><span class="o">.</span><span class="n">add_port</span><span class="p">()</span> <span class="k">as</span> <span class="n">container_port</span><span class="p">:</span>
+                            <span class="n">container_port</span><span class="o">.</span><span class="n">container_port</span><span class="p">(</span><span class="mi">80</span><span class="p">)</span>
+
+<span class="n">final_deployment</span> <span class="o">=</span> <span class="n">nginx_deployment</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+<span class="c1"># Create a service using context managers</span>
+<span class="k">with</span> <span class="n">Service</span><span class="o">.</span><span class="n">new</span><span class="p">()</span> <span class="k">as</span> <span class="n">nginx_service</span><span class="p">:</span>
+    <span class="c1"># Context managers make the structure very clear</span>
+    <span class="k">with</span> <span class="n">nginx_service</span><span class="o">.</span><span class="n">metadata</span><span class="p">()</span> <span class="k">as</span> <span class="n">service_metadata</span><span class="p">:</span>
+        <span class="n">service_metadata</span><span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+        <span class="n">service_metadata</span><span class="o">.</span><span class="n">namespace</span><span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">nginx_service</span><span class="o">.</span><span class="n">spec</span><span class="p">()</span> <span class="k">as</span> <span class="n">service_spec</span><span class="p">:</span>
+        <span class="c1"># Simple fields can still be set directly</span>
+        <span class="n">service_spec</span><span class="o">.</span><span class="n">selector</span><span class="p">({</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">})</span>
+        <span class="c1"># Port configuration is more readable with contexts</span>
+        <span class="k">with</span> <span class="n">service_spec</span><span class="o">.</span><span class="n">add_port</span><span class="p">()</span> <span class="k">as</span> <span class="n">service_port</span><span class="p">:</span>
+            <span class="n">service_port</span><span class="o">.</span><span class="n">port</span><span class="p">(</span><span class="mi">80</span><span class="p">)</span>
+            <span class="n">service_port</span><span class="o">.</span><span class="n">target_port</span><span class="p">(</span><span class="mi">80</span><span class="p">)</span>
+
+<span class="n">final_service</span> <span class="o">=</span> <span class="n">nginx_service</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+</code></pre></div>
+<p>The context manager builder provides:
+- 🎭 Clear visual nesting of resource structure
+- 🔒 Automatic resource cleanup
+- 🎯 Familiar Python context manager pattern
+- ✨ Same great IDE support as the fluent builder</p>
+<h4 id="mixing-builder-styles">Mixing Builder Styles</h4>
+<p>CloudCoil's intelligent builder system automatically detects which style you're using and provides appropriate IDE support:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.apps.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Deployment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil</span><span class="w"> </span><span class="kn">import</span> <span class="n">apimachinery</span>
+
+<span class="c1"># Mixing styles lets you choose the best approach for each part</span>
+<span class="c1"># The IDE automatically adapts to your chosen style at each level</span>
+<span class="k">with</span> <span class="n">Deployment</span><span class="o">.</span><span class="n">new</span><span class="p">()</span> <span class="k">as</span> <span class="n">nginx_deployment</span><span class="p">:</span>
+    <span class="c1"># Direct object initialization with full type checking</span>
+    <span class="n">nginx_deployment</span><span class="o">.</span><span class="n">metadata</span><span class="p">(</span><span class="n">apimachinery</span><span class="o">.</span><span class="n">ObjectMeta</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;nginx&quot;</span><span class="p">,</span>
+        <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+        <span class="n">labels</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">}</span>
+    <span class="p">))</span>
+
+    <span class="k">with</span> <span class="n">nginx_deployment</span><span class="o">.</span><span class="n">spec</span><span class="p">()</span> <span class="k">as</span> <span class="n">deployment_spec</span><span class="p">:</span>
+        <span class="c1"># IDE shows all available fields with types</span>
+        <span class="n">deployment_spec</span><span class="o">.</span><span class="n">replicas</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="c1"># Fluent style with rich autocomplete</span>
+        <span class="n">deployment_spec</span><span class="o">.</span><span class="n">selector</span><span class="p">(</span><span class="k">lambda</span> <span class="n">sel</span><span class="p">:</span> <span class="n">sel</span><span class="o">.</span><span class="n">match_labels</span><span class="p">({</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">}))</span>
+
+        <span class="c1"># Context manager style with full type hints</span>
+        <span class="k">with</span> <span class="n">deployment_spec</span><span class="o">.</span><span class="n">template</span><span class="p">()</span> <span class="k">as</span> <span class="n">pod_template</span><span class="p">:</span>
+            <span class="c1"># Mix and match freely - IDE adjusts automatically</span>
+            <span class="n">pod_template</span><span class="o">.</span><span class="n">metadata</span><span class="p">(</span><span class="n">apimachinery</span><span class="o">.</span><span class="n">ObjectMeta</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;app&quot;</span><span class="p">:</span> <span class="s2">&quot;nginx&quot;</span><span class="p">}))</span>
+            <span class="k">with</span> <span class="n">pod_template</span><span class="o">.</span><span class="n">spec</span><span class="p">()</span> <span class="k">as</span> <span class="n">pod_spec</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">pod_spec</span><span class="o">.</span><span class="n">containers</span><span class="p">()</span> <span class="k">as</span> <span class="n">container_list</span><span class="p">:</span>
+                    <span class="k">with</span> <span class="n">container_list</span><span class="o">.</span><span class="n">add</span><span class="p">()</span> <span class="k">as</span> <span class="n">nginx_container</span><span class="p">:</span>
+                        <span class="c1"># Complete IDE support regardless of style</span>
+                        <span class="n">nginx_container</span><span class="o">.</span><span class="n">name</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+                        <span class="n">nginx_container</span><span class="o">.</span><span class="n">image</span><span class="p">(</span><span class="s2">&quot;nginx:latest&quot;</span><span class="p">)</span>
+                        <span class="c1"># Switch styles any time</span>
+                        <span class="n">nginx_container</span><span class="o">.</span><span class="n">ports</span><span class="p">(</span><span class="k">lambda</span> <span class="n">ports</span><span class="p">:</span> <span class="n">ports</span>
+                            <span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">container_port</span><span class="p">(</span><span class="mi">80</span><span class="p">))</span>
+                            <span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">container_port</span><span class="p">(</span><span class="mi">443</span><span class="p">))</span>
+                        <span class="p">)</span>
+
+<span class="n">final_deployment</span> <span class="o">=</span> <span class="n">nginx_deployment</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+</code></pre></div>
+<p>This flexibility allows you to:
+- 🔀 Choose the most appropriate style for each part of your configuration
+- 📖 Maximize readability for both simple and complex structures
+- 🎨 Format your code according to your team's preferences
+- 🧠 Get full IDE support with automatic style detection
+- ✨ Enjoy rich autocomplete in all styles
+- ⚡ Benefit from type checking across mixed styles
+- 🎯 Receive immediate feedback on type errors
+- 🔍 See documentation for all fields regardless of style</p>
+<h3 id="creating-resources">Creating Resources</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Create with Pythonic syntax</span>
+<span class="n">namespace</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Namespace</span><span class="p">(</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;dev&quot;</span><span class="p">)</span>
+<span class="p">)</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1"># Generate names automatically</span>
+<span class="n">test_ns</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Namespace</span><span class="p">(</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">generate_name</span><span class="o">=</span><span class="s2">&quot;test-&quot;</span><span class="p">)</span>
+<span class="p">)</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="modifying-resources">Modifying Resources</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Update resources fluently</span>
+<span class="n">deployment</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;web&quot;</span><span class="p">)</span>
+<span class="n">deployment</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">deployment</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+
+<span class="c1"># Or use the save method which handles both create and update</span>
+<span class="n">configmap</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">ConfigMap</span><span class="p">(</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">),</span>
+    <span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;value&quot;</span><span class="p">}</span>
+<span class="p">)</span>
+<span class="n">configmap</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>  <span class="c1"># Creates the ConfigMap</span>
+
+<span class="n">configmap</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;key&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;new-value&quot;</span>
+<span class="n">configmap</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>  <span class="c1"># Updates the ConfigMap</span>
+</code></pre></div>
+<h3 id="deleting-resources">Deleting Resources</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Delete by name</span>
+<span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">)</span>
+
+<span class="c1"># Or remove the resource instance</span>
+<span class="n">pod</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+<span class="n">pod</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="watching-resources">Watching Resources</h3>
+<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">resource</span> <span class="ow">in</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">watch</span><span class="p">(</span><span class="n">field_selector</span><span class="o">=</span><span class="s2">&quot;metadata.name=mypod&quot;</span><span class="p">):</span>
+    <span class="c1"># Wait for the pod to be deleted</span>
+    <span class="k">if</span> <span class="n">event_type</span> <span class="o">==</span> <span class="s2">&quot;DELETED&quot;</span><span class="p">:</span>
+        <span class="k">break</span>
+
+<span class="c1"># You can also use the async watch</span>
+<span class="k">async</span> <span class="k">for</span> <span class="n">event_type</span><span class="p">,</span> <span class="n">resource</span> <span class="ow">in</span> <span class="k">await</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">async_watch</span><span class="p">(</span><span class="n">field_selector</span><span class="o">=</span><span class="s2">&quot;metadata.name=mypod&quot;</span><span class="p">):</span>
+    <span class="c1"># Wait for the pod to be deleted</span>
+    <span class="k">if</span> <span class="n">event_type</span> <span class="o">==</span> <span class="s2">&quot;DELETED&quot;</span><span class="p">:</span>
+        <span class="k">break</span>
+</code></pre></div>
+<h3 id="waiting-for-resources">Waiting for Resources</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Wait for a resource to reach a desired state</span>
+<span class="n">pod</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nginx&quot;</span><span class="p">)</span>
+<span class="n">pod</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="k">lambda</span> <span class="n">_</span><span class="p">,</span> <span class="n">pod</span><span class="p">:</span> <span class="n">pod</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;Running&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+
+<span class="c1"># You can also check of the resource to be deleted</span>
+<span class="k">await</span> <span class="n">pod</span><span class="o">.</span><span class="n">async_wait_for</span><span class="p">(</span><span class="k">lambda</span> <span class="n">event</span><span class="p">,</span> <span class="n">_</span><span class="p">:</span> <span class="n">event</span> <span class="o">==</span> <span class="s2">&quot;DELETED&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+
+<span class="c1"># You can also supply multiple conditions. The wait will end when the first condition is met.</span>
+<span class="c1"># It will also return the key of the condition that was met.</span>
+<span class="n">test_pod</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tests&quot;</span><span class="p">)</span>
+<span class="n">status</span> <span class="o">=</span> <span class="k">await</span> <span class="n">test_pod</span><span class="o">.</span><span class="n">async_wait_for</span><span class="p">({</span>
+    <span class="s2">&quot;succeeded&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">_</span><span class="p">,</span> <span class="n">pod</span><span class="p">:</span> <span class="n">pod</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;Succeeded&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;failed&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">_</span><span class="p">,</span> <span class="n">pod</span><span class="p">:</span> <span class="n">pod</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;Failed&quot;</span>
+    <span class="p">},</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">status</span> <span class="o">==</span> <span class="s2">&quot;succeeded&quot;</span>
+</code></pre></div>
+<h3 id="dynamic-resources">Dynamic Resources</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.resources</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_dynamic_resource</span>
+
+<span class="c1"># Get a dynamic resource class for any CRD or resource without a model</span>
+<span class="n">DynamicJob</span> <span class="o">=</span> <span class="n">get_dynamic_resource</span><span class="p">(</span><span class="s2">&quot;Job&quot;</span><span class="p">,</span> <span class="s2">&quot;batch/v1&quot;</span><span class="p">)</span>
+
+<span class="c1"># Create using dictionary syntax</span>
+<span class="n">job</span> <span class="o">=</span> <span class="n">DynamicJob</span><span class="p">(</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;dynamic-job&quot;</span><span class="p">},</span>
+    <span class="n">spec</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;template&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;spec&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;containers&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;job&quot;</span><span class="p">,</span> <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="s2">&quot;busybox&quot;</span><span class="p">}],</span>
+                <span class="s2">&quot;restartPolicy&quot;</span><span class="p">:</span> <span class="s2">&quot;Never&quot;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># Create on the cluster</span>
+<span class="n">created</span> <span class="o">=</span> <span class="n">job</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1"># Access fields using dict-like syntax</span>
+<span class="k">assert</span> <span class="n">created</span><span class="p">[</span><span class="s2">&quot;spec&quot;</span><span class="p">][</span><span class="s2">&quot;template&quot;</span><span class="p">][</span><span class="s2">&quot;spec&quot;</span><span class="p">][</span><span class="s2">&quot;containers&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;image&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;busybox&quot;</span>
+
+<span class="c1"># Update fields</span>
+<span class="n">created</span><span class="p">[</span><span class="s2">&quot;spec&quot;</span><span class="p">][</span><span class="s2">&quot;template&quot;</span><span class="p">][</span><span class="s2">&quot;spec&quot;</span><span class="p">][</span><span class="s2">&quot;containers&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;image&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;alpine&quot;</span>
+<span class="n">updated</span> <span class="o">=</span> <span class="n">created</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>
+
+<span class="c1"># Get raw dictionary representation</span>
+<span class="n">raw_dict</span> <span class="o">=</span> <span class="n">updated</span><span class="o">.</span><span class="n">raw</span>
+</code></pre></div>
+<h3 id="resource-parsing">Resource Parsing</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil</span><span class="w"> </span><span class="kn">import</span> <span class="n">resources</span>
+
+<span class="c1"># Parse YAML files</span>
+<span class="n">deployment</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">parse_file</span><span class="p">(</span><span class="s2">&quot;deployment.yaml&quot;</span><span class="p">)</span>
+
+<span class="c1"># Parse multiple resources</span>
+<span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">parse_file</span><span class="p">(</span><span class="s2">&quot;k8s-manifests.yaml&quot;</span><span class="p">,</span> <span class="n">load_all</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Get resource class by GVK if its an existing resource model class</span>
+<span class="n">Job</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">&quot;Job&quot;</span><span class="p">,</span> <span class="n">api_version</span><span class="o">=</span><span class="s2">&quot;batch/v1&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="context-management">Context Management</h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Temporarily switch namespace</span>
+<span class="k">with</span> <span class="n">Config</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;kube-system&quot;</span><span class="p">):</span>
+    <span class="n">pods</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>
+
+<span class="c1"># Custom configs</span>
+<span class="k">with</span> <span class="n">Config</span><span class="p">(</span><span class="n">kubeconfig</span><span class="o">=</span><span class="s2">&quot;dev-cluster.yaml&quot;</span><span class="p">):</span>
+    <span class="n">services</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Service</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="high-performance-with-caching">⚡ High Performance with Caching</h3>
+<p>Cloudcoil provides powerful client-side caching and real-time resource synchronization, delivering 100-200x performance improvements on read operations:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cache</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">k8s</span>
+
+<span class="c1"># Simple caching - just add cache=True!</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">config</span><span class="p">:</span>
+    <span class="c1"># First call hits API and populates cache (~50ms)</span>
+    <span class="n">deployment</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my-app&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Subsequent calls served from cache (&lt;1ms)</span>
+    <span class="n">deployment</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my-app&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Lists are also cached</span>
+    <span class="n">pods</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>  <span class="c1"># &lt;5ms from cache</span>
+
+    <span class="c1"># Writes go through API, cache updates automatically</span>
+    <span class="n">deployment</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">deployment</span><span class="o">.</span><span class="n">update</span><span class="p">()</span>  <span class="c1"># Updates API and cache</span>
+</code></pre></div>
+<h4 id="event-handlers-with-informers">Event Handlers with Informers</h4>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cache</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">k8s</span>
+
+<span class="c1"># Enable caching with custom settings</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span>
+    <span class="n">cache</span><span class="o">=</span><span class="n">Cache</span><span class="p">(</span><span class="n">resync_period</span><span class="o">=</span><span class="mi">600</span><span class="p">)</span>  <span class="c1"># Resync every 10 minutes</span>
+<span class="p">)</span>
+
+<span class="k">with</span> <span class="n">config</span><span class="p">:</span>
+    <span class="c1"># Get informer for Deployments through the cache</span>
+    <span class="n">deployment_informer</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get_informer</span><span class="p">(</span><span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="p">)</span>
+
+    <span class="c1"># Register event handlers</span>
+    <span class="nd">@deployment_informer</span><span class="o">.</span><span class="n">on_add</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_new_deployment</span><span class="p">(</span><span class="n">deployment</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;New deployment: </span><span class="si">{</span><span class="n">deployment</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="nd">@deployment_informer</span><span class="o">.</span><span class="n">on_update</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_update</span><span class="p">(</span><span class="n">old_deployment</span><span class="p">,</span> <span class="n">new_deployment</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">old_deployment</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span> <span class="o">!=</span> <span class="n">new_deployment</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Deployment </span><span class="si">{</span><span class="n">new_deployment</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> scaled&quot;</span><span class="p">)</span>
+
+    <span class="nd">@deployment_informer</span><span class="o">.</span><span class="n">on_delete</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_delete</span><span class="p">(</span><span class="n">deployment</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Deployment deleted: </span><span class="si">{</span><span class="n">deployment</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Access the local cache store</span>
+    <span class="n">store</span> <span class="o">=</span> <span class="n">deployment_informer</span><span class="o">.</span><span class="n">get_store</span><span class="p">()</span>
+    <span class="n">all_deployments</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>  <span class="c1"># Instant, no API call</span>
+    <span class="n">specific</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my-app&quot;</span><span class="p">)</span>  <span class="c1"># Instant lookup</span>
+
+    <span class="c1"># The informer lifecycle is managed by Config context</span>
+</code></pre></div>
+<h4 id="async-event-handlers">Async Event Handlers</h4>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cache</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">k8s</span>
+
+<span class="c1"># Async context for high-performance applications</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">monitor_pods</span><span class="p">():</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">config</span><span class="p">:</span>
+        <span class="c1"># Get async informer for Pods</span>
+        <span class="n">pod_informer</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get_informer</span><span class="p">(</span>
+            <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="p">,</span>
+            <span class="n">sync</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Get async informer</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Async event handlers</span>
+        <span class="nd">@pod_informer</span><span class="o">.</span><span class="n">on_add</span>
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_new_pod</span><span class="p">(</span><span class="n">pod</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;New pod: </span><span class="si">{</span><span class="n">pod</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># Can perform async operations here</span>
+            <span class="k">await</span> <span class="n">notify_external_system</span><span class="p">(</span><span class="n">pod</span><span class="p">)</span>
+
+        <span class="nd">@pod_informer</span><span class="o">.</span><span class="n">on_update</span>
+        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_pod_update</span><span class="p">(</span><span class="n">old_pod</span><span class="p">,</span> <span class="n">new_pod</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">old_pod</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">phase</span> <span class="o">!=</span> <span class="n">new_pod</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">phase</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pod </span><span class="si">{</span><span class="n">new_pod</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> phase changed&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Access cache asynchronously</span>
+        <span class="n">store</span> <span class="o">=</span> <span class="n">pod_informer</span><span class="o">.</span><span class="n">get_store</span><span class="p">()</span>
+        <span class="n">all_pods</span> <span class="o">=</span> <span class="k">await</span> <span class="n">store</span><span class="o">.</span><span class="n">async_list</span><span class="p">()</span>  <span class="c1"># Instant from cache</span>
+
+        <span class="c1"># Keep running to process events</span>
+        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">3600</span><span class="p">)</span>  <span class="c1"># Run for 1 hour</span>
+
+<span class="c1"># Run the async monitor</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">monitor_pods</span><span class="p">())</span>
+</code></pre></div>
+<h4 id="cache-configuration">Cache Configuration</h4>
+<div class="highlight"><pre><span></span><code><span class="c1"># Advanced caching with custom settings</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span>
+    <span class="n">cache</span><span class="o">=</span><span class="n">Cache</span><span class="p">(</span>
+        <span class="n">resync_period</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span>  <span class="c1"># 10 minutes</span>
+        <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span>      <span class="c1"># Cache-only mode (no API fallback)</span>
+        <span class="n">resources</span><span class="o">=</span><span class="p">[</span>         <span class="c1"># Cache specific resource types</span>
+            <span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="p">,</span>
+            <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Service</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">max_items_per_resource</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>  <span class="c1"># Memory limit per resource type</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+
+<span class="k">with</span> <span class="n">config</span><span class="p">:</span>
+    <span class="c1"># All operations use cache - no unexpected API calls</span>
+    <span class="n">deployment</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my-app&quot;</span><span class="p">)</span>  <span class="c1"># From cache or None</span>
+    <span class="n">services</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Service</span><span class="o">.</span><span class="n">list</span><span class="p">()</span>  <span class="c1"># From cache only</span>
+
+    <span class="c1"># Temporarily disable cache for fresh data</span>
+    <span class="k">with</span> <span class="n">config</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">pause</span><span class="p">():</span>
+        <span class="n">fresh_data</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my-app&quot;</span><span class="p">)</span>  <span class="c1"># Direct API call</span>
+
+    <span class="c1"># Check cache status</span>
+    <span class="n">informer</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get_informer</span><span class="p">(</span><span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">informer</span><span class="o">.</span><span class="n">has_synced</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Cache is fully synchronized&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h4 id="resource-filtering">Resource Filtering</h4>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.caching</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cache</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">k8s</span>
+
+<span class="c1"># Cache only specific resource types for memory efficiency</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span>
+    <span class="n">cache</span><span class="o">=</span><span class="n">Cache</span><span class="p">(</span>
+        <span class="n">resources</span><span class="o">=</span><span class="p">[</span>  <span class="c1"># Only cache these types</span>
+            <span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="p">,</span>
+            <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Service</span><span class="p">,</span>
+            <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">ConfigMap</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">max_items_per_resource</span><span class="o">=</span><span class="mi">1000</span>  <span class="c1"># Limit items per type</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+
+<span class="k">with</span> <span class="n">config</span><span class="p">:</span>
+    <span class="c1"># These use cache (instant)</span>
+    <span class="n">deployment</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my-app&quot;</span><span class="p">)</span>
+    <span class="n">service</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Service</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my-service&quot;</span><span class="p">)</span>
+
+    <span class="c1"># This bypasses cache (not in resources list)</span>
+    <span class="n">pod</span> <span class="o">=</span> <span class="n">k8s</span><span class="o">.</span><span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;my-pod&quot;</span><span class="p">)</span>  <span class="c1"># Direct API call</span>
+</code></pre></div>
+<p><strong>Performance Benefits:</strong>
+- <strong>Get operations</strong>: 100-200x faster (50ms → &lt;1ms)
+- <strong>List operations</strong>: 50-100x faster (100ms → &lt;5ms)<br />
+- <strong>Real-time updates</strong>: Watch events keep cache fresh
+- <strong>Memory efficient</strong>: Configurable limits and automatic cleanup
+- <strong>Reduced API load</strong>: Shared informers minimize watch connections
+- <strong>Event-driven</strong>: React to changes in real-time without polling</p>
+<h2 id="testing-integration">🧪 Testing Integration</h2>
+<p>Cloudcoil provides powerful pytest fixtures for Kubernetes integration testing:</p>
+<h3 id="installation_1">Installation</h3>
+<blockquote>
+<p>uv add cloudcoil[test]</p>
+</blockquote>
+<h3 id="basic-usage">Basic Usage</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes</span><span class="w"> </span><span class="kn">import</span> <span class="n">core</span><span class="p">,</span> <span class="n">apps</span>
+
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">configure_test_cluster</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_deployment</span><span class="p">(</span><span class="n">test_config</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">test_config</span><span class="p">:</span>
+        <span class="c1"># Creates a fresh k3d cluster for testing</span>
+        <span class="n">deployment</span> <span class="o">=</span> <span class="n">apps</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Deployment</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;app&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">deployment</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span> <span class="o">==</span> <span class="mi">3</span>
+</code></pre></div>
+<h3 id="advanced-configuration">Advanced Configuration</h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">configure_test_cluster</span><span class="p">(</span>
+    <span class="n">cluster_name</span><span class="o">=</span><span class="s2">&quot;my-test-cluster&quot;</span><span class="p">,</span>     <span class="c1"># Custom cluster name</span>
+    <span class="n">k3d_version</span><span class="o">=</span><span class="s2">&quot;v5.7.5&quot;</span><span class="p">,</span>              <span class="c1"># Specific k3d version</span>
+    <span class="n">k8s_version</span><span class="o">=</span><span class="s2">&quot;v1.31.4&quot;</span><span class="p">,</span>             <span class="c1"># Specific K8s version</span>
+    <span class="n">k8s_image</span><span class="o">=</span><span class="s2">&quot;custom/k3s:latest&quot;</span><span class="p">,</span>     <span class="c1"># Custom K3s image</span>
+    <span class="n">remove</span><span class="o">=</span><span class="kc">True</span>                         <span class="c1"># Auto-remove cluster after tests</span>
+<span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_advanced</span><span class="p">(</span><span class="n">test_config</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">test_config</span><span class="p">:</span>
+        <span class="c1"># Async operations work too!</span>
+        <span class="n">service</span> <span class="o">=</span> <span class="k">await</span> <span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Service</span><span class="o">.</span><span class="n">async_get</span><span class="p">(</span><span class="s2">&quot;kubernetes&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">service</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;ClusterIP&quot;</span>
+</code></pre></div>
+<h3 id="shared-clusters">Shared Clusters</h3>
+<p>Reuse clusters across tests for better performance:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">configure_test_cluster</span><span class="p">(</span>
+    <span class="n">cluster_name</span><span class="o">=</span><span class="s2">&quot;shared-cluster&quot;</span><span class="p">,</span>
+    <span class="n">remove</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Keep cluster after tests</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_first</span><span class="p">(</span><span class="n">test_config</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">test_config</span><span class="p">:</span>
+        <span class="c1"># Uses existing cluster if available</span>
+        <span class="n">namespace</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Namespace</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;default&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">namespace</span><span class="o">.</span><span class="n">status</span><span class="o">.</span><span class="n">phase</span> <span class="o">==</span> <span class="s2">&quot;Active&quot;</span>
+
+<span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">configure_test_cluster</span><span class="p">(</span>
+    <span class="n">cluster_name</span><span class="o">=</span><span class="s2">&quot;shared-cluster&quot;</span><span class="p">,</span>  <span class="c1"># Same cluster name</span>
+    <span class="n">remove</span><span class="o">=</span><span class="kc">True</span>   <span class="c1"># Last test removes the cluster</span>
+<span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test_second</span><span class="p">(</span><span class="n">test_config</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">test_config</span><span class="p">:</span>
+        <span class="c1"># Uses same cluster as previous test</span>
+        <span class="n">pods</span> <span class="o">=</span> <span class="n">core</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Pod</span><span class="o">.</span><span class="n">list</span><span class="p">(</span><span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;kube-system&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">pods</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+</code></pre></div>
+<h3 id="parallel-testing">Parallel Testing</h3>
+<p>The fixtures are compatible with pytest-xdist for parallel testing:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Run tests in parallel</span>
+pytest<span class="w"> </span>-n<span class="w"> </span>auto<span class="w"> </span>tests/
+
+<span class="c1"># Or specify number of workers</span>
+pytest<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span><span class="w"> </span>tests/
+</code></pre></div>
+<h3 id="testing-fixtures-api">Testing Fixtures API</h3>
+<p>The testing module provides two main fixtures:</p>
+<ul>
+<li><code>test_cluster</code>: Creates and manages k3d clusters</li>
+<li>Returns path to kubeconfig file</li>
+<li>Handles cluster lifecycle</li>
+<li>Supports cluster reuse</li>
+<li>
+<p>Compatible with parallel testing</p>
+</li>
+<li>
+<p><code>test_config</code>: Provides configured <code>Config</code> instance</p>
+</li>
+<li>Uses test cluster kubeconfig</li>
+<li>Manages client connections</li>
+<li>Handles cleanup automatically</li>
+<li>Context manager support</li>
+</ul>
+<h2 id="mypy-integration">🛡️ MyPy Integration</h2>
+<p>cloudcoil provides a mypy plugin that enables type checking for dynamically loaded kinds from the scheme. To enable the plugin, add this to your pyproject.toml:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># pyproject.toml</span>
+<span class="k">[tool.mypy]</span>
+<span class="n">plugins</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;cloudcoil.mypy&#39;</span><span class="p">]</span>
+</code></pre></div>
+<p>This plugin enables full type checking for scheme.get() calls when the kind name is a string literal:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil</span><span class="w"> </span><span class="kn">import</span> <span class="n">resources</span>
+
+<span class="c1"># This will be correctly typed as k8s.batch.v1.Job</span>
+<span class="n">job_class</span> <span class="o">=</span> <span class="n">resources</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="s2">&quot;Job&quot;</span><span class="p">)</span>
+
+<span class="c1"># Type checking works on the returned class</span>
+<span class="n">job</span> <span class="o">=</span> <span class="n">job_class</span><span class="p">(</span>
+    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;test&quot;</span><span class="p">},</span>  <span class="c1"># type checked!</span>
+    <span class="n">spec</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;template&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;spec&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;containers&quot;</span><span class="p">:</span> <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="s2">&quot;image&quot;</span><span class="p">:</span> <span class="s2">&quot;test&quot;</span><span class="p">}],</span>
+                <span class="s2">&quot;restartPolicy&quot;</span><span class="p">:</span> <span class="s2">&quot;Never&quot;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</code></pre></div>
+<h2 id="model-generation">🏗️ Model Generation</h2>
+<p>Cloudcoil supports generating typed models from CustomResourceDefinitions (CRDs). You can either use the provided cookiecutter template or set up model generation manually.</p>
+<h3 id="using-the-cookiecutter-template">Using the Cookiecutter Template</h3>
+<p>The fastest way to get started is using our cookiecutter template: <a href="https://github.com/cloudcoil/cloudcoil/tree/main/cookiecutter">cloudcoil-models-cookiecutter</a></p>
+<h3 id="codegen-config">Codegen Config</h3>
+<p>Cloudcoil includes a CLI tool, cloudcoil-model-codegen, which reads configuration from your pyproject.toml under [tool.cloudcoil.codegen.models]. It supports options such as:</p>
+<p>• namespace: The Python package name for generated models<br />
+• input: Path or URL to CRD (YAML/JSON) or OpenAPI schema<br />
+• output: Output directory for the generated code<br />
+• mode: Either "resource" (default) or "base" for the generated class hierarchy<br />
+• crd-namespace: Inject a namespace for CRD resources<br />
+• transformations / updates: Modify the schema before generation<br />
+• exclude-unknown: Exclude definitions that cannot be mapped<br />
+• aliases: Aliases for properties
+• additional-datamodel-codegen-args: Pass extra flags to the underlying generator  </p>
+<p>Example pyproject.toml config - </p>
+<div class="highlight"><pre><span></span><code><span class="k">[[tool.cloudcoil.codegen.models]]</span>
+<span class="c1"># Unique name for the models</span>
+<span class="c1"># This will be used as the name for the setuptools entrypoints</span>
+<span class="n">namespace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;cloudcoil.models.fluxcd&quot;</span>
+<span class="n">input</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;https://github.com/fluxcd/flux2/releases/download/v2.4.0/install.yaml&quot;</span>
+<span class="n">crd-namespace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;io.fluxcd.toolkit&quot;</span>
+</code></pre></div>
+<p>For more examples, check out the <a href="https://github.com/topics/cloudcoil-models">cloudcoil-models</a> topic on Github.</p>
+<p>If you are building a models package to be used with cloudcoil, please make sure to tag it with this topic for discovery.</p>
+<h2 id="documentation">📚 Documentation</h2>
+<p>For complete documentation, visit <a href="https://cloudcoil.github.io/cloudcoil">cloudcoil.github.io/cloudcoil</a></p>
+<h2 id="license">📜 License</h2>
+<p>Apache License, Version 2.0 - see <a href="LICENSE">LICENSE</a></p>
+<h2 id="stargazers-over-time">🌟 Stargazers over time</h2>
+<p><a href="https://starchart.cc/cloudcoil/cloudcoil"><img alt="Stargazers over time" src="https://starchart.cc/cloudcoil/cloudcoil.svg?variant=adaptive" /></a></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": ".", "features": ["navigation.instant", "navigation.tabs"], "search": "assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.60a45f97.min.js"></script>
+      
+    
+  </body>
+</html>
