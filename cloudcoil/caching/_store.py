@@ -1,6 +1,5 @@
 """Concurrent-safe store implementation for caching Kubernetes resources."""
 
-import asyncio
 import logging
 import threading
 from typing import Callable, Dict, Generic, List, Optional, Set, TypeVar
@@ -16,7 +15,7 @@ class ConcurrentStore(Generic[T]):
     """Concurrent-safe cache store for resources with custom indexing.
 
     Safe for both async (coroutine) and sync (thread) access patterns.
-    Uses asyncio.Lock for async operations and threading.RLock for sync wrappers.
+    All reads and writes share a threading.RLock; mutations never await.
 
     Example:
         >>> store = ConcurrentStore[Pod]()
@@ -46,8 +45,6 @@ class ConcurrentStore(Generic[T]):
         self._key_func = key_func or self._default_key_func
         self._max_items = max_items
 
-        # Dual locking strategy for async-first with sync wrapper support
-        self._async_lock = asyncio.Lock()
         self._thread_lock = threading.RLock()
 
     @staticmethod
@@ -92,7 +89,7 @@ class ConcurrentStore(Generic[T]):
     def get_by_index(self, index_name: str, index_key: str) -> List[T]:
         """Get objects by custom index.
 
-        This is a read operation and is safe without locks.
+        Reads share the mutation lock to keep indices and objects consistent.
 
         Args:
             index_name: Name of the index to use
@@ -104,11 +101,12 @@ class ConcurrentStore(Generic[T]):
         Raises:
             KeyError: If the index doesn't exist
         """
-        if index_name not in self._indices:
-            raise KeyError(f"Index {index_name} not found")
+        with self._thread_lock:
+            if index_name not in self._indices:
+                raise KeyError(f"Index {index_name} not found")
 
-        keys = self._indices[index_name].get(index_key, set())
-        return [self._items[key] for key in keys if key in self._items]
+            keys = self._indices[index_name].get(index_key, set())
+            return [self._items[key] for key in keys if key in self._items]
 
     def list_index_keys(self, index_name: str) -> List[str]:
         """List all keys in a given index.
@@ -122,9 +120,10 @@ class ConcurrentStore(Generic[T]):
         Raises:
             KeyError: If the index doesn't exist
         """
-        if index_name not in self._indices:
-            raise KeyError(f"Index {index_name} not found")
-        return list(self._indices[index_name].keys())
+        with self._thread_lock:
+            if index_name not in self._indices:
+                raise KeyError(f"Index {index_name} not found")
+            return list(self._indices[index_name].keys())
 
     async def async_add(self, obj: T) -> None:
         """Add or update an object in the store (async-safe).
@@ -132,7 +131,7 @@ class ConcurrentStore(Generic[T]):
         Args:
             obj: The object to add or update
         """
-        async with self._async_lock:
+        with self._thread_lock:
             self._add_internal(obj)
 
     def add(self, obj: T) -> None:
@@ -186,9 +185,8 @@ class ConcurrentStore(Generic[T]):
                     self._indices[index_name][new_index_key].add(key)
 
     def get(self, key: str) -> Optional[T]:
-        """Get an object by key (safe without lock - read-only operation).
+        """Get an object by key.
 
-        In Python, dict.get() is atomic due to GIL.
         Safe for both async and sync contexts.
 
         Args:
@@ -197,7 +195,8 @@ class ConcurrentStore(Generic[T]):
         Returns:
             The object if found, None otherwise
         """
-        return self._items.get(key)
+        with self._thread_lock:
+            return self._items.get(key)
 
     def get_by_name(self, name: str, namespace: Optional[str] = None) -> Optional[T]:
         """Get an object by name and namespace.
@@ -223,7 +222,8 @@ class ConcurrentStore(Generic[T]):
         Returns:
             List of all objects in the store
         """
-        return list(self._items.values())
+        with self._thread_lock:
+            return list(self._items.values())
 
     def list_keys(self) -> List[str]:
         """List all keys in the store.
@@ -231,7 +231,8 @@ class ConcurrentStore(Generic[T]):
         Returns:
             List of all keys
         """
-        return list(self._items.keys())
+        with self._thread_lock:
+            return list(self._items.keys())
 
     async def async_delete(self, obj: T) -> None:
         """Delete an object from the store (async-safe).
@@ -239,7 +240,7 @@ class ConcurrentStore(Generic[T]):
         Args:
             obj: The object to delete
         """
-        async with self._async_lock:
+        with self._thread_lock:
             key = self._key_func(obj)
             if key:
                 self._delete_internal(key)
@@ -268,7 +269,7 @@ class ConcurrentStore(Generic[T]):
         Args:
             items: New list of items to store
         """
-        async with self._async_lock:
+        with self._thread_lock:
             self._replace_internal(items)
 
     def replace(self, items: List[T]) -> None:
@@ -308,7 +309,8 @@ class ConcurrentStore(Generic[T]):
         Returns:
             Number of items
         """
-        return len(self._items)
+        with self._thread_lock:
+            return len(self._items)
 
     def clear(self) -> None:
         """Clear all items from the store (thread-safe)."""

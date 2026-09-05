@@ -43,7 +43,14 @@ def pointer_name(name: str) -> str:
     return name.replace("~", "~0").replace("/", "~1")
 
 
-_SCHEMA_MAPS = {"properties", "patternProperties", "definitions", "$defs", "schemas"}
+_SCHEMA_MAPS = {
+    "properties",
+    "patternProperties",
+    "definitions",
+    "$defs",
+    "schemas",
+    "dependentSchemas",
+}
 _LITERAL_KEYS = {"default", "example", "examples", "enum", "const"}
 
 
@@ -157,7 +164,9 @@ def normalize_definition(definition: dict) -> None:
                 node["type"] = [type_, "null"]
             elif isinstance(type_, list) and "null" not in type_:
                 node["type"] = [*type_, "null"]
-            elif type_ is None and ("$ref" in node or "anyOf" in node or "oneOf" in node):
+            elif type_ is None and (
+                "$ref" in node or "anyOf" in node or "oneOf" in node or "allOf" in node
+            ):
                 original = deepcopy(node)
                 node.clear()
                 node["anyOf"] = [original, {"type": "null"}]

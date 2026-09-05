@@ -77,6 +77,7 @@ class CachedClient(APIClient[T]):
 
         Uses cache if available, falls back to API if not strict mode.
         """
+        namespace = (namespace or self.default_namespace) if self.namespaced else None
         # Try cache first
         cached = self._informer.get(name, namespace)
         if cached is not None:
@@ -107,11 +108,25 @@ class CachedClient(APIClient[T]):
 
         Uses cache if available and synced, falls back to API if not strict mode.
         """
+        if continue_:
+            if self._strict:
+                raise ValueError("Server continuation tokens cannot be used with a strict cache")
+            return super().list(
+                namespace=namespace,
+                all_namespaces=all_namespaces,
+                continue_=continue_,
+                field_selector=field_selector,
+                label_selector=label_selector,
+                limit=limit,
+            )
+
         # Check if cache is ready
         if self._informer.has_synced():
             logger.debug("Using cache for list operation")
             items = self._informer.list(
-                namespace=namespace,
+                namespace=None
+                if all_namespaces or not self.namespaced
+                else namespace or self.default_namespace,
                 label_selector=label_selector,
                 field_selector=field_selector,
             )
@@ -205,6 +220,7 @@ class AsyncCachedClient(AsyncAPIClient[T]):
 
         Uses cache if available, falls back to API if not strict mode.
         """
+        namespace = (namespace or self.default_namespace) if self.namespaced else None
         # Try cache first (cache reads are synchronous even in async informer)
         cached = self._informer.get(name, namespace)
         if cached is not None:
@@ -235,11 +251,25 @@ class AsyncCachedClient(AsyncAPIClient[T]):
 
         Uses cache if available and synced, falls back to API if not strict mode.
         """
+        if continue_:
+            if self._strict:
+                raise ValueError("Server continuation tokens cannot be used with a strict cache")
+            return await super().list(
+                namespace=namespace,
+                all_namespaces=all_namespaces,
+                continue_=continue_,
+                field_selector=field_selector,
+                label_selector=label_selector,
+                limit=limit,
+            )
+
         # Check if cache is ready
         if self._informer.has_synced():
             logger.debug("Using cache for list operation")
             items = self._informer.list(
-                namespace=namespace,
+                namespace=None
+                if all_namespaces or not self.namespaced
+                else namespace or self.default_namespace,
                 label_selector=label_selector,
                 field_selector=field_selector,
             )

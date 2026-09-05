@@ -4,6 +4,7 @@ import asyncio
 import logging
 import random
 import threading
+from contextvars import copy_context
 from typing import Any, Awaitable, Callable, Generic, List, Optional, TypeVar
 
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
@@ -111,7 +112,7 @@ class _AsyncWatchManager(Generic[T]):
             limit=self._options.page_size,
         )
 
-        items = resource_list.items if hasattr(resource_list, "items") else []
+        items = [item async for item in resource_list]
 
         # Store resource version for watch
         if hasattr(resource_list, "metadata") and resource_list.metadata:
@@ -184,7 +185,8 @@ class _SyncWatchManager(Generic[T]):
             self._stop_event.clear()
 
             self._thread = threading.Thread(
-                target=self._run,
+                target=copy_context().run,
+                args=(self._run,),
                 name=f"watch-{self._client.kind.__name__}",
                 daemon=True,
             )
@@ -243,7 +245,7 @@ class _SyncWatchManager(Generic[T]):
             limit=self._options.page_size,
         )
 
-        items = resource_list.items if hasattr(resource_list, "items") else []
+        items = list(resource_list)
 
         # Store resource version
         if hasattr(resource_list, "metadata") and resource_list.metadata:
