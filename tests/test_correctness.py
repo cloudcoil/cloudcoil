@@ -415,3 +415,25 @@ def test_deep_copy_of_page_retains_transport_and_copies_data():
     assert copy._page_client is page._page_client
     assert copy.items[0] is not page.items[0]
     assert [item.name for item in copy] == ["one", "two"]
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_informer_ready_when_initial_snapshot_wakes_waiters(asynchronous):
+    from cloudcoil.caching._informer import AsyncInformer, SyncInformer
+    from cloudcoil.caching._types import InformerOptions
+
+    client = Mock(kind=ConfigMap)
+    informer = (AsyncInformer if asynchronous else SyncInformer)(client, InformerOptions())
+    informer._started = True
+    resource = ConfigMap(metadata=ObjectMeta(name="sample", namespace="default"))
+    if asynchronous:
+        await informer._handle_initial_items([resource], "42")
+        assert await informer._wait_for_sync(timeout=0.1)
+    else:
+        informer._handle_initial_items([resource], "42")
+        assert informer._wait_for_sync(timeout=0.1)
+    assert not informer._watch.is_running
+    assert informer.has_synced()
+    assert informer.list(namespace="default") == [resource]
+    informer._started = False
+    assert not informer.has_synced()
