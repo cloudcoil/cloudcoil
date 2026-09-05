@@ -13,6 +13,7 @@ from typing import (
     Generic,
     Iterator,
     Literal,
+    Self,
     Type,
     TypeVar,
     overload,
@@ -25,12 +26,6 @@ from cloudcoil._context import context
 from cloudcoil.apimachinery import ListMeta, ObjectMeta, Status
 from cloudcoil.errors import ResourceNotFound
 from cloudcoil.pydantic import BaseModel
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 
 DEFAULT_PAGE_LIMIT = 50
 WatchEvent = Literal["ADDED", "MODIFIED", "DELETED", "ERROR"]
@@ -124,7 +119,7 @@ class Resource(BaseResource):
     @classmethod
     async def async_get(cls, name: str, namespace: str | None = None) -> Self:
         config = context.active_config
-        return await config.client_for(cls, sync=False).get(name, namespace)
+        return await (await config.async_client_for(cls)).get(name, namespace)
 
     def fetch(self) -> Self:
         config = context.active_config
@@ -136,7 +131,7 @@ class Resource(BaseResource):
         config = context.active_config
         if self.name is None:
             raise ValueError("Resource name is not set")
-        return await config.client_for(self.__class__, sync=False).get(self.name, self.namespace)
+        return await (await config.async_client_for(self.__class__)).get(self.name, self.namespace)
 
     def create(self, dry_run: bool = False) -> Self:
         config = context.active_config
@@ -144,7 +139,7 @@ class Resource(BaseResource):
 
     async def async_create(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).create(self, dry_run=dry_run)
+        return await (await config.async_client_for(self.__class__)).create(self, dry_run=dry_run)
 
     def update(self, dry_run: bool = False) -> Self:
         config = context.active_config
@@ -152,7 +147,7 @@ class Resource(BaseResource):
 
     async def async_update(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).update(self, dry_run=dry_run)
+        return await (await config.async_client_for(self.__class__)).update(self, dry_run=dry_run)
 
     def update_status(self, dry_run: bool = False) -> Self:
         config = context.active_config
@@ -160,25 +155,38 @@ class Resource(BaseResource):
 
     async def async_update_status(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).update_status(
+        return await (await config.async_client_for(self.__class__)).update_status(
             self, dry_run=dry_run
         )
 
     def save(self, dry_run: bool = False) -> Self:
+        """Create or replace, preserving optimistic concurrency on existing resources."""
+        if self.name is None:
+            return self.create(dry_run=dry_run)
+        if self.resource_version is not None:
+            return self.update(dry_run=dry_run)
         try:
-            self.fetch()
+            existing = self.fetch()
         except ResourceNotFound:
             return self.create(dry_run=dry_run)
-        else:
-            return self.update(dry_run=dry_run)
+        body = self.model_copy(deep=True)
+        assert body.metadata is not None
+        body.metadata.resource_version = existing.resource_version
+        return body.update(dry_run=dry_run)
 
     async def async_save(self, dry_run: bool = False) -> Self:
+        if self.name is None:
+            return await self.async_create(dry_run=dry_run)
+        if self.resource_version is not None:
+            return await self.async_update(dry_run=dry_run)
         try:
-            await self.async_fetch()
+            existing = await self.async_fetch()
         except ResourceNotFound:
             return await self.async_create(dry_run=dry_run)
-        else:
-            return await self.async_update(dry_run=dry_run)
+        body = self.model_copy(deep=True)
+        assert body.metadata is not None
+        body.metadata.resource_version = existing.resource_version
+        return await body.async_update(dry_run=dry_run)
 
     @classmethod
     def delete(
@@ -208,7 +216,7 @@ class Resource(BaseResource):
         grace_period_seconds: int | None = None,
     ) -> Self | Status:
         config = context.active_config
-        return await config.client_for(cls, sync=False).delete(
+        return await (await config.async_client_for(cls)).delete(
             name,
             namespace,
             dry_run=dry_run,
@@ -237,7 +245,7 @@ class Resource(BaseResource):
         grace_period_seconds: int | None = None,
     ) -> Self | Status:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).remove(
+        return await (await config.async_client_for(self.__class__)).remove(
             self,
             dry_run=dry_run,
             propagation_policy=propagation_policy,
@@ -275,7 +283,7 @@ class Resource(BaseResource):
         limit: int = DEFAULT_PAGE_LIMIT,
     ) -> "ResourceList[Self]":
         config = context.active_config
-        return await config.client_for(cls, sync=False).list(
+        return await (await config.async_client_for(cls)).list(
             namespace=namespace,
             all_namespaces=all_namespaces,
             continue_=continue_,
@@ -315,7 +323,7 @@ class Resource(BaseResource):
         field_selector: str | None = None,
     ) -> "ResourceList[Self]":
         config = context.active_config
-        return await config.client_for(cls, sync=False).delete_all(
+        return await (await config.async_client_for(cls)).delete_all(
             namespace=namespace,
             dry_run=dry_run,
             propagation_policy=propagation_policy,
@@ -354,15 +362,18 @@ class Resource(BaseResource):
         resource_version: str | None = None,
     ) -> AsyncGenerator[tuple[WatchEvent, "Self"] | tuple[BookmarkEvent, "Unstructured"], None]:
         config = context.active_config
-        client_result = config.client_for(cls, sync=False).watch(
+        client_result = (await config.async_client_for(cls)).watch(
             namespace=namespace,
             all_namespaces=all_namespaces,
             field_selector=field_selector,
             label_selector=label_selector,
             resource_version=resource_version,
         )
-        # Type cast to ensure proper return type is recognized
-        return client_result  # type: ignore
+        try:
+            async for event in client_result:
+                yield event
+        finally:
+            await client_result.aclose()
 
     @overload
     def wait_for(
@@ -419,7 +430,7 @@ class Resource(BaseResource):
         timeout=None,
     ):
         config = context.active_config
-        client = config.client_for(self.__class__, sync=False)
+        client = await config.async_client_for(self.__class__)
         if not self.name:
             raise ValueError("Resource name must be set to wait for it")
         if isinstance(predicate, dict):
@@ -463,7 +474,7 @@ class Resource(BaseResource):
             APIError: If the API request fails
         """
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).scale(
+        return await (await config.async_client_for(self.__class__)).scale(
             self,
             replicas=replicas,
         )
@@ -476,6 +487,14 @@ class ResourceList(BaseResource, Generic[T]):
     metadata: ListMeta | None = None
     items: list[T] = []
     _next_page_params: dict[str, Any] = {}
+    _page_client: Any = None
+
+    def __deepcopy__(self, memo=None) -> Self:
+        memo = {} if memo is None else memo
+        if self._page_client is not None:
+            # Copy page data, but retain the live transport that owns pagination.
+            memo[id(self._page_client)] = self._page_client
+        return super().__deepcopy__(memo)
 
     @property
     def resource_class(self) -> type[T]:
@@ -491,15 +510,31 @@ class ResourceList(BaseResource, Generic[T]):
         return self
 
     def has_next_page(self) -> bool:
-        return bool(self.metadata and self.metadata.remaining_item_count)
+        return bool(self.metadata and self.metadata.continue_)
 
     def get_next_page(self) -> "ResourceList[T]":
+        if not self.has_next_page():
+            raise ValueError("This resource list has no next page")
+        if self._page_client is not None:
+            from cloudcoil.client._api_client import APIClient
+
+            if not isinstance(self._page_client, APIClient):
+                raise TypeError("Use async_get_next_page() for an asynchronous resource list")
+            return self._page_client.list(**self._next_page_params)
         config = context.active_config
         return config.client_for(self.resource_class, sync=True).list(**self._next_page_params)
 
     async def async_get_next_page(self) -> "ResourceList[T]":
+        if not self.has_next_page():
+            raise ValueError("This resource list has no next page")
+        if self._page_client is not None:
+            from cloudcoil.client._api_client import AsyncAPIClient
+
+            if not isinstance(self._page_client, AsyncAPIClient):
+                raise TypeError("Use get_next_page() for a synchronous resource list")
+            return await self._page_client.list(**self._next_page_params)
         config = context.active_config
-        return await config.client_for(self.resource_class, sync=False).list(
+        return await (await config.async_client_for(self.resource_class)).list(
             **self._next_page_params
         )
 
@@ -534,7 +569,6 @@ class _Scheme:
     @classmethod
     def _register(cls, kind: Type[Resource]) -> None:
         cls._registry[kind.gvk()] = kind
-        cls._registry[kind.gvk().model_copy(update={"api_version": ""})] = kind
 
     @classmethod
     def _register_all(cls, kinds: list[Type[Resource]]) -> None:
@@ -566,7 +600,7 @@ class _Scheme:
                 package.__path__, package.__name__ + "."
             ):
                 import_and_check_module(module_name)
-        except (AttributeError, ImportError):
+        except AttributeError, ImportError:
             pass  # Skip if package has no __path__ or can't be walked
 
     @classmethod
@@ -578,6 +612,12 @@ class _Scheme:
     @classmethod
     def get(cls, kind: str, api_version: str = "") -> Type[Resource]:
         cls._initialize()
+        if not api_version:
+            matches = {resource for gvk, resource in cls._registry.items() if gvk.kind == kind}
+            if len(matches) == 1:
+                return matches.pop()
+            if len(matches) > 1:
+                raise ValueError(f"Resource kind {kind!r} is ambiguous; specify api_version")
         return cls._registry[GVK(api_version=api_version, kind=kind)]
 
     @classmethod
@@ -635,7 +675,7 @@ def parse_file(path: str | Path, load_all: Literal[True]) -> list[Resource]: ...
 
 
 @overload
-def parse_file(path: str | Path, load_all: Literal[False]) -> Resource: ...
+def parse_file(path: str | Path, load_all: Literal[False] = False) -> Resource: ...
 
 
 def parse_file(path: str | Path, load_all: bool = False) -> list[Resource] | Resource:
@@ -643,12 +683,14 @@ def parse_file(path: str | Path, load_all: bool = False) -> list[Resource] | Res
     if not content.strip():
         raise ValueError("Empty YAML document")
     try:
+        docs = [doc for doc in yaml.safe_load_all(content) if doc is not None]
+        if not docs:
+            raise ValueError("Empty YAML document")
         if not load_all:
-            docs = list(yaml.safe_load_all(content))
             if len(docs) > 1:
                 raise ValueError("Multiple YAML documents found when load_all=False")
             return parse(docs[0])
-        return parse(list(yaml.safe_load_all(content)))
+        return parse(docs)
     except yaml.YAMLError as e:
         raise ValueError(f"Failed to parse YAML: {e}")
 
@@ -660,24 +702,28 @@ def get_model(kind: str, *, api_version: str = "") -> Type[Resource]:
 class Unstructured(Resource):
     model_config = ConfigDict(extra="allow")
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        self._data = data
-
     def __getitem__(self, key: str) -> Any:
-        return self._data[key]
+        for name, field in type(self).model_fields.items():
+            if key in (name, field.alias):
+                return self.raw[field.alias or name]
+        if self.model_extra is not None and key in self.model_extra:
+            return self.model_extra[key]
+        raise KeyError(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        self._data[key] = value
-        # Also update the model data
-        BaseModel.__setattr__(self, key, value)
+        for name, field in type(self).model_fields.items():
+            if key in (name, field.alias):
+                setattr(self, name, value)
+                return
+        setattr(self, key, value)
 
     def __contains__(self, key: str) -> bool:
-        return key in self._data
+        return key in self.raw
 
     @property
     def raw(self) -> dict:
-        return self._data
+        """Return a wire-format snapshot of the current validated model."""
+        return self.model_dump(mode="json", by_alias=True, exclude_none=True)
 
 
 def get_dynamic_resource(kind: str, api_version: str) -> Type[Unstructured]:

@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -62,13 +64,10 @@ def test_model_config_validation():
     )
     assert config.namespace == "test"
     assert config.input_ == "test.json"
-    assert len(config.transformations) == 2
+    assert len(config.transformations) == 1
     assert config.transformations[0].match_.pattern == "test"
     assert config.transformations[0].replace == "replaced"
     assert config.transformations[0].namespace == "test"
-    assert config.transformations[1].match_.pattern == "^(.*)$"
-    assert config.transformations[1].replace == r"\g<1>"
-    assert config.transformations[1].namespace == "test"
 
 
 def test_process_definitions(sample_schema):
@@ -100,11 +99,21 @@ def test_generate_k8s_models(model_config, tmp_path):
     content = apps_v1_file.read_text()
     assert "class Deployment(" in content, "Deployment model not found"
     assert "from cloudcoil.resources import Resource" in content, "Base class import missing"
-    assert "from cloudcoil import apimachinery" in content, "Apimachinery import missing"
+    assert "from cloudcoil.apimachinery import" in content, "Apimachinery import missing"
 
     # Verify imports are correct (no relative imports for apimachinery)
     assert "from .. import apimachinery" not in content
     assert "from ... import apimachinery" not in content
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from test.k8s.apps.v1 import Deployment, DeploymentList; result = DeploymentList.model_validate({'apiVersion': 'apps/v1', 'kind': 'DeploymentList', 'metadata': {}, 'items': []}); assert result.resource_class is Deployment",
+        ],
+        cwd=tmp_path,
+        check=True,
+    )
 
 
 def test_int_or_string_conversion(sample_schema):

@@ -50,11 +50,13 @@ def test_builder_immutability():
 def test_list_builder():
     resources = APIResource.list_builder()
     resources = resources.add(
-        lambda cls: cls.name("pods")
-        .kind("Pod")
-        .namespaced(True)
-        .singular_name("pod")
-        .verbs(["get", "list"])
+        lambda cls: (
+            cls.name("pods")
+            .kind("Pod")
+            .namespaced(True)
+            .singular_name("pod")
+            .verbs(["get", "list"])
+        )
     )
 
     built = resources.build()
@@ -68,17 +70,21 @@ def test_complex_builder():
         .group_version("v1")
         .resources(
             lambda resources: resources.add(
-                lambda cls: cls.name("pods")
-                .kind("Pod")
-                .namespaced(True)
-                .singular_name("pod")
-                .verbs(["get", "list"])
+                lambda cls: (
+                    cls.name("pods")
+                    .kind("Pod")
+                    .namespaced(True)
+                    .singular_name("pod")
+                    .verbs(["get", "list"])
+                )
             ).add(
-                lambda cls: cls.name("services")
-                .kind("Service")
-                .namespaced(True)
-                .singular_name("service")
-                .verbs(["get", "list"])
+                lambda cls: (
+                    cls.name("services")
+                    .kind("Service")
+                    .namespaced(True)
+                    .singular_name("service")
+                    .verbs(["get", "list"])
+                )
             )
         )
         .build()
@@ -95,17 +101,21 @@ def test_list_callback():
         resources: APIResource.ListBuilder,
     ) -> APIResource.ListBuilder:
         return resources.add(
-            lambda cls: cls.name("pods")
-            .kind("Pod")
-            .namespaced(True)
-            .singular_name("pod")
-            .verbs(["get", "list"])
+            lambda cls: (
+                cls.name("pods")
+                .kind("Pod")
+                .namespaced(True)
+                .singular_name("pod")
+                .verbs(["get", "list"])
+            )
         ).add(
-            lambda cls: cls.name("services")
-            .kind("Service")
-            .namespaced(True)
-            .singular_name("service")
-            .verbs(["get", "list"])
+            lambda cls: (
+                cls.name("services")
+                .kind("Service")
+                .namespaced(True)
+                .singular_name("service")
+                .verbs(["get", "list"])
+            )
         )
 
     api_list = APIResourceList.builder().group_version("v1").resources(create_resources).build()

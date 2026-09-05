@@ -1,9 +1,11 @@
 import asyncio
 import json
 import logging
+import math
 import random
 import threading
 import time
+from contextvars import copy_context
 from typing import (
     Any,
     AsyncGenerator,
@@ -79,58 +81,32 @@ class _BaseAPIClient(Generic[T]):
             return f"{api_base}/namespaces/{namespace}/{self.resource}/{name}"
         return f"{api_base}/{self.resource}/{name}"
 
+    def _raise_for_status(self, response: httpx.Response) -> None:
+        if response.is_success:
+            return
+        try:
+            detail = response.json()
+        except ValueError:
+            detail = response.text or response.reason_phrase
+        error = {404: ResourceNotFound, 409: ResourceConflict}.get(response.status_code, APIError)
+        raise error(detail, status_code=response.status_code)
+
     def _handle_get_response(self, response: httpx.Response, namespace: str, name: str) -> T:
-        if response.status_code == 404:
-            logger.debug(
-                "Resource not found: kind=%s namespace=%s name=%s",
-                self.kind.gvk().kind,
-                namespace,
-                name,
-            )
-            raise ResourceNotFound(
-                f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
-            )
-        return self.kind.model_validate_json(response.content)  # type: ignore
+        self._raise_for_status(response)
+        return self.kind.model_validate_json(response.content)
 
     def _handle_delete_response(
         self, response: httpx.Response, namespace: str, name: str
     ) -> T | Status:
-        if response.status_code == 404:
-            logger.debug(
-                "Resource not found for deletion: kind=%s namespace=%s name=%s",
-                self.kind.gvk().kind,
-                namespace,
-                name,
-            )
-            raise ResourceNotFound(
-                f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
-            )
+        self._raise_for_status(response)
         return TypeAdapter(Status | self.kind).validate_json(response.content)
 
     def _handle_create_response(self, response: httpx.Response) -> T:
-        if response.status_code == 409:
-            logger.debug("Resource creation failed due to conflict: %s", response.json()["details"])
-            raise ResourceConflict(response.json()["details"])
-        if not response.is_success:
-            logger.error("Resource creation failed: %s", response.json())
-            raise APIError(response.json())
-        return self.kind.model_validate_json(response.content)  # type: ignore
+        self._raise_for_status(response)
+        return self.kind.model_validate_json(response.content)
 
     def _handle_scale_response(self, response: httpx.Response, namespace: str, name: str) -> None:
-        """Handle response from scale operation. Base implementation handles errors only."""
-        if response.status_code == 404:
-            logger.debug(
-                "Resource not found for scaling: kind=%s namespace=%s name=%s",
-                self.kind.gvk().kind,
-                namespace,
-                name,
-            )
-            raise ResourceNotFound(
-                f"Resource kind='{self.kind.gvk().kind}', {namespace=}, {name=} not found"
-            )
-        if not response.is_success:
-            logger.error("Scale operation failed: %s", response.json())
-            raise APIError(response.json())
+        self._raise_for_status(response)
 
     def _build_watch_params(
         self,
@@ -160,7 +136,7 @@ class _BaseAPIClient(Generic[T]):
 
     def _get_backoff_time(self, retry_count: int) -> float:
         """Calculate exponential backoff with jitter."""
-        backoff = min(10.0, 0.1 * (2**retry_count))  # Cap at 10 seconds
+        backoff = min(10.0, 0.1 * (2 ** min(retry_count, 7)))  # Cap at 10 seconds
         jitter = random.uniform(0, 0.1 * backoff)  # 10% jitter
         total_backoff = backoff + jitter
         return total_backoff
@@ -195,7 +171,7 @@ class APIClient(_BaseAPIClient[T]):
         if dry_run:
             params["dryRun"] = "All"
         response = self._client.post(
-            url, json=body.model_dump(mode="json", by_alias=True), params=params
+            url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
         )
         return self._handle_create_response(response)
 
@@ -204,12 +180,14 @@ class APIClient(_BaseAPIClient[T]):
             raise ValueError(f"metadata must be set for {body=}")
         namespace = body.namespace or self.default_namespace
         name = body.name
+        if not name:
+            raise ValueError("metadata.name must be set for update operations")
         url = self._build_url(namespace=namespace, name=name)
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
         response = self._client.put(
-            url, json=body.model_dump(mode="json", by_alias=True), params=params
+            url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
         )
         return self._handle_create_response(response)
 
@@ -220,12 +198,14 @@ class APIClient(_BaseAPIClient[T]):
             raise ValueError(f"Resource {body.gvk().kind} does not support status updates")
         namespace = body.namespace or self.default_namespace
         name = body.name
+        if not name:
+            raise ValueError("metadata.name must be set for update operations")
         url = f"{self._build_url(namespace=namespace, name=name)}/status"
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
         response = self._client.put(
-            url, json=body.model_dump(mode="json", by_alias=True), params=params
+            url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
         )
         return self._handle_create_response(response)
 
@@ -233,7 +213,7 @@ class APIClient(_BaseAPIClient[T]):
         self,
         name: str,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
     ) -> T | Status:
@@ -244,7 +224,7 @@ class APIClient(_BaseAPIClient[T]):
             params["dryRun"] = "All"
         if propagation_policy:
             params["propagationPolicy"] = propagation_policy.capitalize()
-        if grace_period_seconds:
+        if grace_period_seconds is not None:
             params["gracePeriodSeconds"] = grace_period_seconds
         response = self._client.delete(url, params=params)
         return self._handle_delete_response(response, namespace, name)
@@ -252,7 +232,7 @@ class APIClient(_BaseAPIClient[T]):
     def remove(
         self,
         body: T,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
     ) -> T | Status:
@@ -291,11 +271,10 @@ class APIClient(_BaseAPIClient[T]):
         if limit:
             params["limit"] = limit
         response = self._client.get(url, params=params)
-        if not response.is_success:
-            logger.error("Failed to list resources: %s", response.json())
-            raise APIError(response.json())
+        self._raise_for_status(response)
         output = ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
         assert output.metadata
+        output._page_client = self
         output._next_page_params = {
             "namespace": namespace,
             "all_namespaces": all_namespaces,
@@ -309,7 +288,7 @@ class APIClient(_BaseAPIClient[T]):
     def delete_all(
         self,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
         label_selector: str | None = None,
@@ -322,7 +301,7 @@ class APIClient(_BaseAPIClient[T]):
             params["dryRun"] = "All"
         if propagation_policy:
             params["propagationPolicy"] = propagation_policy.capitalize()
-        if grace_period_seconds:
+        if grace_period_seconds is not None:
             params["gracePeriodSeconds"] = grace_period_seconds
         if label_selector:
             params["labelSelector"] = label_selector
@@ -338,9 +317,7 @@ class APIClient(_BaseAPIClient[T]):
             field_selector,
         )
         response = self._client.delete(url, params=params)
-        if not response.is_success:
-            logger.error("Failed to delete all resources: %s", response.json())
-            raise APIError(response.json())
+        self._raise_for_status(response)
         return ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
 
     def watch(
@@ -351,12 +328,13 @@ class APIClient(_BaseAPIClient[T]):
         label_selector: str | None = None,
         resource_version: str | None = None,
         timeout_seconds: int | None = None,
+        _stop_event: threading.Event | None = None,
     ) -> Iterator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured]]:
         retry_count = 0
         curr_resource_version = resource_version
         kind_name = self.kind.gvk().kind
 
-        while True:
+        while _stop_event is None or not _stop_event.is_set():
             try:
                 url, params = self._build_watch_params(
                     namespace=namespace,
@@ -438,7 +416,12 @@ class APIClient(_BaseAPIClient[T]):
                             self.kind.gvk().kind,
                             namespace,
                         )
-                        raise ResourceNotFound("Watch endpoint not found") from e
+                        raise ResourceNotFound("Watch endpoint not found", status_code=404) from e
+                    if 400 <= e.response.status_code < 500 and e.response.status_code not in {
+                        408,
+                        429,
+                    }:
+                        raise APIError(str(e), status_code=e.response.status_code) from e
 
                 retry_count += 1
                 backoff = self._get_backoff_time(retry_count)
@@ -447,7 +430,10 @@ class APIClient(_BaseAPIClient[T]):
                     backoff,
                     str(e),
                 )
-                time.sleep(backoff)
+                if _stop_event is not None:
+                    _stop_event.wait(backoff)
+                else:
+                    time.sleep(backoff)
 
     def wait_for(
         self,
@@ -455,6 +441,13 @@ class APIClient(_BaseAPIClient[T]):
         predicates: dict[str, WaitPredicate],
         timeout: float | None = None,
     ) -> str:
+        if not resource.name:
+            raise ValueError("metadata.name must be set to wait for a resource")
+        if not predicates:
+            raise ValueError("At least one wait predicate is required")
+        if timeout is not None and timeout <= 0:
+            raise WaitTimeout("Timeout waiting for condition")
+
         class WatchResult:
             def __init__(self) -> None:
                 self.predicate_name: str | None = None
@@ -469,6 +462,10 @@ class APIClient(_BaseAPIClient[T]):
                     namespace=resource.namespace,
                     field_selector=f"metadata.name={resource.name}",
                     resource_version=resource.resource_version,
+                    timeout_seconds=min(_WATCH_TIMEOUT_SECONDS, max(1, math.ceil(timeout)))
+                    if timeout is not None
+                    else _WATCH_TIMEOUT_SECONDS,
+                    _stop_event=stop_event,
                 ):
                     if stop_event.is_set():
                         return
@@ -492,7 +489,9 @@ class APIClient(_BaseAPIClient[T]):
                 result.error = e
 
         # Start the watch in a separate thread
-        watch_thread = threading.Thread(target=watch_and_evaluate)
+        watch_thread = threading.Thread(
+            target=copy_context().run, args=(watch_and_evaluate,), daemon=True
+        )
         watch_thread.start()
 
         try:
@@ -570,7 +569,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         if dry_run:
             params["dryRun"] = "All"
         response = await self._client.post(
-            url, json=body.model_dump(mode="json", by_alias=True), params=params
+            url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
         )
         return self._handle_create_response(response)
 
@@ -579,12 +578,14 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             raise ValueError(f"metadata must be set for {body=}")
         namespace = body.namespace or self.default_namespace
         name = body.name
+        if not name:
+            raise ValueError("metadata.name must be set for update operations")
         url = self._build_url(namespace=namespace, name=name)
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
         response = await self._client.put(
-            url, json=body.model_dump(mode="json", by_alias=True), params=params
+            url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
         )
         return self._handle_create_response(response)
 
@@ -595,12 +596,14 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             raise ValueError(f"Resource {body.gvk().kind} does not support status updates")
         namespace = body.namespace or self.default_namespace
         name = body.name
+        if not name:
+            raise ValueError("metadata.name must be set for update operations")
         url = f"{self._build_url(namespace=namespace, name=name)}/status"
         params: dict[str, Any] = {}
         if dry_run:
             params["dryRun"] = "All"
         response = await self._client.put(
-            url, json=body.model_dump(mode="json", by_alias=True), params=params
+            url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
         )
         return self._handle_create_response(response)
 
@@ -608,7 +611,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         self,
         name: str,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
     ) -> T | Status:
@@ -619,7 +622,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             params["dryRun"] = "All"
         if propagation_policy:
             params["propagationPolicy"] = propagation_policy.capitalize()
-        if grace_period_seconds:
+        if grace_period_seconds is not None:
             params["gracePeriodSeconds"] = grace_period_seconds
         response = await self._client.delete(url, params=params)
         return self._handle_delete_response(response, namespace, name)
@@ -627,7 +630,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
     async def remove(
         self,
         body: T,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
     ) -> T | Status:
@@ -667,11 +670,10 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         if limit:
             params["limit"] = limit
         response = await self._client.get(url, params=params)
-        if not response.is_success:
-            logger.error("Failed to list resources: %s", response.json())
-            raise APIError(response.json())
+        self._raise_for_status(response)
         output = ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
         assert output.metadata
+        output._page_client = self
         output._next_page_params = {
             "namespace": namespace,
             "all_namespaces": all_namespaces,
@@ -685,7 +687,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
     async def delete_all(
         self,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
         label_selector: str | None = None,
@@ -698,7 +700,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             params["dryRun"] = "All"
         if propagation_policy:
             params["propagationPolicy"] = propagation_policy.capitalize()
-        if grace_period_seconds:
+        if grace_period_seconds is not None:
             params["gracePeriodSeconds"] = grace_period_seconds
         if label_selector:
             params["labelSelector"] = label_selector
@@ -714,9 +716,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             field_selector,
         )
         response = await self._client.delete(url, params=params)
-        if not response.is_success:
-            logger.error("Failed to delete all resources: %s", response.json())
-            raise APIError(response.json())
+        self._raise_for_status(response)
         return ResourceList[self.kind].model_validate_json(response.content)  # type: ignore
 
     async def watch(
@@ -814,7 +814,12 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                             self.kind.gvk().kind,
                             namespace,
                         )
-                        raise ResourceNotFound("Watch endpoint not found") from e
+                        raise ResourceNotFound("Watch endpoint not found", status_code=404) from e
+                    if 400 <= e.response.status_code < 500 and e.response.status_code not in {
+                        408,
+                        429,
+                    }:
+                        raise APIError(str(e), status_code=e.response.status_code) from e
 
                 retry_count += 1
                 backoff = self._get_backoff_time(retry_count)

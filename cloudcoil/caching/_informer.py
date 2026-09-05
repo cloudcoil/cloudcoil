@@ -297,7 +297,9 @@ class AsyncInformer(Generic[T]):
 
     def _has_synced(self) -> bool:
         """Check if initial sync complete (internal use only)."""
-        return self._sync_event.is_set() and self._watch.is_running
+        # The initial-list callback wakes waiters before the watch loop changes state.
+        # Readiness describes the populated snapshot, not the transport's state.
+        return self._sync_event.is_set() and self._started
 
     async def _handle_initial_items(self, items: List[T], resource_version: str) -> None:
         """Handle initial list of items."""
@@ -614,7 +616,9 @@ class SyncInformer(Generic[T]):
 
     def _has_synced(self) -> bool:
         """Check if initial sync complete (internal use only)."""
-        return self._sync_event.is_set() and self._watch.is_running
+        # The initial-list callback wakes waiters before the watch loop changes state.
+        # Readiness describes the populated snapshot, not the transport's state.
+        return self._sync_event.is_set() and self._started
 
     def _handle_initial_items(self, items: List[T], resource_version: str) -> None:
         """Handle initial list of items."""

@@ -10,9 +10,7 @@
 
 class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)}}]{%- endif -%}):{% if comment is defined %}  # {{ comment }}{% endif %}
 {%- if description %}
-    """
-    {{ description | replace("\t", " "*4) | trim | indent(4) }}
-    """
+    {{ description | tojson }}
 {%- endif %}
 
 {%- if config %}
@@ -23,7 +21,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
 {%- if not fields and not description %}
     class Builder(BaseBuilder):
         @property
-        def cls(self) -> Type["{{ class_name }}"]:
+        def cls(self) -> type["{{ class_name }}"]:
             return {{ class_name }}
         def build(self) -> "{{ class_name }}":
             return {{ class_name }}()
@@ -34,21 +32,19 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
 
         def root(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
-            """
-            {{ field.docstring | replace("\t", " "*4) | trim | indent(12) }}
-            """
+            {{ field.docstring | tojson }}
             {%- endif %}
-            self._value = value
-            return self
+            builder = self if self._in_context else self.__class__()
+            builder._value = value
+            return builder
 
         def __call__(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
-            """
-            {{ field.docstring | replace("\t", " "*4) | trim | indent(12) }}
-            """
+            {{ field.docstring | tojson }}
             {%- endif %}
-            self._value = value
-            return self
+            builder = self if self._in_context else self.__class__()
+            builder._value = value
+            return builder
 
         def build(self) -> "{{ class_name }}":
             value = cast({{ field.type_hint }}, self._value)
@@ -62,19 +58,18 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
     {%- else %}
     root: {{ field.type_hint }}
     {%- endif %}
-    {%- if not (field.required or (field.represented_default == 'None' and field.strip_default_none))
+    {%- if not field.has_default_factory_in_field and (not field.required or field.use_default_with_required) and (field.represented_default != 'None' or not field.strip_default_none or field.data_type.is_optional)
             %} = {{ field.represented_default }}
     {%- endif -%}
     {%- endif %}
     {%- if field.docstring %}
-    """
-    {{ field.docstring | replace("\t", " "*4) | trim | indent(4) }}
-    """
+    {{ field.docstring | tojson }}
     {%- endif %}
 {%- endif %}
     class BuilderContext(BuilderContextBase["{{ class_name }}.Builder"]):
         def model_post_init(self, __context) -> None:
             self._builder = {{ class_name }}.Builder()
+            self._builder._in_context = True
             self._parent_builder = None
             self._field_name = None
 
@@ -86,3 +81,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
     def new(cls) -> BuilderContext:
         """Creates a new context manager builder for {{ class_name }}."""
         return cls.BuilderContext()
+
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["{{ class_name }}", Builder]:
+        return GenericListBuilder[{{ class_name }}, {{ class_name }}.Builder]()

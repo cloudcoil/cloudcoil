@@ -6,13 +6,10 @@ authors = [{ name = "{{cookiecutter.author_name}}", email = "{{cookiecutter.auth
 maintainers = [{ name = "{{cookiecutter.author_name}}", email = "{{cookiecutter.author_email}}" }]
 license = { text = "Apache-2.0" }
 classifiers = [
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
     "cloudcoil>=0.4.0",
 {%- if cookiecutter.dependencies %}
@@ -36,7 +33,7 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -55,7 +52,8 @@ asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
-    "mypy",
+    "mypy>=1.19",
+    "pyright>=1.1.407",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.5.3",
     "mkdocstrings>=0.24.0",
@@ -63,7 +61,7 @@ dev = [
     "mkdocs-autorefs>=0.5.0",
     "pytest>=8.3.4",
     "pytest-cov>=4.1.0",
-    "ruff>=0.8.4",
+    "ruff>=0.14",
     "mkdocs-autorefs",
     "datamodel-code-generator[http]",
     "types-pyyaml>=6.0.12.20241221",
@@ -74,7 +72,7 @@ dev = [
 ]
 
 [tool.mypy]
-plugins = ['pydantic.mypy', 'cloudcoil.mypy']
+python_version = "3.14"
 
 [tool.coverage.run]
 omit = ["cloudcoil/models/**"]
