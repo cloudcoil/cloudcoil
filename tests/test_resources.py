@@ -142,7 +142,7 @@ async def test_resource_list_iteration():
     resource_list = ResourceList[TestResource](
         apiVersion="test/v1",
         kind="TestList",
-        metadata=ListMeta(continue_="token", remaining_item_count=0),
+        metadata=ListMeta(continue_="", remaining_item_count=0),
         items=items,
     )
 

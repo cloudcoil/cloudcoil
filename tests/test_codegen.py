@@ -62,13 +62,10 @@ def test_model_config_validation():
     )
     assert config.namespace == "test"
     assert config.input_ == "test.json"
-    assert len(config.transformations) == 2
+    assert len(config.transformations) == 1
     assert config.transformations[0].match_.pattern == "test"
     assert config.transformations[0].replace == "replaced"
     assert config.transformations[0].namespace == "test"
-    assert config.transformations[1].match_.pattern == "^(.*)$"
-    assert config.transformations[1].replace == r"\g<1>"
-    assert config.transformations[1].namespace == "test"
 
 
 def test_process_definitions(sample_schema):

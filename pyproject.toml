@@ -6,18 +6,14 @@ authors = [{ name = "Sambhav Kothari", email = "sambhavs.email@gmail.com" }]
 maintainers = [{ name = "Sambhav Kothari", email = "sambhavs.email@gmail.com" }]
 license = { text = "Apache-2.0" }
 classifiers = [
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
-    "pydantic>2.0",
+    "pydantic>=2.12,<3",
     "httpx",
     "pyyaml>=6.0.2",
-    "typing_extensions>=4.0.0; python_version <= '3.10'",
 ]
 keywords = ["cloud-native", "kubernetes", "pydantic", "python", "async"]
 
@@ -26,7 +22,7 @@ cloudcoil-model-codegen = "cloudcoil.codegen.generator:main"
 
 [project.optional-dependencies]
 test = ["pytest", "filelock", "pytest-asyncio"]
-codegen = ["datamodel-code-generator[http]~=0.26.4", "ruff"]
+codegen = ["datamodel-code-generator[http]>=0.72,<0.73", "ruff"]
 cert-manager = ["cloudcoil.models.cert_manager"]
 fluxcd = ["cloudcoil.models.fluxcd"]
 istio = ["cloudcoil.models.istio"]
@@ -73,7 +69,7 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -98,7 +94,8 @@ asyncio_default_fixture_loop_scope = "function"
 
 [dependency-groups]
 dev = [
-    "mypy",
+    "mypy>=1.19",
+    "pyright>=1.1.407",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.5.3",
     "mkdocstrings>=0.24.0",
@@ -106,7 +103,7 @@ dev = [
     "mkdocs-autorefs>=0.5.0",
     "pytest>=8.3.4",
     "pytest-cov>=4.1.0",
-    "ruff>=0.8.4",
+    "ruff>=0.14",
     "mkdocs-autorefs",
     "datamodel-code-generator[http]",
     "types-pyyaml>=6.0.12.20241221",
@@ -120,7 +117,7 @@ dev = [
 ]
 
 [tool.mypy]
-plugins = ['pydantic.mypy', 'cloudcoil.mypy']
+python_version = "3.14"
 
 # Add the pytest plugin
 [project.entry-points.pytest11]

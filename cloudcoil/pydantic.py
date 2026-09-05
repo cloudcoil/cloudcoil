@@ -1,16 +1,11 @@
-import sys
 from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
-
-from pydantic import PrivateAttr
-
-if sys.version_info >= (3, 11):
-    from typing import Never as Never
-    from typing import Self as Self
-else:
-    from typing_extensions import Never as Never
-    from typing_extensions import Self as Self
+from typing import Never as Never
+from typing import Self as Self
 
 import pydantic
+from pydantic import PrivateAttr
+
+UNSET = object()
 
 T = TypeVar("T", bound=pydantic.BaseModel)
 TBuilder = TypeVar("TBuilder", bound=pydantic.BaseModel)
@@ -64,7 +59,7 @@ class GenericListBuilder(pydantic.BaseModel, Generic[T, TBuilder]):
         return output
 
     def build(self) -> List[T]:
-        return self._list
+        return list(self._list)
 
 
 BuilderType = TypeVar("BuilderType", bound=BaseBuilder)
@@ -79,7 +74,7 @@ class BuilderContextBase(pydantic.BaseModel, Generic[BuilderType]):
         return self._builder
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self._parent_builder and self._field_name:
+        if exc_type is None and self._parent_builder is not None and self._field_name:
             self._parent_builder._set(self._field_name, self._builder.build())
 
 
@@ -95,6 +90,8 @@ class ListBuilderContext(pydantic.BaseModel, Generic[BuilderType]):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        if exc_type is not None:
+            return
         built_items = [builder.build() for builder in self._builders]
         self._parent_builder._set(self._field_name, built_items)
 

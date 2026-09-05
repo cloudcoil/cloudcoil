@@ -5,9 +5,9 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 
+import cloudcoil.models.kubernetes as k8s
 import pytest
 
-import cloudcoil.models.kubernetes as k8s
 from cloudcoil.apimachinery import ObjectMeta
 from cloudcoil.errors import WaitTimeout
 from cloudcoil.resources import get_dynamic_resource, parse_file

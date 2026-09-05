@@ -1,5 +1,9 @@
 class APIError(Exception):
-    pass
+    def __init__(self, detail, *, status_code: int | None = None):
+        self.detail = detail
+        self.status_code = status_code
+        message = detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
+        super().__init__(message)
 
 
 class ResourceNotFound(APIError):

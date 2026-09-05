@@ -564,41 +564,62 @@ class Config:
     def __enter__(self):
         self.initialize()
         context._enter(self)
-
-        if self.cache.enabled:
-            # Start cache synchronously
-            self.cache.start()
-            if self.cache.wait_for_sync:
-                if not self.cache.wait():
+        try:
+            if self.cache.enabled:
+                self.cache.start()
+                if self.cache.wait_for_sync and not self.cache.wait():
                     if self.cache.mode == "strict":
                         raise APIError(f"Cache failed to sync within {self.cache.sync_timeout}s")
                     logger.warning("Cache sync timeout, continuing with fallback")
+        except BaseException:
+            try:
+                if self.cache.enabled:
+                    self.cache.stop()
+            finally:
+                context._exit(self)
+            raise
         return self
 
     def __exit__(self, *_):
-        if self.cache.enabled:
-            self.cache.stop()
-        context._exit()
+        # Check ordering before touching another scope's resources.
+        configs = context.configs
+        if not configs or configs[-1] is not self:
+            raise RuntimeError("Configurations must be deactivated in reverse activation order")
+        try:
+            if self.cache.enabled and self not in configs[:-1]:
+                self.cache.stop()
+        finally:
+            context._exit(self)
 
     async def __aenter__(self):
-        """Async enter - starts cache asynchronously."""
+        """Activate this config, restoring the previous scope if startup fails."""
         self.initialize()
         context._enter(self)
-
-        if self.cache.enabled:
-            await self.cache.async_start()
-            if self.cache.wait_for_sync:
-                if not await self.cache.async_wait():
+        try:
+            if self.cache.enabled:
+                await self.cache.async_start()
+                if self.cache.wait_for_sync and not await self.cache.async_wait():
                     if self.cache.mode == "strict":
                         raise APIError(f"Cache failed to sync within {self.cache.sync_timeout}s")
                     logger.warning("Cache sync timeout, continuing with fallback")
+        except BaseException:
+            try:
+                if self.cache.enabled:
+                    await self.cache.async_stop()
+            finally:
+                context._exit(self)
+            raise
         return self
 
     async def __aexit__(self, *_):
-        """Async exit - stops cache asynchronously."""
-        if self.cache.enabled:
-            await self.cache.async_stop()
-        context._exit()
+        configs = context.configs
+        if not configs or configs[-1] is not self:
+            raise RuntimeError("Configurations must be deactivated in reverse activation order")
+        try:
+            if self.cache.enabled and self not in configs[:-1]:
+                await self.cache.async_stop()
+        finally:
+            context._exit(self)
 
     def refresh_api_resources(self) -> None:
         logger.debug("Refreshing API resource mapping")

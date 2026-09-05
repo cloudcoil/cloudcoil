@@ -1,19 +1,31 @@
 import argparse
 import ast
 import json
+import keyword
 import logging
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import warnings
+from copy import deepcopy
 from pathlib import Path
 from typing import Annotated, Any, Dict, Iterator, List, Literal, Set, Tuple
 
 import httpx
 import yaml
 from cloudcoil.codegen.import_rewriter import rewrite_imports
+from cloudcoil.codegen.schema import (
+    SchemaError,
+    inferred_name,
+    lift_inline_objects,
+    normalize_definition,
+    pointer_name,
+    rewrite_refs,
+)
+from cloudcoil.codegen.typing import generate_lookup
 from cloudcoil.version import __version__
 from datamodel_code_generator.__main__ import (
     main as generate_code,
@@ -22,17 +34,14 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_valida
 
 logger = logging.getLogger(__name__)
 
-if sys.version_info > (3, 11):
-    import tomllib
-else:
-    from . import _tomllib as tomllib
 
-try:
-    # See https://github.com/yaml/pyyaml/issues/683
-    # This is needed for compat with prometheus operator CRDs
-    del yaml.resolver.Resolver.yaml_implicit_resolvers["="]
-except KeyError:
-    pass
+class SchemaLoader(yaml.SafeLoader):
+    """Kubernetes YAML loader without PyYAML's special '=' value resolver."""
+
+
+SchemaLoader.yaml_implicit_resolvers = {
+    key: list(value) for key, value in yaml.SafeLoader.yaml_implicit_resolvers.items() if key != "="
+}
 
 
 class Update(BaseModel):
@@ -83,6 +92,7 @@ class ModelConfig(BaseModel):
         populate_by_name=True,
         validate_default=True,
     )
+    infer: bool = True
     crd_namespace: Annotated[str | None, Field(alias="crd-namespace")] = None
     namespace: str
     input_: Annotated[list[str] | str, Field(alias="input")]
@@ -101,29 +111,11 @@ class ModelConfig(BaseModel):
 
     @model_validator(mode="after")
     def _add_namespace(self):
-        if self.crd_namespace:
-            crd_regex = self.crd_namespace.replace(".", r"\.")
-            group_regex = r"\.(.*)"
-            crd_transformations = [
-                Transformation(
-                    match_=re.compile(r"^io\.k8s\.apimachinery\..*\.(.+)"),
-                    replace=r"apimachinery.\g<1>",
-                    namespace="cloudcoil",
-                ),
-                Transformation(
-                    match_=re.compile(f"^{crd_regex}{group_regex}$"),
-                    replace=r"\g<1>",
-                    namespace=self.namespace,
-                ),
-            ]
-            self.transformations = crd_transformations + self.transformations
-        if self.exclude_unknown:
-            self.transformations.append(
-                Transformation(
-                    match_=re.compile(r"^.*$"),
-                    exclude=True,
-                )
-            )
+        if not self.namespace or any(
+            not part.isidentifier() or keyword.iskeyword(part) for part in self.namespace.split(".")
+        ):
+            raise ValueError("namespace must be a dotted Python package name")
+        self.transformations = [item.model_copy(deep=True) for item in self.transformations]
         for transformation in self.transformations:
             if transformation.exclude:
                 if transformation.replace or transformation.namespace:
@@ -135,9 +127,6 @@ class ModelConfig(BaseModel):
                     raise ValueError(f"replace is required for non-exclusion {transformation=}")
                 if not transformation.namespace:
                     transformation.namespace = self.namespace
-        self.transformations.append(
-            Transformation(match_=re.compile(r"^(.*)$"), replace=r"\g<1>", namespace=self.namespace)
-        )
         return self
 
 
@@ -152,7 +141,7 @@ def get_schema_definitions(schema: dict) -> dict:
     """Get the definitions section based on schema type."""
     if detect_schema_type(schema) == "openapi":
         return schema.get("components", {}).get("schemas", {})
-    return schema.get("definitions", {})
+    return schema.get("definitions", schema.get("$defs", {}))
 
 
 def set_schema_definitions(schema: dict, definitions: dict) -> None:
@@ -161,6 +150,8 @@ def set_schema_definitions(schema: dict, definitions: dict) -> None:
         if "components" not in schema:
             schema["components"] = {}
         schema["components"]["schemas"] = definitions
+    elif "$defs" in schema and "definitions" not in schema:
+        schema["$defs"] = definitions
     else:
         schema["definitions"] = definitions
 
@@ -330,20 +321,28 @@ def process_definitions(schema: dict) -> None:
     definitions = get_schema_definitions(schema)
 
     for definition in definitions.values():
-        # Convert int-or-string format
-        def convert_int_or_string(obj):
-            if isinstance(obj, dict):
-                if obj.get("format") == "int-or-string":
-                    obj["type"] = ["integer", "string"]
-                    obj.pop("format")
-                for value in obj.values():
-                    if isinstance(value, dict):
-                        convert_int_or_string(value)
-
-        convert_int_or_string(definition)
+        normalize_definition(definition)
 
         # Handle both OpenAPI and JSONSchema GVK metadata
-        gvk = definition.get("x-kubernetes-group-version-kind", [{}])[0]
+        gvks = definition.get("x-kubernetes-group-version-kind") or []
+        if len(gvks) > 1:
+            # Shared transport objects (Status, DeleteOptions, WatchEvent) do not
+            # have one resource endpoint. Preserve their accepted identities.
+            props = definition.get("properties", {})
+            for field, values in (
+                (
+                    "apiVersion",
+                    [
+                        f"{g['group']}/{g['version']}" if g.get("group") else g["version"]
+                        for g in gvks
+                    ],
+                ),
+                ("kind", [g["kind"] for g in gvks]),
+            ):
+                if field in props:
+                    props[field]["enum"] = list(dict.fromkeys(values))
+            continue
+        gvk = gvks[0] if gvks else {}
         if not gvk:
             continue
 
@@ -385,50 +384,89 @@ def process_updates(updates: list[Update], schema: dict) -> None:
                 if update.delete:
                     delete_value_at_path(definition, update.jsonpath)
                 else:
-                    value = update.match_.sub(update.value, definition_name)
+                    value = (
+                        update.match_.sub(update.value, definition_name)
+                        if isinstance(update.value, str)
+                        else deepcopy(update.value)
+                    )
                     set_value_at_path(definition, update.jsonpath, value)
 
 
 def process_transformations(transformations: list[Transformation], schema: dict) -> dict:
-    renames = {}
-    is_openapi = detect_schema_type(schema) == "openapi"
     definitions = get_schema_definitions(schema)
-
-    def _new_name(definition_name):
+    renames: dict[str, str | None] = {}
+    for name in definitions:
+        renames[name] = name
         for transformation in transformations:
-            if transformation.match_.match(definition_name):
-                if transformation.exclude:
-                    return None
-                return transformation.match_.sub(
-                    f"{transformation.namespace}.{transformation.replace}", definition_name
+            assert isinstance(transformation.match_, re.Pattern)
+            if transformation.match_.match(name):
+                renames[name] = (
+                    None
+                    if transformation.exclude
+                    else transformation.match_.sub(
+                        f"{transformation.namespace}.{transformation.replace}", name
+                    )
                 )
-        return definition_name
+                break
 
-    # Process renames
-    for definition_name in list(definitions.keys()):
-        new_name = _new_name(definition_name)
-        renames[definition_name] = new_name
+    prefix = (
+        "#/components/schemas/"
+        if detect_schema_type(schema) == "openapi"
+        else ("#/$defs/" if "$defs" in schema and "definitions" not in schema else "#/definitions/")
+    )
+    # Excluding a definition also excludes its dependents. Never emit '#/.../None'.
+    changed = True
+    while changed:
+        changed = False
+        excluded = {
+            prefix + pointer_name(name) for name, target in renames.items() if target is None
+        }
+        for name, definition in definitions.items():
+            if renames[name] is not None and any(
+                ref in excluded for ref in _references(definition)
+            ):
+                renames[name] = None
+                changed = True
 
-    # Apply renames
-    for old_name, new_name in renames.items():
-        if not new_name:
-            definitions.pop(old_name)
+    output = {}
+    origins: dict[str, str] = {}
+    for name, target in renames.items():
+        if target is None:
             continue
-        definitions[new_name] = definitions.pop(old_name)
+        if target in output:
+            raise SchemaError(
+                f"Definitions {origins[target]!r} and {name!r} both map to {target!r}"
+            )
+        output[target] = definitions[name]
+        origins[target] = name
+    result = deepcopy(schema)
+    set_schema_definitions(result, output)
+    return rewrite_refs(
+        result,
+        {
+            prefix + pointer_name(name): prefix + pointer_name(target)
+            for name, target in renames.items()
+            if target is not None
+        },
+    )
 
-    set_schema_definitions(schema, definitions)
-    raw_schema = json.dumps(schema, indent=2)
-    prefix = "#/components/schemas/" if is_openapi else "#/definitions/"
-    for old_name, new_name in renames.items():
-        raw_schema = raw_schema.replace(f'"{prefix}{old_name}"', f'"{prefix}{new_name}"')
-    return json.loads(raw_schema)
+
+def _references(node):
+    if isinstance(node, dict):
+        if isinstance(node.get("$ref"), str):
+            yield node["$ref"]
+        for value in node.values():
+            yield from _references(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _references(value)
 
 
 def load_yaml_documents(file_path: str) -> Iterator[dict]:
     """Load YAML documents from a file."""
     with open(file_path, "r") as f:
         try:
-            yield from yaml.safe_load_all(f)
+            yield from yaml.load_all(f, Loader=SchemaLoader)
         except yaml.YAMLError as e:
             raise ValueError(f"Failed to parse YAML file: {e}")
 
@@ -436,7 +474,8 @@ def load_yaml_documents(file_path: str) -> Iterator[dict]:
 def is_crd(doc: dict) -> bool:
     """Check if a document is a CustomResourceDefinition."""
     return (
-        doc.get("apiVersion") == "apiextensions.k8s.io/v1"
+        isinstance(doc, dict)
+        and doc.get("apiVersion") in {"apiextensions.k8s.io/v1", "apiextensions.k8s.io/v1beta1"}
         and doc.get("kind") == "CustomResourceDefinition"
     )
 
@@ -450,9 +489,13 @@ def convert_crd_to_schema(crd: dict) -> Dict[str, Any]:
     }
 
     spec = crd.get("spec", {})
-    versions = spec.get("versions", [])
+    versions = spec.get("versions") or [
+        {"name": spec.get("version"), "schema": spec.get("validation", {})}
+    ]
     group = spec.get("group", "")
     kind = spec.get("names", {}).get("kind", "")
+    if not group or not kind:
+        raise SchemaError("CRD spec.group and spec.names.kind are required")
 
     # Add ObjectMeta if not already in components
     schema["components"]["schemas"]["io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"] = {
@@ -464,10 +507,14 @@ def convert_crd_to_schema(crd: dict) -> Dict[str, Any]:
             continue
 
         version_name = version.get("name", "")
-        schema_obj = version.get("schema", {}).get("openAPIV3Schema", {})
+        schema_obj = deepcopy(version.get("schema", {}).get("openAPIV3Schema", {}))
 
-        if not schema_obj:
-            continue
+        if not schema_obj or not version_name:
+            raise SchemaError(
+                f"CRD {group}/{kind} version {version_name!r} has no structural schema"
+            )
+        schema_obj.setdefault("type", "object")
+        schema_obj.setdefault("properties", {})
 
         # Convert group to reverse domain format
         if group:
@@ -516,16 +563,28 @@ def convert_crd_to_schema(crd: dict) -> Dict[str, Any]:
 
 
 def merge_schemas(schemas: list[dict[str, Any]]) -> dict:
-    """Merge multiple OpenAPI schemas into one."""
+    """Merge definitions across dialects, rewriting references and rejecting conflicts."""
     merged: dict[str, Any] = {
         "openapi": "3.0.0",
         "info": {"title": "Generated Schema", "version": "v1"},
+        "paths": {},
         "components": {"schemas": {}},
     }
-
+    definitions = merged["components"]["schemas"]
+    all_names = {name for schema in schemas for name in get_schema_definitions(schema)}
     for schema in schemas:
-        merged["components"]["schemas"].update(schema["components"]["schemas"])
-
+        source = get_schema_definitions(schema)
+        mappings = {
+            prefix + pointer_name(name): "#/components/schemas/" + pointer_name(name)
+            for name in all_names
+            for prefix in ("#/definitions/", "#/$defs/", "#/components/schemas/")
+        }
+        for name, definition in source.items():
+            definition = rewrite_refs(definition, mappings)
+            if name in definitions and definitions[name] != definition:
+                raise SchemaError(f"Conflicting definitions for {name!r} in input sources")
+            definitions[name] = definition
+        merged["paths"].update(deepcopy(schema.get("paths", {})))
     return merged
 
 
@@ -540,7 +599,7 @@ def fetch_remote_content(url: str) -> str:
 def load_yaml_content(content: str) -> Iterator[dict]:
     """Load YAML documents from a string."""
     try:
-        yield from yaml.safe_load_all(content)
+        yield from yaml.load_all(content, Loader=SchemaLoader)
     except yaml.YAMLError as e:
         raise ValueError(f"Failed to parse YAML content: {e}")
 
@@ -548,53 +607,67 @@ def load_yaml_content(content: str) -> Iterator[dict]:
 def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
     schema_file = workdir / "schema.json"
     extra_data_file = workdir / "extra_data.json"
-    if not isinstance(config.input_, list):
-        config.input_ = [config.input_]
-
-    logger.debug("Processing input sources: %s", config.input_)
+    inputs = config.input_ if isinstance(config.input_, list) else [config.input_]
     schemas = []
-    for input_ in config.input_:
-        if input_.startswith("http"):
-            logger.info("Fetching remote schema from %s", input_)
-            content = fetch_remote_content(input_)
-            if input_.endswith((".yaml", ".yml")):
-                logger.debug("Processing YAML content from %s", input_)
-                for doc in load_yaml_content(content):
-                    if doc and is_crd(doc):
-                        logger.debug("Found CRD in YAML content")
-                        schemas.append(convert_crd_to_schema(doc))
-            else:
-                logger.debug("Processing JSON content from %s", input_)
-                schema = json.loads(content)
-                schemas.append(schema)
-        else:
-            if input_.endswith((".yaml", ".yml")):
-                logger.debug("Processing local YAML file: %s", input_)
-                for doc in load_yaml_documents(input_):
-                    if doc and is_crd(doc):
-                        logger.debug("Found CRD in YAML file")
-                        schemas.append(convert_crd_to_schema(doc))
-            else:
-                logger.debug("Processing local JSON file: %s", input_)
-                with open(input_, "r") as f:
-                    content = f.read()
-                schema = json.loads(content)
-                schemas.append(schema)
+    crd_groups = set()
 
+    def collect(doc, source):
+        if not isinstance(doc, dict):
+            return
+        if is_crd(doc):
+            crd_groups.add(doc["spec"]["group"])
+            schemas.append(convert_crd_to_schema(doc))
+        elif doc.get("kind") in {"List", "CustomResourceDefinitionList"}:
+            for item in doc.get("items", []):
+                collect(item, source)
+        elif any(key in doc for key in ("openapi", "swagger", "definitions", "$defs")):
+            schemas.append(doc)
+        elif "type" in doc or "properties" in doc:
+            schemas.append({"definitions": {doc.get("title", "Model"): doc}})
+
+    for input_ in inputs:
+        content = (
+            fetch_remote_content(input_)
+            if input_.startswith(("http://", "https://"))
+            else Path(input_).read_text()
+        )
+        for doc in load_yaml_content(content):
+            collect(doc, input_)
     if not schemas:
-        logger.error("No valid CRDs or schemas found in input sources")
-        raise ValueError(f"No valid CRDs found in {config.input_}")
+        raise SchemaError(f"No CRDs, OpenAPI documents, or JSON schemas found in {inputs}")
+    schema = deepcopy(schemas[0]) if len(schemas) == 1 else merge_schemas(schemas)
 
-    logger.info("Found %d valid schemas", len(schemas))
-    if len(schemas) == 1:
-        schema = schemas[0]
-    else:
-        logger.debug("Merging multiple schemas")
-        schema = merge_schemas(schemas)
-
-    # Process transformations first
-    logger.info("Applying %d transformations", len(config.transformations))
-    schema = process_transformations(config.transformations, schema)
+    transformations = list(config.transformations)
+    if config.crd_namespace:
+        transformations += [
+            Transformation(
+                match_=r"^io\.k8s\.apimachinery\..*\.(.+)$",
+                replace=r"apimachinery.\g<1>",
+                namespace="cloudcoil",
+            ),
+            Transformation(
+                match_=f"^{re.escape(config.crd_namespace)}\\.(.*)$",
+                replace=r"\g<1>",
+                namespace=config.namespace,
+            ),
+        ]
+    if config.infer:
+        # Explicit rules win; inferred rules precede only the automatic catch-all.
+        inferred = []
+        for name in get_schema_definitions(schema):
+            target = inferred_name(name, config.namespace, crd_groups)
+            package, _, model = target.rpartition(".")
+            if not config.exclude_unknown or target != f"{config.namespace}.{name}":
+                inferred.append(
+                    Transformation(match_=f"^{re.escape(name)}$", replace=model, namespace=package)
+                )
+        transformations.extend(inferred)
+    transformations.append(
+        Transformation(match_=r"^(.*)$", exclude=True)
+        if config.exclude_unknown
+        else Transformation(match_=r"^(.*)$", replace=r"\g<1>", namespace=config.namespace)
+    )
+    schema = process_transformations(transformations, schema)
 
     # Then apply any updates
     if config.updates:
@@ -605,12 +678,13 @@ def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
     logger.debug("Processing schema definitions")
     process_definitions(schema)
 
-    if detect_schema_type(schema) == "openapi":
-        logger.debug("Detected OpenAPI schema")
-        config.additional_datamodel_codegen_args.extend(["--input-file-type", "openapi"])
-    else:
-        logger.debug("Detected JSONSchema schema")
-        config.additional_datamodel_codegen_args.extend(["--input-file-type", "jsonschema"])
+    if config.infer:
+        prefix = (
+            "#/components/schemas/"
+            if detect_schema_type(schema) == "openapi"
+            else ("#/$defs/" if "$defs" in schema else "#/definitions/")
+        )
+        lift_inline_objects(get_schema_definitions(schema), prefix)
 
     logger.debug("Generating extra data")
     extra_data = generate_extra_data(schema)
@@ -635,16 +709,25 @@ def generate_extra_data(schema: dict) -> dict:
         extra_prop_data = {
             "is_gvk": False,
             "is_list": False,
+            "preserve_unknown": bool(prop.get("x-kubernetes-preserve-unknown-fields")),
         }
 
         # Check for GVK
-        if "x-kubernetes-group-version-kind" in prop:
+        if len(prop.get("x-kubernetes-group-version-kind", [])) == 1:
             extra_prop_data["is_gvk"] = True
 
         # Check for List type
         if prop_name.endswith("List") and "properties" in prop:
             required_list_props = {"metadata", "items", "apiVersion", "kind"}
-            if set(prop["properties"]) == required_list_props:
+            item_ref = prop["properties"].get("items", {}).get("items", {}).get("$ref", "")
+            item_name = item_ref.rsplit("/", 1)[-1]
+            # Use a generic alias only when the referenced resource is the conventional
+            # sibling. Unusual list shapes stay ordinary generated resource models.
+            if (
+                set(prop["properties"]) == required_list_props
+                and item_name == prop_name[:-4]
+                and definitions.get(item_name, {}).get("x-kubernetes-group-version-kind")
+            ):
                 extra_prop_data["is_list"] = True
 
         extra_data[prop_name] = extra_prop_data
@@ -678,7 +761,7 @@ def get_file_header(content: str) -> tuple[str, str]:
             break
 
     # Check for module docstring
-    if tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Str):
+    if tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Constant) and isinstance(tree.body[0].value.value, str):
         # Get the docstring node
         docstring_node = tree.body[0]
         # Find where the docstring ends in the original content
@@ -820,6 +903,12 @@ def find_duplicate_models(workdir: Path) -> Dict[str, Set[str]]:
 
 
 def generate(config: ModelConfig):
+    """Generate into an isolated staging directory, then publish validated output."""
+    with tempfile.TemporaryDirectory(prefix="cloudcoil_codegen_") as directory:
+        _generate(config, Path(directory))
+
+
+def _generate(config: ModelConfig, workdir: Path):
     logger.debug("Starting code generation with config: %s", config.model_dump())
 
     ruff = shutil.which("ruff")
@@ -828,9 +917,8 @@ def generate(config: ModelConfig):
         raise ValueError("ruff executable not found")
 
     logger.info("Using ruff from: %s", ruff)
+    config = config.model_copy(deep=True)
     generated_path = Path(config.namespace.replace(".", "/"))
-    workdir = Path(tempfile.mkdtemp())
-    workdir.mkdir(parents=True, exist_ok=True)
     logger.debug("Created temporary working directory: %s", workdir)
 
     logger.info("Processing input files...")
@@ -854,6 +942,8 @@ def generate(config: ModelConfig):
         "cloudcoil.pydantic.ListBuilderContext",
         "cloudcoil.pydantic.Self",
         "cloudcoil.pydantic.Never",
+        "cloudcoil.pydantic.UNSET",
+        "pydantic.ConfigDict",
     ]
     if config.mode == "resource":
         logger.debug("Using resource mode with Resource base class")
@@ -864,6 +954,20 @@ def generate(config: ModelConfig):
         args.append(f"--extra-template-data={str(extra_data_file)}")
 
     args.append(f"--additional-imports={','.join(additional_imports)}")
+    if config.infer:
+        # The wire names remain aliases; Python API methods remain callable.
+        reserved = {"builder", "build", "new", "list_builder", "cls"}
+        from cloudcoil.resources import Resource
+
+        reserved.update(
+            name
+            for name in dir(Resource)
+            if not name.startswith("_") and callable(getattr(Resource, name))
+        )
+        explicit = {alias.from_ for alias in config.aliases}
+        config.aliases.extend(
+            Alias(from_=name, to=name + "_") for name in sorted(reserved - explicit)
+        )
     if config.aliases:
         logger.debug("Processing %d aliases", len(config.aliases))
         (workdir / "aliases.json").write_text(
@@ -875,7 +979,7 @@ def generate(config: ModelConfig):
     logger.info("Generating code...")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        generate_code(
+        result = generate_code(
             [
                 "--input",
                 str(input_file),
@@ -883,7 +987,7 @@ def generate(config: ModelConfig):
                 str(workdir),
                 "--snake-case-field",
                 "--target-python-version",
-                "3.10",
+                "3.14",
                 "--base-class",
                 base_class,
                 "--output-model-type",
@@ -891,7 +995,7 @@ def generate(config: ModelConfig):
                 "--enum-field-as-literal",
                 "all",
                 "--input-file-type",
-                "jsonschema",
+                detect_schema_type(json.loads(input_file.read_text())),
                 "--disable-appending-item-suffix",
                 "--use-title-as-name",
                 "--disable-timestamp",
@@ -907,6 +1011,8 @@ def generate(config: ModelConfig):
                 *config.additional_datamodel_codegen_args,
             ]
         )
+    if result not in (None, 0):
+        raise RuntimeError(f"datamodel-code-generator failed with exit code {result}")
     logger.debug("Code generation completed")
 
     logger.info("Rewriting imports...")
@@ -916,9 +1022,10 @@ def generate(config: ModelConfig):
         logger.debug("Generating __init__.py files")
         Path(workdir / generated_path / "__init__.py").touch()
         generate_init_imports(workdir / generated_path)
+        generate_lookup(workdir / generated_path, config.namespace)
     else:
         logger.debug("Skipping __init__.py generation")
-        Path(workdir / generated_path / "__init__.py").unlink()
+        Path(workdir / generated_path / "__init__.py").unlink(missing_ok=True)
 
     if config.generate_py_typed:
         logger.debug("Generating py.typed marker")
@@ -944,19 +1051,15 @@ def generate(config: ModelConfig):
     ]
     subprocess.run(ruff_format_args, check=True)
 
+    for file in (workdir / generated_path).rglob("*.py"):
+        compile(file.read_text(), str(file), "exec")
     output_dir = config.output or Path(".")
     logger.info("Moving generated files to output directory: %s", output_dir)
 
-    if (output_dir / generated_path).exists():
-        logger.debug("Merging with existing package at %s", output_dir / generated_path)
-        for item in (workdir / generated_path).iterdir():
-            if item.is_dir():
-                shutil.move(item, output_dir / generated_path / item.name)
-            else:
-                shutil.move(item, output_dir / generated_path)
-    else:
-        logger.debug("Creating new package at %s", output_dir / generated_path)
-        shutil.move(workdir / generated_path, output_dir / generated_path)
+    # Copy directory contents, avoiding shutil.move's repeated-generation nesting bug.
+    destination = output_dir / generated_path
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(workdir / generated_path, destination, dirs_exist_ok=True)
 
     logger.info("Code generation completed successfully")
 

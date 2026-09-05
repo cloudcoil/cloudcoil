@@ -13,6 +13,7 @@ from typing import (
     Generic,
     Iterator,
     Literal,
+    Self,
     Type,
     TypeVar,
     overload,
@@ -25,12 +26,6 @@ from cloudcoil._context import context
 from cloudcoil.apimachinery import ListMeta, ObjectMeta, Status
 from cloudcoil.errors import ResourceNotFound
 from cloudcoil.pydantic import BaseModel
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 
 DEFAULT_PAGE_LIMIT = 50
 WatchEvent = Literal["ADDED", "MODIFIED", "DELETED", "ERROR"]
@@ -476,6 +471,7 @@ class ResourceList(BaseResource, Generic[T]):
     metadata: ListMeta | None = None
     items: list[T] = []
     _next_page_params: dict[str, Any] = {}
+    _page_client: Any = None
 
     @property
     def resource_class(self) -> type[T]:
@@ -491,13 +487,29 @@ class ResourceList(BaseResource, Generic[T]):
         return self
 
     def has_next_page(self) -> bool:
-        return bool(self.metadata and self.metadata.remaining_item_count)
+        return bool(self.metadata and self.metadata.continue_)
 
     def get_next_page(self) -> "ResourceList[T]":
+        if not self.has_next_page():
+            raise ValueError("This resource list has no next page")
+        if self._page_client is not None:
+            from cloudcoil.client._api_client import APIClient
+
+            if not isinstance(self._page_client, APIClient):
+                raise TypeError("Use async_get_next_page() for an asynchronous resource list")
+            return self._page_client.list(**self._next_page_params)
         config = context.active_config
         return config.client_for(self.resource_class, sync=True).list(**self._next_page_params)
 
     async def async_get_next_page(self) -> "ResourceList[T]":
+        if not self.has_next_page():
+            raise ValueError("This resource list has no next page")
+        if self._page_client is not None:
+            from cloudcoil.client._api_client import AsyncAPIClient
+
+            if not isinstance(self._page_client, AsyncAPIClient):
+                raise TypeError("Use get_next_page() for a synchronous resource list")
+            return await self._page_client.list(**self._next_page_params)
         config = context.active_config
         return await config.client_for(self.resource_class, sync=False).list(
             **self._next_page_params
@@ -534,7 +546,6 @@ class _Scheme:
     @classmethod
     def _register(cls, kind: Type[Resource]) -> None:
         cls._registry[kind.gvk()] = kind
-        cls._registry[kind.gvk().model_copy(update={"api_version": ""})] = kind
 
     @classmethod
     def _register_all(cls, kinds: list[Type[Resource]]) -> None:
@@ -566,7 +577,7 @@ class _Scheme:
                 package.__path__, package.__name__ + "."
             ):
                 import_and_check_module(module_name)
-        except (AttributeError, ImportError):
+        except AttributeError, ImportError:
             pass  # Skip if package has no __path__ or can't be walked
 
     @classmethod
@@ -578,6 +589,12 @@ class _Scheme:
     @classmethod
     def get(cls, kind: str, api_version: str = "") -> Type[Resource]:
         cls._initialize()
+        if not api_version:
+            matches = {resource for gvk, resource in cls._registry.items() if gvk.kind == kind}
+            if len(matches) == 1:
+                return matches.pop()
+            if len(matches) > 1:
+                raise ValueError(f"Resource kind {kind!r} is ambiguous; specify api_version")
         return cls._registry[GVK(api_version=api_version, kind=kind)]
 
     @classmethod
@@ -660,24 +677,23 @@ def get_model(kind: str, *, api_version: str = "") -> Type[Resource]:
 class Unstructured(Resource):
     model_config = ConfigDict(extra="allow")
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        self._data = data
-
     def __getitem__(self, key: str) -> Any:
-        return self._data[key]
+        return self.raw[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
-        self._data[key] = value
-        # Also update the model data
-        BaseModel.__setattr__(self, key, value)
+        for name, field in type(self).model_fields.items():
+            if key in (name, field.alias):
+                setattr(self, name, value)
+                return
+        setattr(self, key, value)
 
     def __contains__(self, key: str) -> bool:
-        return key in self._data
+        return key in self.raw
 
     @property
     def raw(self) -> dict:
-        return self._data
+        """Return a wire-format snapshot of the current validated model."""
+        return self.model_dump(mode="json", by_alias=True, exclude_none=True)
 
 
 def get_dynamic_resource(kind: str, api_version: str) -> Type[Unstructured]:

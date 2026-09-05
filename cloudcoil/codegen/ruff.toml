@@ -2,8 +2,8 @@
 line-length = 100
 indent-width = 4
 
-# Assume Python 3.10
-target-version = "py310"
+# Assume Python 3.14
+target-version = "py314"
 unsafe-fixes = true
 # Linting
 [lint]

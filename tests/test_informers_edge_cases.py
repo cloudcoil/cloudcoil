@@ -6,9 +6,9 @@ import time
 from importlib.metadata import version
 from typing import Optional
 
+import cloudcoil.models.kubernetes as k8s
 import pytest
 
-import cloudcoil.models.kubernetes as k8s
 from cloudcoil.apimachinery import ObjectMeta
 from cloudcoil.caching import Cache
 
