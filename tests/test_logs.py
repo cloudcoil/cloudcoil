@@ -88,7 +88,7 @@ async def test_read_protocol_and_options(config, asynchronous):
     request = requests[0]
     assert request.url.path == "/api/v1/namespaces/chosen/pods/worker/log"
     assert request.headers["authorization"] == "Bearer secret"
-    assert request.headers["accept"] == "text/plain"
+    assert request.headers["accept"] == "*/*"
     assert dict(request.url.params) == {
         "container": "app",
         "tailLines": "0",
@@ -184,6 +184,7 @@ async def test_records_filter_and_cleanup(config, asynchronous):
     assert record.labels == {"app": "worker"}
     with pytest.raises(TypeError):
         record.labels["x"] = "no"
+    assert requests[0].headers["accept"] == "*/*"
     timeout = requests[0].extensions["timeout"]
     assert timeout["read"] is None
     assert timeout["connect"] == config.client.timeout.connect

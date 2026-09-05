@@ -19,6 +19,10 @@ from cloudcoil.resources import Resource
 
 logger = logging.getLogger(__name__)
 
+# The API server negotiates a Kubernetes serializer before returning the raw log
+# stream. A text/plain-only Accept is rejected with 406, even though logs are text.
+_LOG_HEADERS = {"Accept": "*/*"}
+
 
 class LogParameters(TypedDict, total=False):
     """IDE-visible keyword options accepted by all log operations."""
@@ -262,7 +266,7 @@ def read(
     """Read a finite log snapshot as text, preserving line endings."""
     request = _request(pod, namespace, config, options, filters, follow=False)
     response = request.config.client.get(
-        request.url, params=request.params(False), headers={"Accept": "text/plain"}
+        request.url, params=request.params(False), headers=_LOG_HEADERS
     )
     raise_for_status(response)
     return response.text
@@ -279,7 +283,7 @@ async def async_read(
     """Read a finite log snapshot without synchronous discovery or I/O."""
     request = _request(pod, namespace, config, options, filters, follow=False)
     response = await request.config.async_client.get(
-        request.url, params=request.params(False), headers={"Accept": "text/plain"}
+        request.url, params=request.params(False), headers=_LOG_HEADERS
     )
     raise_for_status(response)
     return response.text
@@ -303,7 +307,7 @@ def stream(
         "GET",
         request.url,
         params=request.params(follow),
-        headers={"Accept": "text/plain"},
+        headers=_LOG_HEADERS,
         timeout=_timeout(client) if follow else client.timeout,
     ) as response:
         if not response.is_success:
@@ -331,7 +335,7 @@ async def async_stream(
         "GET",
         request.url,
         params=request.params(follow),
-        headers={"Accept": "text/plain"},
+        headers=_LOG_HEADERS,
         timeout=_timeout(client) if follow else client.timeout,
     ) as response:
         if not response.is_success:
