@@ -35,14 +35,14 @@ class LogParameters(TypedDict, total=False):
 class LogOptions(BaseModel):
     """Reusable validated log filters; direct keyword arguments override these values."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True, frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True)
     container: str | None = Field(default=None, min_length=1)
     previous: bool = False
     timestamps: bool = False
-    tail_lines: int | None = Field(default=None, ge=0, alias="tailLines")
-    since_seconds: int | None = Field(default=None, gt=0, alias="sinceSeconds")
-    since_time: AwareDatetime | None = Field(default=None, alias="sinceTime")
-    limit_bytes: int | None = Field(default=None, gt=0, alias="limitBytes")
+    tail_lines: int | None = Field(default=None, ge=0, serialization_alias="tailLines")
+    since_seconds: int | None = Field(default=None, gt=0, serialization_alias="sinceSeconds")
+    since_time: AwareDatetime | None = Field(default=None, serialization_alias="sinceTime")
+    limit_bytes: int | None = Field(default=None, gt=0, serialization_alias="limitBytes")
 
     @model_validator(mode="after")
     def check_time_filters(self) -> Self:
@@ -123,6 +123,7 @@ class LogRecord:
     timestamp: str | None
     labels: Mapping[str, str] | None
     source: LogSource | None = None
+    previous: bool = False
 
     def __str__(self) -> str:
         return self.raw
@@ -168,6 +169,7 @@ class _Request:
             timestamp,
             self.labels,
             self.source,
+            self.options.previous,
         )
 
 

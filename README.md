@@ -125,7 +125,7 @@ A supplied Pod provides its namespace, labels, and sole regular container (or th
 `kubectl.kubernetes.io/default-container` annotation). Ambiguous Pods require `container=`.
 A pod name alone needs only log-read permissions and leaves container selection to the
 server; labels and the selected container may then be unknown. Records expose `raw`,
-`message`, `timestamp`, `pod`, `namespace`, `container`, `labels`, and, when discovered,
+`message`, `timestamp`, `pod`, `namespace`, `container`, `previous`, `labels`, and, when discovered,
 `source`. Metadata is a snapshot; timestamps preserve nanosecond precision as strings.
 Use `match=lambda record: ...` for custom text or metadata filtering.
 

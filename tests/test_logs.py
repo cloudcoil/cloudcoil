@@ -167,14 +167,15 @@ async def test_records_filter_and_cleanup(config, asynchronous):
     pod = Pod.model_validate(pod_data())
     match = logs.LogFilter(contains="error", regex="café$", ignore_case=True)
     if asynchronous:
-        async with logs.async_stream(pod, config=config, match=match) as records:
+        async with logs.async_stream(pod, config=config, match=match, previous=True) as records:
             record = await anext(records)
             assert not body.closed
     else:
-        with logs.stream(pod, config=config, match=match) as records:
+        with logs.stream(pod, config=config, match=match, previous=True) as records:
             record = next(records)
             assert not body.closed
     assert body.closed
+    assert record.previous is True
     assert record.message == "ERROR café"
     assert record.timestamp == "2026-01-01T00:00:00.123456789Z"
     assert str(record) == record.raw == f"{record.timestamp} ERROR café"
@@ -361,3 +362,66 @@ async def test_discovery_validation_and_active_config(config):
     ):
         with pytest.raises(ValueError):
             list(logs.discover(config=config, **kwargs))
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_predicate_failure_closes_stream(config, asynchronous):
+    body = AsyncBytes() if asynchronous else Bytes()
+    transport(config, lambda _: httpx.Response(200, stream=body))
+
+    def broken(record):
+        raise RuntimeError("filter failed")
+
+    with pytest.raises(RuntimeError, match="filter failed"):
+        if asynchronous:
+            async with logs.async_stream("worker", config=config, match=broken) as records:
+                await anext(records)
+        else:
+            with logs.stream("worker", config=config, match=broken) as records:
+                next(records)
+    assert body.closed
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_discovery_rbac_error_is_not_an_empty_result(config, asynchronous):
+    transport(config, lambda _: httpx.Response(403, json={"message": "pods forbidden"}))
+    with pytest.raises(APIError) as exc:
+        if asynchronous:
+            _ = [source async for source in logs.async_discover(config=config)]
+        else:
+            list(logs.discover(config=config))
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_read_http_errors(config, asynchronous):
+    transport(config, lambda _: httpx.Response(404, json={"message": "pod gone"}))
+    with pytest.raises(ResourceNotFound):
+        if asynchronous:
+            await logs.async_read("worker", config=config)
+        else:
+            logs.read("worker", config=config)
+
+
+async def test_empty_logs_and_invalid_pod_inputs(config):
+    from cloudcoil.models.kubernetes.core.v1 import ConfigMap
+
+    transport(config, lambda _: httpx.Response(200, text=""))
+    assert logs.read("worker", config=config) == ""
+    with logs.stream("worker", config=config) as records:
+        assert list(records) == []
+    for pod in ("../worker", "", ConfigMap(metadata={"name": "config"}), Pod()):
+        with pytest.raises(ValueError):
+            logs.read(pod, config=config)
+
+
+def test_log_filter_validation_and_combination():
+    import re
+
+    with pytest.raises(re.error):
+        logs.LogFilter(regex="[")
+    record = logs.LogRecord("ERROR café", "ERROR café", "worker", "jobs", "app", None, {})
+    assert logs.LogFilter()(record)
+    assert logs.LogFilter(contains="error", ignore_case=True)(record)
+    assert not logs.LogFilter(contains="error")(record)
+    assert not logs.LogFilter(contains="ERROR", regex="missing")(record)
