@@ -705,7 +705,7 @@ class Unstructured(Resource):
     def __getitem__(self, key: str) -> Any:
         for name, field in type(self).model_fields.items():
             if key in (name, field.alias):
-                return self.raw[field.alias or name]
+                return getattr(self, name)
         if self.model_extra is not None and key in self.model_extra:
             return self.model_extra[key]
         raise KeyError(key)
@@ -718,7 +718,9 @@ class Unstructured(Resource):
         setattr(self, key, value)
 
     def __contains__(self, key: str) -> bool:
-        return key in self.raw
+        return any(
+            key in (name, field.alias) for name, field in type(self).model_fields.items()
+        ) or (self.model_extra is not None and key in self.model_extra)
 
     @property
     def raw(self) -> dict:

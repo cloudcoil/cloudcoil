@@ -874,3 +874,11 @@ Apache License, Version 2.0 - see [LICENSE](LICENSE)
 
 ## 🌟 Stargazers over time
 [![Stargazers over time](https://starchart.cc/cloudcoil/cloudcoil.svg?variant=adaptive)](https://starchart.cc/cloudcoil/cloudcoil)
+
+
+`Unstructured` mapping access accepts Python field names and wire aliases and returns
+live values, including declared fields on subclasses. For example,
+`resource["spec"]["replicas"] = 2` updates the resource directly. Declared nested
+models remain typed models: use `resource["metadata"].name` or `resource.metadata.name`.
+Use `resource.raw` for a serialized dictionary snapshot. Membership tests include
+fields whose value is `None`; serialization may omit those fields.

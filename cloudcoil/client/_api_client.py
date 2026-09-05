@@ -5,6 +5,7 @@ import math
 import random
 import threading
 import time
+from contextlib import aclosing
 from contextvars import copy_context
 from typing import (
     Any,
@@ -838,20 +839,30 @@ class AsyncAPIClient(_BaseAPIClient[T]):
     ) -> str:
         """Async version of wait_for that uses asyncio for timing out the watch."""
 
-        async def watch_and_evaluate() -> str:
-            async for event_type, obj in self.watch(
-                namespace=resource.namespace,
-                field_selector=f"metadata.name={resource.name}",
-                resource_version=resource.resource_version,
-            ):
-                if event_type == "BOOKMARK":
-                    continue
+        if not resource.name:
+            raise ValueError("metadata.name must be set to wait for a resource")
+        if not predicates:
+            raise ValueError("At least one wait predicate is required")
+        if timeout is not None and timeout <= 0:
+            raise WaitTimeout("Timeout waiting for condition")
 
-                assert isinstance(obj, self.kind), f"Expected {self.kind}, got {type(obj)}"
-                for name, predicate in predicates.items():
-                    result = predicate(event_type, obj)
-                    if result:
-                        return name
+        async def watch_and_evaluate() -> str:
+            async with aclosing(
+                self.watch(
+                    namespace=resource.namespace,
+                    field_selector=f"metadata.name={resource.name}",
+                    resource_version=resource.resource_version,
+                )
+            ) as stream:
+                async for event_type, obj in stream:
+                    if event_type == "BOOKMARK":
+                        continue
+
+                    assert isinstance(obj, self.kind), f"Expected {self.kind}, got {type(obj)}"
+                    for name, predicate in predicates.items():
+                        result = predicate(event_type, obj)
+                        if result:
+                            return name
             raise RuntimeError("Watch ended unexpectedly")
 
         try:

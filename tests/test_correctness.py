@@ -266,7 +266,7 @@ def test_unstructured_mapping_and_attributes_share_one_source_of_truth():
 
     resource = Unstructured(apiVersion="example.com/v1", kind="Thing", metadata={"name": "before"})
     resource.name = "after"
-    assert resource["metadata"]["name"] == "after"
+    assert resource["metadata"].name == "after"
     resource["apiVersion"] = "example.com/v2"
     assert resource.api_version == "example.com/v2"
     assert resource.raw["apiVersion"] == "example.com/v2"

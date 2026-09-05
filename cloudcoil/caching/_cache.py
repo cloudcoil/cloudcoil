@@ -144,7 +144,7 @@ class Cache(CacheConfig):
         if not self._async_informers and not self._sync_informers and not self.resources:
             return True
 
-        timeout = timeout or self.sync_timeout
+        timeout = self.sync_timeout if timeout is None else timeout
 
         # First wait for any pending start tasks
         if self._start_tasks:
@@ -165,7 +165,7 @@ class Cache(CacheConfig):
 
         if sync_tasks:
             results = await asyncio.gather(*sync_tasks, return_exceptions=True)
-            return all(r is True for r in results if not isinstance(r, Exception))
+            return all(r is True for r in results)
 
         return True
 
@@ -228,7 +228,7 @@ class Cache(CacheConfig):
         if not self._sync_informers and not self._async_informers and not self.resources:
             return True
 
-        timeout = timeout or self.sync_timeout
+        timeout = self.sync_timeout if timeout is None else timeout
 
         # Wait for all sync informers to sync
         start_time = time.time()
