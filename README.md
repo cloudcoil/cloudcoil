@@ -82,6 +82,67 @@ uv add cloudcoil[all-models]
 
 ## 💡 Examples
 
+### Finding and filtering pod logs
+
+Discover containers by Kubernetes selectors, then filter their log records:
+
+```python
+from cloudcoil import logs
+
+errors = logs.LogFilter(regex=r"error|exception", ignore_case=True)
+for source in logs.discover(all_namespaces=True, label_selector="app=worker"):
+    # Sources include regular, init, and ephemeral containers. Select before reading.
+    if source.container_type != "regular":
+        continue
+    with logs.stream(source, follow=False, tail_lines=100, timestamps=True, match=errors) as records:
+        for record in records:
+            print(record.namespace, record.pod, record.container, record.message)
+```
+
+`discover()` uses the active namespace by default and follows every list page. It returns
+metadata without downloading logs: labels, pod UID, owner references, node, phase,
+container type/state, and restart count. Selectors run on the server; `container="app"`
+selects an exact container name. A discovered source retains its configuration so it can
+be passed directly to `read()` or `stream()` outside the original context. Discovery is
+a snapshot of potential sources; a waiting container may not have logs, and discovery
+permissions do not imply permission to read them. API errors propagate to the caller.
+
+```python
+# Read text with original line endings, or follow structured records.
+print(logs.read("worker", namespace="jobs", tail_lines=50))
+with logs.stream(pod, match=logs.LogFilter(contains="failed")) as records:
+    for record in records:
+        print(record.timestamp, record.message)
+
+# The same operations are available asynchronously.
+async for source in logs.async_discover(label_selector="app=worker", container="app"):
+    async with logs.async_stream(source, follow=False, match=errors) as records:
+        async for record in records:
+            print(record.pod, record.message)
+```
+
+A supplied Pod provides its namespace, labels, and sole regular container (or the valid
+`kubectl.kubernetes.io/default-container` annotation). Ambiguous Pods require `container=`.
+A pod name alone needs only log-read permissions and leaves container selection to the
+server; labels and the selected container may then be unknown. Records expose `raw`,
+`message`, `timestamp`, `pod`, `namespace`, `container`, `labels`, and, when discovered,
+`source`. Metadata is a snapshot; timestamps preserve nanosecond precision as strings.
+Use `match=lambda record: ...` for custom text or metadata filtering.
+
+`stream()` follows by default and requests timestamps; `follow=False` reads a finite
+snapshot and defaults timestamps off. Both accept `timestamps=` explicitly. Always use
+`with` / `async with` so breaking, errors, and cancellation close the HTTP response.
+Following disables only the response read timeout, and does not reconnect or merge
+streams. For multiple live sources, run async consumers concurrently under your own
+concurrency limit; a sequential follow loop stays on its first live source.
+
+All operations reuse the active configuration's authenticated HTTP client, or accept
+`config=` explicitly. Reusable `LogOptions` and typed keywords support `previous`,
+`tail_lines`, `since_seconds` **or** timezone-aware `since_time`, and `limit_bytes`.
+Direct keywords override options. Time/tail/byte limits apply on the server before
+client-side matching; byte limits may truncate a line. Kubernetes log access cannot
+recover deleted Pods or logs that the node has already rotated away.
+
 ### Reading Resources
 
 ```python
