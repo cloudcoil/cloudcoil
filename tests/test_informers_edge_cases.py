@@ -368,6 +368,7 @@ async def test_async_informer_concurrent_operations(test_config):
 async def test_async_informer_memory_efficiency(test_config):
     """Test informer memory usage and cleanup."""
     import gc
+    import weakref
 
     cache_config = Cache(enabled=True, resources=[k8s.core.v1.ConfigMap])
     config = test_config.with_cache(cache_config)
@@ -381,9 +382,7 @@ async def test_async_informer_memory_efficiency(test_config):
         informer = config.cache.get_informer(k8s.core.v1.ConfigMap)
         assert informer is not None
 
-        # Get initial memory usage
-        gc.collect()
-        initial_objects = len(gc.get_objects())
+        cached_refs = []
 
         # Create and delete many ConfigMaps
         for batch in range(3):
@@ -396,26 +395,23 @@ async def test_async_informer_memory_efficiency(test_config):
                 ).async_create()
                 cms.append(cm)
 
-            # Wait for creation events
-            await asyncio.sleep(1)
+            # Observe the actual cached instances, independently of HTTP response models.
+            async with asyncio.timeout(10):
+                while len(informer.list(namespace=ns.name)) != 10:
+                    await asyncio.sleep(0.05)
+            cached_refs.extend(weakref.ref(item) for item in informer.list(namespace=ns.name))
 
             # Delete batch
             await asyncio.gather(*[cm.async_remove() for cm in cms])
 
-            # Wait for deletion events
-            await asyncio.sleep(1)
+            async with asyncio.timeout(10):
+                while informer.list(namespace=ns.name):
+                    await asyncio.sleep(0.05)
 
-        # Check that cache doesn't grow unboundedly
-        cached_cms = informer.list(namespace=ns.name)
-        assert len(cached_cms) < 10  # Should be mostly empty after deletions
-
-        # Check memory hasn't grown excessively
         gc.collect()
-        final_objects = len(gc.get_objects())
-        object_growth = final_objects - initial_objects
-
-        # Allow for some growth but not excessive
-        assert object_growth < 1000  # Reasonable growth limit
+        # A running watcher may retain its last event, but must release older batches.
+        # Process-wide GC counts include unrelated HTTP/asyncio caches and imports.
+        assert sum(ref() is not None for ref in cached_refs) <= 1
 
         await ns.async_remove()
 
