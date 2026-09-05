@@ -425,3 +425,19 @@ def test_log_filter_validation_and_combination():
     assert logs.LogFilter(contains="error", ignore_case=True)(record)
     assert not logs.LogFilter(contains="error")(record)
     assert not logs.LogFilter(contains="ERROR", regex="missing")(record)
+
+
+@pytest.mark.parametrize(
+    "options,overrides,expected",
+    [
+        (logs.LogOptions(tail_lines=10), {}, "true"),
+        (logs.LogOptions(timestamps=False), {}, "false"),
+        (logs.LogOptions(timestamps=False), {"timestamps": True}, "true"),
+    ],
+)
+async def test_reusable_options_preserve_operation_defaults(config, options, overrides, expected):
+    requests = []
+    transport(config, lambda r: (requests.append(r), httpx.Response(200, text=""))[1])
+    with logs.stream("worker", config=config, options=options, **overrides) as records:
+        assert list(records) == []
+    assert requests[0].url.params["timestamps"] == expected

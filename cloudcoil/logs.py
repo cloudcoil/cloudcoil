@@ -77,7 +77,7 @@ class LogSource:
 class LogFilter:
     """Client-side line filtering. All supplied conditions must match.
 
-    Metadata filtering can use a predicate instead, e.g. match=lambda r: r.labels.get(...).
+    Metadata filtering can use a predicate, e.g. match=lambda r: r.container == "app".
     Kubernetes label_selector and field_selector filter Pods before fetching logs.
     """
 
@@ -182,7 +182,9 @@ def _request(
     *,
     follow: bool,
 ) -> _Request:
-    values: dict[str, Any] = options.model_dump() if options is not None else {"timestamps": follow}
+    values: dict[str, Any] = {"timestamps": follow}
+    if options is not None:
+        values.update(options.model_dump(exclude_unset=True))
     values.update(overrides)
     settings = LogOptions.model_validate(values)
     name: str | None
@@ -227,6 +229,12 @@ def _request(
     if not name or len(name) > 253 or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", name):
         raise ValueError("A valid pod name is required")
     config = config if config is not None else context.active_config
+    namespace = _namespace(config, namespace)
+    logger.debug("%s logs for %s/%s", "Following" if follow else "Reading", namespace, name)
+    return _Request(config, name, namespace, settings, labels, source)
+
+
+def _namespace(config: Config, namespace: str | None) -> str:
     namespace = config.namespace if namespace is None else namespace
     if (
         not namespace
@@ -234,8 +242,7 @@ def _request(
         or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", namespace)
     ):
         raise ValueError("A valid namespace is required")
-    logger.debug("%s logs for %s/%s", "Following" if follow else "Reading", namespace, name)
-    return _Request(config, name, namespace, settings, labels, source)
+    return namespace
 
 
 def _timeout(client: httpx.Client | httpx.AsyncClient) -> httpx.Timeout:
@@ -350,9 +357,7 @@ def _discovery_request(
     if all_namespaces:
         url = "/api/v1/pods"
     else:
-        # Reuse path validation without fetching a Pod or performing API discovery.
-        request = _request("placeholder", namespace, config, None, {}, follow=False)
-        url = f"/api/v1/namespaces/{request.namespace}/pods"
+        url = f"/api/v1/namespaces/{_namespace(config, namespace)}/pods"
     params: dict[str, str | int] = {"limit": page_size}
     if label_selector is not None:
         params["labelSelector"] = label_selector
