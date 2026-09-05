@@ -181,7 +181,7 @@ async def test_async_watch_operations(test_config):
 
         async def watch_func():
             with test_config:
-                async for event in await k8s.core.v1.Namespace.async_watch(
+                async for event in k8s.core.v1.Namespace.async_watch(
                     field_selector=f"metadata.name={ns.name}"
                 ):
                     events.append(event)

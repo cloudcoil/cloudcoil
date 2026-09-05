@@ -172,3 +172,82 @@ def lift_inline_objects(definitions: dict, prefix: str) -> None:
 
     for name, definition in list(definitions.items()):
         visit(definition, name)
+
+
+def infer_resource_identities(schema: dict, definitions: dict) -> None:
+    """Infer missing GVKs from Kubernetes API paths and direct request/response refs."""
+    candidates: dict[str, list[dict[str, str]]] = {}
+
+    def add_refs(node, group, version):
+        if isinstance(node, list):
+            for child in node:
+                add_refs(child, group, version)
+        elif isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str) and ref.startswith(
+                ("#/definitions/", "#/components/schemas/", "#/$defs/")
+            ):
+                name = ref.rsplit("/", 1)[-1].replace("~1", "/").replace("~0", "~")
+                definition = definitions.get(name, {})
+                props = definition.get("properties", {})
+                if {"apiVersion", "kind", "metadata"} <= props.keys() and not definition.get(
+                    "x-kubernetes-group-version-kind"
+                ):
+                    kind = props["kind"].get("default") or name.rsplit(".", 1)[-1]
+                    gvk = {"group": group, "version": version, "kind": kind}
+                    if gvk not in candidates.setdefault(name, []):
+                        candidates[name].append(gvk)
+            for child in node.values():
+                add_refs(child, group, version)
+
+    for path, operations in schema.get("paths", {}).items():
+        match = re.match(r"^/apis/([^/]+)/([^/]+)/", path)
+        core = re.match(r"^/api/([^/]+)/", path)
+        if match:
+            add_refs(operations, match[1], match[2])
+        elif core:
+            add_refs(operations, "", core[1])
+    for name, values in candidates.items():
+        definitions[name]["x-kubernetes-group-version-kind"] = values
+    families: dict[str, set[str]] = {}
+    versioned = re.compile(r"^(.*)\.(v\d+(?:(?:alpha|beta)\d+)?)\.([^.]+)$")
+    for name, definition in definitions.items():
+        match = versioned.match(name)
+        gvks = definition.get("x-kubernetes-group-version-kind", [])
+        if match and len(gvks) == 1 and gvks[0]["version"] == match[2]:
+            families.setdefault(match[1], set()).add(gvks[0]["group"])
+    for name, definition in definitions.items():
+        if definition.get("x-kubernetes-group-version-kind"):
+            continue
+        props = definition.get("properties", {})
+        match = versioned.match(name)
+        if (
+            match
+            and len(families.get(match[1], set())) == 1
+            and {"apiVersion", "kind", "metadata"} <= props.keys()
+        ):
+            definition["x-kubernetes-group-version-kind"] = [
+                {
+                    "group": next(iter(families[match[1]])),
+                    "version": match[2],
+                    "kind": match[3],
+                }
+            ]
+            continue
+        if "metadata" not in props:
+            continue
+        identity = {}
+        for key in ("apiVersion", "kind"):
+            field = props.get(key, {})
+            identity[key] = (
+                field.get("const")
+                or field.get("default")
+                or (field["enum"][0] if len(field.get("enum", [])) == 1 else None)
+            )
+        if all(isinstance(value, str) and value for value in identity.values()):
+            version = identity["apiVersion"]
+            assert isinstance(version, str)
+            group, _, version = version.rpartition("/")
+            definition["x-kubernetes-group-version-kind"] = [
+                {"group": group, "version": version, "kind": identity["kind"]}
+            ]

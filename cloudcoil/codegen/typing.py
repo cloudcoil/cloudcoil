@@ -76,6 +76,13 @@ def generate_lookup(package_dir: Path, namespace: str) -> None:
         "    return getattr(import_module(module), name)",
         "",
     ]
+    # Overloads must be adjacent to their implementation for all type checkers.
+    start = lines.index("_MODELS = {")
+    end = lines.index("}", start) + 1
+    mapping = lines[start:end]
+    del lines[start:end]
+    insertion = lines.index("@overload")
+    lines[insertion:insertion] = [*mapping, ""]
     (package_dir / "_lookup.py").write_text("\n".join(lines))
     with (package_dir / "__init__.py").open("a") as output:
         output.write("\nfrom ._lookup import get_model as get_model\n")

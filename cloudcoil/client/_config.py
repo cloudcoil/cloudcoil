@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import logging
@@ -6,6 +7,7 @@ import platform
 import ssl
 import subprocess
 import tempfile
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,8 +19,10 @@ from typing import (
     Literal,
     Optional,
     Type,
+    TypedDict,
     TypeVar,
     Union,
+    Unpack,
     overload,
 )
 
@@ -35,15 +39,14 @@ from cloudcoil.version import __version__
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SSL_CONTEXT: Union[ssl.SSLContext, "truststore.SSLContext"]
-try:
-    import truststore
 
-    DEFAULT_SSL_CONTEXT = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    logger.debug("Using truststore for SSL context")
-except ImportError:
-    DEFAULT_SSL_CONTEXT = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
-    logger.debug("Using default SSL context")
+def _new_ssl_context() -> ssl.SSLContext:
+    # SSLContext is mutable: never share one between independent configurations.
+    try:
+        import truststore
+    except ImportError:
+        return ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+    return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 
 class ExecAuthenticator(httpx.Auth):
@@ -117,6 +120,20 @@ INCLUSTER_CERT_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 INCLUSTER_NAMESPACE_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 
 
+class ConfigOptions(TypedDict, total=False):
+    kubeconfig: Path | str | None
+    server: str | None
+    namespace: str | None
+    token: str | None
+    auth: Auth
+    cafile: Path | None
+    certfile: Path | None
+    keyfile: Path | None
+    context: str | None
+    skip_verify: bool | None
+    cache: bool | Cache
+
+
 class Config:
     def __init__(
         self,
@@ -129,9 +146,26 @@ class Config:
         certfile: Path | None = None,
         keyfile: Path | None = None,
         context: str | None = None,
-        skip_verify: bool = False,
+        skip_verify: bool | None = None,
         cache: Union[bool, "Cache"] = False,
     ) -> None:
+        self._discovery_lock = threading.RLock()
+        self._scope_lock = threading.RLock()
+        self._async_scope_lock = asyncio.Lock()
+        self._cache_users = 0
+        self._cache_mode: str | None = None
+        self._constructor_params: ConfigOptions = {
+            "kubeconfig": kubeconfig,
+            "server": server,
+            "namespace": namespace,
+            "token": token,
+            "auth": auth,
+            "cafile": cafile,
+            "certfile": certfile,
+            "keyfile": keyfile,
+            "context": context,
+            "skip_verify": skip_verify,
+        }
         self.server = None
         self.namespace = "default"
         self.auth: Auth = None
@@ -141,7 +175,7 @@ class Config:
         self.token = None
         self.skip_verify = False
         self.kubeconfig_path = None  # Store original kubeconfig path
-        tempdir = tempfile.TemporaryDirectory()
+        tempdir = self._tempdir = tempfile.TemporaryDirectory()
         kubeconfig = kubeconfig or os.environ.get("KUBECONFIG")
         if kubeconfig:
             kubeconfig = Path(kubeconfig)
@@ -169,6 +203,7 @@ class Config:
                 logger.error("Invalid kubeconfig: no current-context specified")
                 raise ValueError(f"Kubeconfig {kubeconfig} does not have current-context")
             current_context = context or kubeconfig_data["current-context"]
+            self._constructor_params["context"] = current_context
             logger.debug("Using context: %s", current_context)
 
             for data in kubeconfig_data["contexts"]:
@@ -203,7 +238,7 @@ class Config:
             logger.debug("Using server: %s", self.server)
 
             if "certificate-authority" in cluster_data:
-                self.cafile = cluster_data["certificate-authority"]
+                self.cafile = kubeconfig.parent / cluster_data["certificate-authority"]
                 logger.debug("Using CA file: %s", self.cafile)
             if "certificate-authority-data" in cluster_data:
                 # Write certificate to disk at a temporary location and use it
@@ -228,8 +263,8 @@ class Config:
                 logger.debug("Using static token auth")
                 self.token = user_data["token"]
             elif "client-certificate" in user_data and "client-key" in user_data:
-                self.certfile = user_data["client-certificate"]
-                self.keyfile = user_data["client-key"]
+                self.certfile = kubeconfig.parent / user_data["client-certificate"]
+                self.keyfile = kubeconfig.parent / user_data["client-key"]
                 logger.debug(
                     "Using client certificate auth: cert=%s key=%s", self.certfile, self.keyfile
                 )
@@ -264,7 +299,7 @@ class Config:
         self.cafile = cafile or self.cafile
         self.certfile = certfile or self.certfile
         self.keyfile = keyfile or self.keyfile
-        self.skip_verify = skip_verify or self.skip_verify
+        self.skip_verify = self.skip_verify if skip_verify is None else skip_verify
 
         ctx: ssl.SSLContext | None = None
         if self.cafile:
@@ -272,7 +307,7 @@ class Config:
             ctx = ssl.create_default_context(cafile=self.cafile)
         else:
             logger.debug("Using default SSL context")
-            ctx = DEFAULT_SSL_CONTEXT
+            ctx = _new_ssl_context()
 
         if self.certfile:
             logger.debug("Loading client certificate: cert=%s key=%s", self.certfile, self.keyfile)
@@ -549,9 +584,22 @@ class Config:
         context.set_default(self)
 
     def initialize(self):
+        with self._discovery_lock:
+            if not self._rest_mapping:
+                logger.debug("Initializing API resource mapping")
+                self._create_rest_mapper()
+
+    async def async_initialize(self) -> None:
+        """Discover resources without blocking the event loop."""
         if not self._rest_mapping:
-            logger.debug("Initializing API resource mapping")
-            self._create_rest_mapper()
+            await asyncio.to_thread(self.initialize)
+
+    async def async_client_for(
+        self, resource: Type[T], cached: bool | None = None
+    ) -> AsyncAPIClient[T]:
+        """Get an async client, performing initial discovery off the event loop."""
+        await self.async_initialize()
+        return self.client_for(resource, sync=False, cached=cached)
 
     def activate(self):
         logger.debug("Activating config")
@@ -566,48 +614,70 @@ class Config:
         context._enter(self)
         try:
             if self.cache.enabled:
-                self.cache.start()
-                if self.cache.wait_for_sync and not self.cache.wait():
-                    if self.cache.mode == "strict":
-                        raise APIError(f"Cache failed to sync within {self.cache.sync_timeout}s")
-                    logger.warning("Cache sync timeout, continuing with fallback")
+                with self._scope_lock:
+                    if self._cache_mode == "async":
+                        raise RuntimeError("Cannot mix sync and async scopes on a cached Config")
+                    if self._cache_users == 0:
+                        self._cache_mode = "sync"
+                        try:
+                            self.cache.start()
+                            if self.cache.wait_for_sync and not self.cache.wait():
+                                if self.cache.mode == "strict":
+                                    raise APIError(
+                                        f"Cache failed to sync within {self.cache.sync_timeout}s"
+                                    )
+                                logger.warning("Cache sync timeout, continuing with fallback")
+                        except BaseException:
+                            self._cache_mode = None
+                            self.cache.stop()
+                            raise
+                    self._cache_mode = "sync"
+                    self._cache_users += 1
         except BaseException:
-            try:
-                if self.cache.enabled:
-                    self.cache.stop()
-            finally:
-                context._exit(self)
+            context._exit(self)
             raise
         return self
 
     def __exit__(self, *_):
-        # Check ordering before touching another scope's resources.
         configs = context.configs
         if not configs or configs[-1] is not self:
             raise RuntimeError("Configurations must be deactivated in reverse activation order")
         try:
-            if self.cache.enabled and self not in configs[:-1]:
-                self.cache.stop()
+            if self.cache.enabled:
+                with self._scope_lock:
+                    self._cache_users -= 1
+                    if self._cache_users == 0:
+                        self._cache_mode = None
+                        self.cache.stop()
         finally:
             context._exit(self)
 
     async def __aenter__(self):
-        """Activate this config, restoring the previous scope if startup fails."""
-        self.initialize()
+        await self.async_initialize()
         context._enter(self)
         try:
             if self.cache.enabled:
-                await self.cache.async_start()
-                if self.cache.wait_for_sync and not await self.cache.async_wait():
-                    if self.cache.mode == "strict":
-                        raise APIError(f"Cache failed to sync within {self.cache.sync_timeout}s")
-                    logger.warning("Cache sync timeout, continuing with fallback")
+                async with self._async_scope_lock:
+                    if self._cache_mode == "sync":
+                        raise RuntimeError("Cannot mix sync and async scopes on a cached Config")
+                    if self._cache_users == 0:
+                        self._cache_mode = "async"
+                        try:
+                            await self.cache.async_start()
+                            if self.cache.wait_for_sync and not await self.cache.async_wait():
+                                if self.cache.mode == "strict":
+                                    raise APIError(
+                                        f"Cache failed to sync within {self.cache.sync_timeout}s"
+                                    )
+                                logger.warning("Cache sync timeout, continuing with fallback")
+                        except BaseException:
+                            self._cache_mode = None
+                            await self.cache.async_stop()
+                            raise
+                    self._cache_mode = "async"
+                    self._cache_users += 1
         except BaseException:
-            try:
-                if self.cache.enabled:
-                    await self.cache.async_stop()
-            finally:
-                context._exit(self)
+            context._exit(self)
             raise
         return self
 
@@ -616,8 +686,12 @@ class Config:
         if not configs or configs[-1] is not self:
             raise RuntimeError("Configurations must be deactivated in reverse activation order")
         try:
-            if self.cache.enabled and self not in configs[:-1]:
-                await self.cache.async_stop()
+            if self.cache.enabled:
+                async with self._async_scope_lock:
+                    self._cache_users -= 1
+                    if self._cache_users == 0:
+                        self._cache_mode = None
+                        await self.cache.async_stop()
         finally:
             context._exit(self)
 
@@ -626,7 +700,7 @@ class Config:
         self._rest_mapping.clear()
         self._create_rest_mapper()
 
-    def clone(self, **overrides) -> "Config":
+    def clone(self, **overrides: Unpack[ConfigOptions]) -> "Config":
         """Create a new Config instance with the same parameters but with specified overrides.
 
         This method creates a new Config using the original kubeconfig path if available,
@@ -638,24 +712,18 @@ class Config:
         Returns:
             A new Config instance with the same base configuration but with overrides applied
         """
-        # If we have the original kubeconfig path, use it to ensure proper cert handling
-        base_params: Dict[str, Any]
-        if hasattr(self, "kubeconfig_path") and self.kubeconfig_path:
-            base_params = {"kubeconfig": self.kubeconfig_path}
-        else:
-            # Fall back to copying current parameters
-            base_params = {
+        base_params: ConfigOptions = self._constructor_params.copy()
+        base_params.update(
+            {
+                "kubeconfig": self.kubeconfig_path,
                 "server": self.server,
                 "namespace": self.namespace,
                 "token": self.token,
                 "auth": self.auth,
-                "cafile": self.cafile,
-                "certfile": self.certfile,
-                "keyfile": self.keyfile,
                 "skip_verify": self.skip_verify,
+                "cache": Cache(**self.cache.model_dump()),
             }
-
-        # Apply overrides
+        )
         base_params.update(overrides)
 
         return Config(**base_params)

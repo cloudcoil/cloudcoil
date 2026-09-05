@@ -119,7 +119,7 @@ class Resource(BaseResource):
     @classmethod
     async def async_get(cls, name: str, namespace: str | None = None) -> Self:
         config = context.active_config
-        return await config.client_for(cls, sync=False).get(name, namespace)
+        return await (await config.async_client_for(cls)).get(name, namespace)
 
     def fetch(self) -> Self:
         config = context.active_config
@@ -131,7 +131,7 @@ class Resource(BaseResource):
         config = context.active_config
         if self.name is None:
             raise ValueError("Resource name is not set")
-        return await config.client_for(self.__class__, sync=False).get(self.name, self.namespace)
+        return await (await config.async_client_for(self.__class__)).get(self.name, self.namespace)
 
     def create(self, dry_run: bool = False) -> Self:
         config = context.active_config
@@ -139,7 +139,7 @@ class Resource(BaseResource):
 
     async def async_create(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).create(self, dry_run=dry_run)
+        return await (await config.async_client_for(self.__class__)).create(self, dry_run=dry_run)
 
     def update(self, dry_run: bool = False) -> Self:
         config = context.active_config
@@ -147,7 +147,7 @@ class Resource(BaseResource):
 
     async def async_update(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).update(self, dry_run=dry_run)
+        return await (await config.async_client_for(self.__class__)).update(self, dry_run=dry_run)
 
     def update_status(self, dry_run: bool = False) -> Self:
         config = context.active_config
@@ -155,25 +155,38 @@ class Resource(BaseResource):
 
     async def async_update_status(self, dry_run: bool = False) -> Self:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).update_status(
+        return await (await config.async_client_for(self.__class__)).update_status(
             self, dry_run=dry_run
         )
 
     def save(self, dry_run: bool = False) -> Self:
+        """Create or replace, preserving optimistic concurrency on existing resources."""
+        if self.name is None:
+            return self.create(dry_run=dry_run)
+        if self.resource_version is not None:
+            return self.update(dry_run=dry_run)
         try:
-            self.fetch()
+            existing = self.fetch()
         except ResourceNotFound:
             return self.create(dry_run=dry_run)
-        else:
-            return self.update(dry_run=dry_run)
+        body = self.model_copy(deep=True)
+        assert body.metadata is not None
+        body.metadata.resource_version = existing.resource_version
+        return body.update(dry_run=dry_run)
 
     async def async_save(self, dry_run: bool = False) -> Self:
+        if self.name is None:
+            return await self.async_create(dry_run=dry_run)
+        if self.resource_version is not None:
+            return await self.async_update(dry_run=dry_run)
         try:
-            await self.async_fetch()
+            existing = await self.async_fetch()
         except ResourceNotFound:
             return await self.async_create(dry_run=dry_run)
-        else:
-            return await self.async_update(dry_run=dry_run)
+        body = self.model_copy(deep=True)
+        assert body.metadata is not None
+        body.metadata.resource_version = existing.resource_version
+        return await body.async_update(dry_run=dry_run)
 
     @classmethod
     def delete(
@@ -203,7 +216,7 @@ class Resource(BaseResource):
         grace_period_seconds: int | None = None,
     ) -> Self | Status:
         config = context.active_config
-        return await config.client_for(cls, sync=False).delete(
+        return await (await config.async_client_for(cls)).delete(
             name,
             namespace,
             dry_run=dry_run,
@@ -232,7 +245,7 @@ class Resource(BaseResource):
         grace_period_seconds: int | None = None,
     ) -> Self | Status:
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).remove(
+        return await (await config.async_client_for(self.__class__)).remove(
             self,
             dry_run=dry_run,
             propagation_policy=propagation_policy,
@@ -270,7 +283,7 @@ class Resource(BaseResource):
         limit: int = DEFAULT_PAGE_LIMIT,
     ) -> "ResourceList[Self]":
         config = context.active_config
-        return await config.client_for(cls, sync=False).list(
+        return await (await config.async_client_for(cls)).list(
             namespace=namespace,
             all_namespaces=all_namespaces,
             continue_=continue_,
@@ -310,7 +323,7 @@ class Resource(BaseResource):
         field_selector: str | None = None,
     ) -> "ResourceList[Self]":
         config = context.active_config
-        return await config.client_for(cls, sync=False).delete_all(
+        return await (await config.async_client_for(cls)).delete_all(
             namespace=namespace,
             dry_run=dry_run,
             propagation_policy=propagation_policy,
@@ -349,15 +362,18 @@ class Resource(BaseResource):
         resource_version: str | None = None,
     ) -> AsyncGenerator[tuple[WatchEvent, "Self"] | tuple[BookmarkEvent, "Unstructured"], None]:
         config = context.active_config
-        client_result = config.client_for(cls, sync=False).watch(
+        client_result = (await config.async_client_for(cls)).watch(
             namespace=namespace,
             all_namespaces=all_namespaces,
             field_selector=field_selector,
             label_selector=label_selector,
             resource_version=resource_version,
         )
-        # Type cast to ensure proper return type is recognized
-        return client_result  # type: ignore
+        try:
+            async for event in client_result:
+                yield event
+        finally:
+            await client_result.aclose()
 
     @overload
     def wait_for(
@@ -414,7 +430,7 @@ class Resource(BaseResource):
         timeout=None,
     ):
         config = context.active_config
-        client = config.client_for(self.__class__, sync=False)
+        client = await config.async_client_for(self.__class__)
         if not self.name:
             raise ValueError("Resource name must be set to wait for it")
         if isinstance(predicate, dict):
@@ -458,7 +474,7 @@ class Resource(BaseResource):
             APIError: If the API request fails
         """
         config = context.active_config
-        return await config.client_for(self.__class__, sync=False).scale(
+        return await (await config.async_client_for(self.__class__)).scale(
             self,
             replicas=replicas,
         )
@@ -511,7 +527,7 @@ class ResourceList(BaseResource, Generic[T]):
                 raise TypeError("Use get_next_page() for a synchronous resource list")
             return await self._page_client.list(**self._next_page_params)
         config = context.active_config
-        return await config.client_for(self.resource_class, sync=False).list(
+        return await (await config.async_client_for(self.resource_class)).list(
             **self._next_page_params
         )
 

@@ -5,7 +5,8 @@ if TYPE_CHECKING:
     from cloudcoil.client._config import Config
 
 _configs: ContextVar[tuple["Config", ...] | None] = ContextVar("_configs", default=None)
-_default_config = None
+_fallback_config: ContextVar["Config | None"] = ContextVar("_fallback_config", default=None)
+_default_config: "Config | None" = None
 
 
 class _Context:
@@ -25,12 +26,18 @@ class _Context:
 
     @property
     def active_config(self) -> "Config":
-        if not self.configs:
+        configs = _configs.get()
+        if configs:
+            return configs[-1]
+        if _default_config is not None:
+            return _default_config
+        config = _fallback_config.get()
+        if config is None:
             from cloudcoil.client._config import Config
 
-            config = _default_config or Config()
-            self.configs = [config]
-        return self.configs[-1]
+            config = Config()
+            _fallback_config.set(config)
+        return config
 
     @property
     def configs(self) -> list["Config"] | None:

@@ -243,3 +243,50 @@ def test_annotations_inside_arrays_are_normalized_without_touching_defaults():
 
 def test_yaml_loader_does_not_change_application_loader():
     assert "=" in yaml.SafeLoader.yaml_implicit_resolvers
+
+
+def test_ide_typing_without_plugins(generated):
+    _, _, root = generated
+    example = root / "check_types.py"
+    example.write_text("""from typing import assert_type
+from inferred_models import get_model
+from inferred_models.v1 import Widget, WidgetSpec
+from cloudcoil.client import Config
+from cloudcoil.client._api_client import APIClient, AsyncAPIClient
+
+assert_type(get_model("Widget"), type[Widget])
+assert_type(get_model("Widget", api_version="widgets.example.com/v1"), type[Widget])
+assert_type(Widget.builder().spec(lambda s: s.port(80)).build(), Widget)
+assert_type(Widget.builder().spec(lambda s: s.port("http").builder_("image")).build(), Widget)
+with Widget.new() as w:
+    with w.spec() as s:
+        assert_type(s, WidgetSpec.Builder)
+        s.port(80)
+    assert_type(w.build(), Widget)
+assert_type(Config().client_for(Widget), APIClient[Widget])
+assert_type(Config().client_for(Widget, sync=False), AsyncAPIClient[Widget])
+""")
+    (root / "pyrightconfig.json").write_text(
+        json.dumps(
+            {
+                "include": ["check_types.py"],
+                "extraPaths": [str(root)],
+                "pythonVersion": "3.14",
+                "typeCheckingMode": "standard",
+            }
+        )
+    )
+    for command in (
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "--no-incremental",
+            "--cache-dir",
+            str(root / "mypy-cache"),
+            str(example),
+        ],
+        [sys.executable, "-m", "pyright", "--project", str(root), "--pythonpath", sys.executable],
+    ):
+        result = subprocess.run(command, text=True, capture_output=True)
+        assert result.returncode == 0, result.stdout + result.stderr

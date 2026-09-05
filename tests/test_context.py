@@ -43,7 +43,7 @@ def test_context_exit(clean_context):
 def test_active_config_with_empty_stack(clean_context):
     config = clean_context.active_config
     assert isinstance(config, Config)
-    assert len(clean_context.configs) == 1
+    assert clean_context.configs is None
 
 
 def test_active_config_returns_top_config(clean_context):

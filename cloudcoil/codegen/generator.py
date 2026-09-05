@@ -19,6 +19,7 @@ import yaml
 from cloudcoil.codegen.import_rewriter import rewrite_imports
 from cloudcoil.codegen.schema import (
     SchemaError,
+    infer_resource_identities,
     inferred_name,
     lift_inline_objects,
     normalize_definition,
@@ -637,6 +638,9 @@ def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
         raise SchemaError(f"No CRDs, OpenAPI documents, or JSON schemas found in {inputs}")
     schema = deepcopy(schemas[0]) if len(schemas) == 1 else merge_schemas(schemas)
 
+    if config.infer:
+        infer_resource_identities(schema, get_schema_definitions(schema))
+
     transformations = list(config.transformations)
     if config.crd_namespace:
         transformations += [
@@ -657,6 +661,22 @@ def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
         for name in get_schema_definitions(schema):
             target = inferred_name(name, config.namespace, crd_groups)
             package, _, model = target.rpartition(".")
+            if model in {"Builder", "BuilderList"}:
+                model = model.replace("Builder", "BuilderResource")
+            elif package != "cloudcoil.apimachinery":
+                from cloudcoil import apimachinery
+
+                if hasattr(apimachinery, model):
+                    parts = name.split(".")[:-1]
+                    owner = next(
+                        (
+                            part
+                            for part in reversed(parts)
+                            if not re.fullmatch(r"v\d+(?:(?:alpha|beta)\d+)?", part)
+                        ),
+                        "Custom",
+                    )
+                    model = owner[:1].upper() + owner[1:] + model
             if not config.exclude_unknown or target != f"{config.namespace}.{name}":
                 inferred.append(
                     Transformation(match_=f"^{re.escape(name)}$", replace=model, namespace=package)
@@ -761,7 +781,12 @@ def get_file_header(content: str) -> tuple[str, str]:
             break
 
     # Check for module docstring
-    if tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Constant) and isinstance(tree.body[0].value.value, str):
+    if (
+        tree.body
+        and isinstance(tree.body[0], ast.Expr)
+        and isinstance(tree.body[0].value, ast.Constant)
+        and isinstance(tree.body[0].value.value, str)
+    ):
         # Get the docstring node
         docstring_node = tree.body[0]
         # Find where the docstring ends in the original content
@@ -927,6 +952,39 @@ def _generate(config: ModelConfig, workdir: Path):
     logger.debug("Generated extra data file: %s", extra_data_file)
 
     args = []
+    # Reuse external model packages as imports, rather than generating throwaway
+    # copies that can form cross-package cycles with the requested output.
+    schema = json.loads(input_file.read_text())
+    definitions = get_schema_definitions(schema)
+    prefix = (
+        "#/components/schemas/"
+        if detect_schema_type(schema) == "openapi"
+        else ("#/$defs/" if "$defs" in schema else "#/definitions/")
+    )
+    external: dict[str, dict] = {}
+    references = {}
+    for name in list(definitions):
+        if name.startswith(config.namespace + "."):
+            continue
+        package, _, model = name.rpartition(".")
+        external.setdefault(package, {})[model] = definitions.pop(name)
+    for index, (package, models) in enumerate(sorted(external.items())):
+        external_file = workdir / f"external_{index}.json"
+        external_file.write_text(json.dumps({"definitions": models}))
+        for model in models:
+            references[prefix + pointer_name(f"{package}.{model}")] = (
+                f"{external_file}#/definitions/{pointer_name(model)}"
+            )
+        args += ["--external-ref-mapping", f"{external_file}={package}"]
+    schema = rewrite_refs(schema, references)
+    input_file.write_text(json.dumps(schema))
+    extra = json.loads(extra_data_file.read_text())
+    if config.mode == "base":
+        for model_data in extra.values():
+            model_data.update(is_gvk=False, is_list=False)
+    extra["#all#"] = {"external_packages": list(external)}
+    extra_data_file.write_text(json.dumps(extra))
+    args.append(f"--extra-template-data={extra_data_file}")
     base_class = "cloudcoil.pydantic.BaseModel"
     additional_imports = [
         "typing.Callable",
@@ -951,7 +1009,6 @@ def _generate(config: ModelConfig, workdir: Path):
         additional_imports += [
             "cloudcoil.resources.ResourceList",
         ]
-        args.append(f"--extra-template-data={str(extra_data_file)}")
 
     args.append(f"--additional-imports={','.join(additional_imports)}")
     if config.infer:
@@ -1059,7 +1116,21 @@ def _generate(config: ModelConfig, workdir: Path):
     # Copy directory contents, avoiding shutil.move's repeated-generation nesting bug.
     destination = output_dir / generated_path
     destination.mkdir(parents=True, exist_ok=True)
+    manifest = destination / ".cloudcoil-generated.json"
+    files = sorted(
+        str(path.relative_to(workdir / generated_path))
+        for path in (workdir / generated_path).rglob("*")
+        if path.is_file()
+    )
+    previous = json.loads(manifest.read_text()) if manifest.exists() else []
+    for relative in previous:
+        stale = destination / relative
+        if not stale.resolve().is_relative_to(destination.resolve()):
+            raise SchemaError("Generated-file manifest contains a path outside the output package")
     shutil.copytree(workdir / generated_path, destination, dirs_exist_ok=True)
+    for relative in set(previous) - set(files):
+        (destination / relative).unlink(missing_ok=True)
+    manifest.write_text(json.dumps(files, indent=2) + "\n")
 
     logger.info("Code generation completed successfully")
 
@@ -1073,7 +1144,10 @@ def create_parser() -> argparse.ArgumentParser:
         "-v", "--version", action="version", version=f"cloudcoil-model-codegen {__version__}"
     )
     parser.add_argument("--namespace", help="Namespace for the model package")
-    parser.add_argument("--input", help="Input JSON schema file or URL")
+    parser.add_argument("--input", nargs="+", help="CRD, OpenAPI, or JSON schema files/URLs")
+    parser.add_argument(
+        "--no-infer", action="store_true", help="Disable automatic schema naming and inference"
+    )
     parser.add_argument("--output", help="Output directory", type=Path, default=None)
     parser.add_argument(
         "--mode",
@@ -1166,6 +1240,7 @@ def create_model_config_from_args(args: argparse.Namespace) -> ModelConfig | Non
     return ModelConfig(
         namespace=args.namespace,
         input_=args.input,
+        infer=not args.no_infer,
         output=args.output,
         mode=args.mode,
         transformations=transformations,

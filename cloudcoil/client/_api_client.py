@@ -211,7 +211,7 @@ class APIClient(_BaseAPIClient[T]):
         self,
         name: str,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
     ) -> T | Status:
@@ -230,7 +230,7 @@ class APIClient(_BaseAPIClient[T]):
     def remove(
         self,
         body: T,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
     ) -> T | Status:
@@ -286,7 +286,7 @@ class APIClient(_BaseAPIClient[T]):
     def delete_all(
         self,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
         label_selector: str | None = None,
@@ -587,7 +587,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         self,
         name: str,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
     ) -> T | Status:
@@ -606,7 +606,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
     async def remove(
         self,
         body: T,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
     ) -> T | Status:
@@ -663,7 +663,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
     async def delete_all(
         self,
         namespace: str | None = None,
-        dry_run: bool = True,
+        dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
         label_selector: str | None = None,

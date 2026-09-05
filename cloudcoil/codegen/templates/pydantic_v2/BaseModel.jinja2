@@ -2,7 +2,7 @@
 {{ decorator }}
 {% endfor -%}
 {%- if is_list %}
-{{ class_name }} = Resourcelist["{{ class_name[:-4] }}"]
+{{ class_name }} = ResourceList["{{ class_name[:-4] }}"]
 {%- else %}
 {%- if is_gvk %}
 class {{ class_name }}(Resource):{% if comment is defined %}  # {{ comment }}{% endif %}
@@ -10,7 +10,7 @@ class {{ class_name }}(Resource):{% if comment is defined %}  # {{ comment }}{% 
 class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{% endif %}
 {%- endif %}
 {%- if description %}
-    {{ description | indent(4) }}
+    {{ description | tojson }}
 {%- endif %}
 
     class Builder(BaseModelBuilder):
@@ -22,13 +22,14 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         def build(self) -> "{{ class_name }}":
             return {{ class_name }}(**self._attrs)
 
-    {%- for field in fields %}
+    {%- for field in fields if not field.use_pydantic_extra_annotations_dict %}
         {%- set field_setter_name = field.name if field.name != "build" else "build_" %}
-        {%- if field.data_type.data_types and field.data_type.data_types[0].is_list  %}
-        {%- set item_type = field.data_type.data_types[0].data_types[0] %}
-        {%- if item_type.reference is not none %}
+        {%- set list_type = field.data_type if field.data_type.is_list else (field.data_type.data_types[0] if field.data_type.data_types and field.data_type.data_types[0].is_list else none) %}
+        {%- if list_type is not none and list_type.data_types %}
+        {%- set item_type = list_type.data_types[0] %}
+        {%- if (item_type.reference is not none or (item_type.import_ is not none and item_type.import_.from_ in external_packages)) %}
         @overload
-        def {{ field_setter_name }}(self, value_or_callback: list[{{ item_type.type_hint }}], /) -> "{{ class_name }}.Builder": ...
+        def {{ field_setter_name }}(self, value_or_callback: {{ field.type_hint }}, /) -> "{{ class_name }}.Builder": ...
         
         @overload
         def {{ field_setter_name }}(self, value_or_callback: Callable[[GenericListBuilder[{{ item_type.type_hint }}, {{ item_type.type_hint }}.Builder]], GenericListBuilder[{{ item_type.type_hint }}, {{ item_type.type_hint }}.Builder] | list[{{ item_type.type_hint }}]], /) -> "{{ class_name }}.Builder": ...
@@ -38,7 +39,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         
         def {{ field_setter_name }}(self, value_or_callback=UNSET, /):
             {%- if field.docstring %}
-            {{ field.docstring | indent(12) }}
+            {{ field.docstring | tojson }}
             {%- endif %}
             if self._in_context and value_or_callback is UNSET:
                 context = ListBuilderContext[{{ item_type.type_hint }}.Builder]()
@@ -59,12 +60,12 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         {%- else %}
         def {{ field_setter_name }}(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
-            {{ field.docstring | indent(12) }}
+            {{ field.docstring | tojson }}
             {%- endif %}
             return self._set("{{ field.name }}", value)
         {%- endif %}
         {%- else %}
-        {%- if field.data_type.reference is not none %}
+        {%- if (field.data_type.reference is not none or (field.data_type.import_ is not none and field.data_type.import_.from_ in external_packages)) %}
         @overload
         def {{ field_setter_name }}(self, value_or_callback: {{ field.type_hint }}, /) -> "{{ class_name }}.Builder": ...
         
@@ -76,7 +77,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         
         def {{ field_setter_name }}(self, value_or_callback=UNSET, /):
             {%- if field.docstring %}
-            {{ field.docstring | indent(12) }}
+            {{ field.docstring | tojson }}
             {%- endif %}
             if self._in_context and value_or_callback is UNSET:
                 context = {{ field.data_type.type_hint }}.BuilderContext()
@@ -97,7 +98,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         {%- else %}
         def {{ field_setter_name }}(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
-            {{ field.docstring | indent(12) }}
+            {{ field.docstring | tojson }}
             {%- endif %}
             return self._set("{{ field.name }}", value)
         {%- endif %}
@@ -122,7 +123,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
 
     @classmethod
     def list_builder(cls) -> GenericListBuilder["{{ class_name }}", Builder]:
-        return GenericListBuilder[cls, cls.Builder]()
+        return GenericListBuilder[{{ class_name }}, {{ class_name }}.Builder]()
 
 {%- if not fields and not description %}
     pass
@@ -132,10 +133,10 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
 {% include 'ConfigDict.jinja2' %}
 {%- endfilter %}
 {%- endif %}
-{%- if preserve_unknown %}
-    model_config = ConfigDict(extra="allow")
-{%- endif %}
-{%- for field in fields -%}
+{%- for field in fields if field.use_pydantic_extra_annotations_dict %}
+    __annotations__ = {"__pydantic_extra__": {{ field.pydantic_extra_type_hint }}}
+{%- endfor %}
+{%- for field in fields if not field.use_pydantic_extra_annotations_dict -%}
     {%- if not field.annotated and field.field %}
     {{ field.name }}: {{ field.type_hint }} = {{ field.field }}
     {%- else %}
@@ -145,11 +146,11 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
     {{ field.name }}: {{ field.type_hint }}
     {%- endif %}
     {%- if not field.has_default_factory_in_field and (not field.required or field.use_default_with_required) and (field.represented_default != 'None' or not field.strip_default_none or field.data_type.is_optional)
-            %} = {% if field.represented_default == "{}" and field.data_type.reference is not none %}{{ field.data_type.type_hint }}.model_validate({{ field.represented_default }}){% else %}{{ field.represented_default }}{% endif %}
+            %} = {% if field.represented_default == "{}" and (field.data_type.reference is not none or (field.data_type.import_ is not none and field.data_type.import_.from_ in external_packages)) %}{{ field.data_type.type_hint }}.model_validate({{ field.represented_default }}){% else %}{{ field.represented_default }}{% endif %}
     {%- endif -%}
     {%- endif %}
     {%- if field.docstring %}
-    {{ field.docstring | indent(4) }}
+    {{ field.docstring | tojson }}
     {%- endif %}
 {%- for method in methods -%}
     {{ method }}

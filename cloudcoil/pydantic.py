@@ -69,13 +69,21 @@ class BuilderContextBase(pydantic.BaseModel, Generic[BuilderType]):
     _builder: BuilderType = PrivateAttr()
     _parent_builder: Optional["BaseModelBuilder"] = PrivateAttr(default=None)
     _field_name: Optional[str] = PrivateAttr(default=None)
+    _list_builders: list[BuilderType] | None = PrivateAttr(default=None)
 
     def __enter__(self) -> BuilderType:
+        self._builder._in_context = True
         return self._builder
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if exc_type is None and self._parent_builder is not None and self._field_name:
-            self._parent_builder._set(self._field_name, self._builder.build())
+        try:
+            if exc_type is None:
+                if self._parent_builder is not None and self._field_name:
+                    self._parent_builder._set(self._field_name, self._builder.build())
+                if self._list_builders is not None:
+                    self._list_builders.append(self._builder)
+        finally:
+            self._builder._in_context = False
 
 
 class ListBuilderContext(pydantic.BaseModel, Generic[BuilderType]):
@@ -101,5 +109,5 @@ class ListBuilderContext(pydantic.BaseModel, Generic[BuilderType]):
         builder = builder_class()  # type: ignore
         context._builder = builder
         context._builder._in_context = True
-        self._builders.append(builder)
+        context._list_builders = self._builders
         return context

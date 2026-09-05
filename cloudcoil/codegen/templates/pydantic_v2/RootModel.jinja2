@@ -10,7 +10,7 @@
 
 class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)}}]{%- endif -%}):{% if comment is defined %}  # {{ comment }}{% endif %}
 {%- if description %}
-    {{ description | indent(4) }}
+    {{ description | tojson }}
 {%- endif %}
 
 {%- if config %}
@@ -32,7 +32,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
 
         def root(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
-            {{ field.docstring | indent(12) }}
+            {{ field.docstring | tojson }}
             {%- endif %}
             builder = self if self._in_context else self.__class__()
             builder._value = value
@@ -40,7 +40,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
 
         def __call__(self, value: {{ field.type_hint }}, /) -> Self:
             {%- if field.docstring %}
-            {{ field.docstring | indent(12) }}
+            {{ field.docstring | tojson }}
             {%- endif %}
             builder = self if self._in_context else self.__class__()
             builder._value = value
@@ -63,7 +63,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
     {%- endif -%}
     {%- endif %}
     {%- if field.docstring %}
-    {{ field.docstring | indent(4) }}
+    {{ field.docstring | tojson }}
     {%- endif %}
 {%- endif %}
     class BuilderContext(BuilderContextBase["{{ class_name }}.Builder"]):
@@ -81,3 +81,7 @@ class {{ class_name }}({{ base_class }}{%- if fields -%}[{{get_type_hint(fields)
     def new(cls) -> BuilderContext:
         """Creates a new context manager builder for {{ class_name }}."""
         return cls.BuilderContext()
+
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["{{ class_name }}", Builder]:
+        return GenericListBuilder[{{ class_name }}, {{ class_name }}.Builder]()
