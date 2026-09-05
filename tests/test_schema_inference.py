@@ -290,3 +290,35 @@ assert_type(Config().client_for(Widget, sync=False), AsyncAPIClient[Widget])
     ):
         result = subprocess.run(command, text=True, capture_output=True)
         assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_reference_rewriting_does_not_change_literal_payloads():
+    from cloudcoil.codegen.schema import rewrite_refs
+
+    schema = {
+        "definitions": {
+            "A": {
+                "properties": {
+                    "value": {"$ref": "#/definitions/B", "default": {"$ref": "#/definitions/B"}},
+                    "$ref": {"type": "string"},
+                    "default": {"$ref": "#/definitions/B"},
+                }
+            }
+        }
+    }
+    result = rewrite_refs(schema, {"#/definitions/B": "#/definitions/C"})
+    props = result["definitions"]["A"]["properties"]
+    assert props["value"]["$ref"] == "#/definitions/C"
+    assert props["value"]["default"]["$ref"] == "#/definitions/B"
+    assert props["default"]["$ref"] == "#/definitions/C"
+    assert props["$ref"] == {"type": "string"}
+
+
+def test_relative_reference_keeps_source_directory(tmp_path):
+    from cloudcoil.codegen.schema import resolve_relative_refs
+
+    schema = {"$ref": "types.json#/definitions/Value"}
+    result = resolve_relative_refs(schema, str(tmp_path / "schema.json"))
+    assert result["$ref"] == str(tmp_path / "types.json") + "#/definitions/Value"
+    remote = resolve_relative_refs(schema, "https://example.com/schemas/root.json")
+    assert remote["$ref"] == "https://example.com/schemas/types.json#/definitions/Value"

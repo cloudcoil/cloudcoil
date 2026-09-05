@@ -43,17 +43,56 @@ def pointer_name(name: str) -> str:
     return name.replace("~", "~0").replace("/", "~1")
 
 
-def rewrite_refs(node: Any, mapping: dict[str, str]) -> Any:
+_SCHEMA_MAPS = {"properties", "patternProperties", "definitions", "$defs", "schemas"}
+_LITERAL_KEYS = {"default", "example", "examples", "enum", "const"}
+
+
+def rewrite_refs(node: Any, mapping: dict[str, str], *, _schema_map: bool = False) -> Any:
     if isinstance(node, dict):
-        return {
-            key: mapping.get(value, value)
-            if key == "$ref" and isinstance(value, str)
-            else rewrite_refs(value, mapping)
-            for key, value in node.items()
-        }
+        result = {}
+        for key, value in node.items():
+            if key == "$ref" and isinstance(value, str) and not _schema_map:
+                result[key] = mapping.get(value, value)
+            elif key in _LITERAL_KEYS and not _schema_map:
+                result[key] = deepcopy(value)
+            else:
+                result[key] = rewrite_refs(
+                    value, mapping, _schema_map=key in _SCHEMA_MAPS and not _schema_map
+                )
+        return result
     if isinstance(node, list):
         return [rewrite_refs(value, mapping) for value in node]
     return node
+
+
+def iter_refs(node: Any, *, _schema_map: bool = False) -> Iterator[str]:
+    if isinstance(node, dict):
+        if not _schema_map and isinstance(node.get("$ref"), str):
+            yield node["$ref"]
+        for key, value in node.items():
+            if key not in _LITERAL_KEYS or _schema_map:
+                yield from iter_refs(value, _schema_map=key in _SCHEMA_MAPS and not _schema_map)
+    elif isinstance(node, list):
+        for value in node:
+            yield from iter_refs(value)
+
+
+def resolve_relative_refs(schema: dict, source: str) -> dict:
+    from pathlib import Path
+    from urllib.parse import urljoin, urlsplit
+
+    references = {}
+    for ref in iter_refs(schema):
+        if ref.startswith("#") or urlsplit(ref).scheme:
+            continue
+        if source.startswith(("http://", "https://")):
+            references[ref] = urljoin(source, ref)
+        else:
+            file, separator, fragment = ref.partition("#")
+            references[ref] = (
+                str((Path(source).resolve().parent / file).resolve()) + separator + fragment
+            )
+    return rewrite_refs(schema, references)
 
 
 def python_name(name: str) -> str:

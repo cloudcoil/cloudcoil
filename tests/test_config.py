@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 import yaml
-from httpx import Response
+from httpx import Client, Response
 
 from cloudcoil.client._config import (
     Config,
@@ -273,7 +273,13 @@ def test_exec_auth(kubeconfig_content, exec_output, expected_headers, tmp_path):
         mock_run.return_value.check = True
 
         config = Config()
-        config.client._transport = mock_transport
+        config.client = Client(
+            base_url=config.server,
+            auth=config.auth,
+            headers=config.client.headers,
+            transport=mock_transport,
+            trust_env=False,
+        )
         config.client.get("/")
 
         # Verify subprocess was called correctly
@@ -335,7 +341,13 @@ def test_exec_auth_environment_inheritance(tmp_path):
         mock_run.return_value.check = True
 
         config = Config()
-        config.client._transport = mock_transport
+        config.client = Client(
+            base_url=config.server,
+            auth=config.auth,
+            headers=config.client.headers,
+            transport=mock_transport,
+            trust_env=False,
+        )
         config.client.get("/")
 
         # Verify subprocess was called with inherited environment
@@ -400,7 +412,13 @@ def test_exec_auth_environment_override(tmp_path):
         mock_run.return_value.check = True
 
         config = Config()
-        config.client._transport = mock_transport
+        config.client = Client(
+            base_url=config.server,
+            auth=config.auth,
+            headers=config.client.headers,
+            transport=mock_transport,
+            trust_env=False,
+        )
         config.client.get("/")
 
         # Verify subprocess was called with correct environment
@@ -471,7 +489,13 @@ def test_exec_auth_token_in_headers(tmp_path):
         mock_run.return_value.check = True
 
         config = Config()
-        config.client._transport = mock_transport
+        config.client = Client(
+            base_url=config.server,
+            auth=config.auth,
+            headers=config.client.headers,
+            transport=mock_transport,
+            trust_env=False,
+        )
 
         # First request should get a new token
         config.client.get("/")

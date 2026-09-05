@@ -258,6 +258,7 @@ def test_clone_preserves_selected_kubeconfig_context_and_overrides(tmp_path, mon
     assert clone.namespace == "custom"
     assert clone.skip_verify is False
     assert clone.cache is not config.cache
+    assert config.clone(context="first").server == "https://first.test"
 
 
 def test_unstructured_mapping_and_attributes_share_one_source_of_truth():
@@ -271,6 +272,9 @@ def test_unstructured_mapping_and_attributes_share_one_source_of_truth():
     assert resource.raw["apiVersion"] == "example.com/v2"
     resource["spec"] = {"value": 42}
     assert resource.spec == {"value": 42}
+    resource["spec"]["value"] = 43
+    assert resource.spec == {"value": 43}
+    resource["spec"]["value"] = 42
     assert resource.model_dump(by_alias=True)["spec"] == {"value": 42}
 
 
@@ -373,3 +377,41 @@ def test_caught_item_error_does_not_commit_partial_list_item():
                 item.name("pods").kind("Pod").namespaced(True).singular_name("pod").verbs([])
     assert [item.name for item in builder.build().resources] == ["pods"]
     assert not builder._in_context
+
+
+@pytest.mark.parametrize("async_", [False, True])
+@pytest.mark.asyncio
+async def test_watch_authorization_failure_is_terminal(async_):
+    client = client_for(lambda _: httpx.Response(403, json={"message": "forbidden"}), async_=async_)
+    with pytest.raises(APIError) as exc:
+        if async_:
+            await anext(client.watch())
+        else:
+            next(client.watch())
+    assert exc.value.status_code == 403
+
+
+def test_sync_wait_predicate_inherits_active_config(monkeypatch):
+    config = object()
+    context._enter(config)
+    resource = ConfigMap(metadata=ObjectMeta(name="sample"))
+    client = client_for(lambda _: pytest.fail("No real request"))
+
+    def watch(**kwargs):
+        yield "MODIFIED", resource
+
+    monkeypatch.setattr(client, "watch", watch)
+
+    def predicate(event, obj):
+        assert context.active_config is config
+        return True
+
+    assert client.wait_for(resource, {"ready": predicate}, timeout=1) == "ready"
+
+
+def test_deep_copy_of_page_retains_transport_and_copies_data():
+    page = client_for(page_handler).list(label_selector="app=test")
+    copy = page.model_copy(deep=True)
+    assert copy._page_client is page._page_client
+    assert copy.items[0] is not page.items[0]
+    assert [item.name for item in copy] == ["one", "two"]

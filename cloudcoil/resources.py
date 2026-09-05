@@ -489,6 +489,13 @@ class ResourceList(BaseResource, Generic[T]):
     _next_page_params: dict[str, Any] = {}
     _page_client: Any = None
 
+    def __deepcopy__(self, memo=None) -> Self:
+        memo = {} if memo is None else memo
+        if self._page_client is not None:
+            # Copy page data, but retain the live transport that owns pagination.
+            memo[id(self._page_client)] = self._page_client
+        return super().__deepcopy__(memo)
+
     @property
     def resource_class(self) -> type[T]:
         return self.__pydantic_generic_metadata__["args"][0]
@@ -668,7 +675,7 @@ def parse_file(path: str | Path, load_all: Literal[True]) -> list[Resource]: ...
 
 
 @overload
-def parse_file(path: str | Path, load_all: Literal[False]) -> Resource: ...
+def parse_file(path: str | Path, load_all: Literal[False] = False) -> Resource: ...
 
 
 def parse_file(path: str | Path, load_all: bool = False) -> list[Resource] | Resource:
@@ -676,12 +683,14 @@ def parse_file(path: str | Path, load_all: bool = False) -> list[Resource] | Res
     if not content.strip():
         raise ValueError("Empty YAML document")
     try:
+        docs = [doc for doc in yaml.safe_load_all(content) if doc is not None]
+        if not docs:
+            raise ValueError("Empty YAML document")
         if not load_all:
-            docs = list(yaml.safe_load_all(content))
             if len(docs) > 1:
                 raise ValueError("Multiple YAML documents found when load_all=False")
             return parse(docs[0])
-        return parse(list(yaml.safe_load_all(content)))
+        return parse(docs)
     except yaml.YAMLError as e:
         raise ValueError(f"Failed to parse YAML: {e}")
 
@@ -694,7 +703,12 @@ class Unstructured(Resource):
     model_config = ConfigDict(extra="allow")
 
     def __getitem__(self, key: str) -> Any:
-        return self.raw[key]
+        for name, field in type(self).model_fields.items():
+            if key in (name, field.alias):
+                return self.raw[field.alias or name]
+        if self.model_extra is not None and key in self.model_extra:
+            return self.model_extra[key]
+        raise KeyError(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
         for name, field in type(self).model_fields.items():

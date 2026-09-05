@@ -57,6 +57,10 @@ class Quantity(RootModel[str]):
         """Creates a new context manager builder for Quantity."""
         return cls.BuilderContext()
 
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["Quantity", Builder]:
+        return GenericListBuilder[Quantity, Quantity.Builder]()
+
 
 class APIResource(BaseModel):
     class Builder(BaseModelBuilder):
@@ -506,6 +510,10 @@ class MicroTime(RootModel[AwareDatetime]):
         """Creates a new context manager builder for MicroTime."""
         return cls.BuilderContext()
 
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["MicroTime", Builder]:
+        return GenericListBuilder[MicroTime, MicroTime.Builder]()
+
 
 class OwnerReference(BaseModel):
     class Builder(BaseModelBuilder):
@@ -751,7 +759,9 @@ class StatusDetails(BaseModel):
             return StatusDetails(**self._attrs)
 
         @overload
-        def causes(self, value_or_callback: list[StatusCause], /) -> "StatusDetails.Builder": ...
+        def causes(
+            self, value_or_callback: list[StatusCause] | None, /
+        ) -> "StatusDetails.Builder": ...
 
         @overload
         def causes(
@@ -880,6 +890,10 @@ class Time(RootModel[AwareDatetime]):
         """Creates a new context manager builder for Time."""
         return cls.BuilderContext()
 
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["Time", Builder]:
+        return GenericListBuilder[Time, Time.Builder]()
+
 
 class RawExtension(BaseModel):
     class Builder(BaseModelBuilder):
@@ -951,6 +965,10 @@ class IntOrString(RootModel[int | str]):
     def new(cls) -> BuilderContext:
         """Creates a new context manager builder for IntOrString."""
         return cls.BuilderContext()
+
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["IntOrString", Builder]:
+        return GenericListBuilder[IntOrString, IntOrString.Builder]()
 
 
 class Info(BaseModel):
@@ -1082,7 +1100,7 @@ class APIGroup(BaseModel):
 
         @overload
         def server_address_by_client_cid_rs(
-            self, value_or_callback: list[ServerAddressByClientCIDR], /
+            self, value_or_callback: list[ServerAddressByClientCIDR] | None, /
         ) -> "APIGroup.Builder": ...
 
         @overload
@@ -1718,7 +1736,7 @@ class LabelSelector(BaseModel):
 
         @overload
         def match_expressions(
-            self, value_or_callback: list[LabelSelectorRequirement], /
+            self, value_or_callback: list[LabelSelectorRequirement] | None, /
         ) -> "LabelSelector.Builder": ...
 
         @overload
@@ -2012,7 +2030,7 @@ class ObjectMeta(BaseModel):
 
         @overload
         def managed_fields(
-            self, value_or_callback: list[ManagedFieldsEntry], /
+            self, value_or_callback: list[ManagedFieldsEntry] | None, /
         ) -> "ObjectMeta.Builder": ...
 
         @overload
@@ -2060,7 +2078,7 @@ class ObjectMeta(BaseModel):
 
         @overload
         def owner_references(
-            self, value_or_callback: list[OwnerReference], /
+            self, value_or_callback: list[OwnerReference] | None, /
         ) -> "ObjectMeta.Builder": ...
 
         @overload

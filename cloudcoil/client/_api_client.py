@@ -1,9 +1,11 @@
 import asyncio
 import json
 import logging
+import math
 import random
 import threading
 import time
+from contextvars import copy_context
 from typing import (
     Any,
     AsyncGenerator,
@@ -326,12 +328,13 @@ class APIClient(_BaseAPIClient[T]):
         label_selector: str | None = None,
         resource_version: str | None = None,
         timeout_seconds: int | None = None,
+        _stop_event: threading.Event | None = None,
     ) -> Iterator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured]]:
         retry_count = 0
         curr_resource_version = resource_version
         kind_name = self.kind.gvk().kind
 
-        while True:
+        while _stop_event is None or not _stop_event.is_set():
             try:
                 url, params = self._build_watch_params(
                     namespace=namespace,
@@ -413,7 +416,12 @@ class APIClient(_BaseAPIClient[T]):
                             self.kind.gvk().kind,
                             namespace,
                         )
-                        raise ResourceNotFound("Watch endpoint not found") from e
+                        raise ResourceNotFound("Watch endpoint not found", status_code=404) from e
+                    if 400 <= e.response.status_code < 500 and e.response.status_code not in {
+                        408,
+                        429,
+                    }:
+                        raise APIError(str(e), status_code=e.response.status_code) from e
 
                 retry_count += 1
                 backoff = self._get_backoff_time(retry_count)
@@ -422,7 +430,10 @@ class APIClient(_BaseAPIClient[T]):
                     backoff,
                     str(e),
                 )
-                time.sleep(backoff)
+                if _stop_event is not None:
+                    _stop_event.wait(backoff)
+                else:
+                    time.sleep(backoff)
 
     def wait_for(
         self,
@@ -430,6 +441,13 @@ class APIClient(_BaseAPIClient[T]):
         predicates: dict[str, WaitPredicate],
         timeout: float | None = None,
     ) -> str:
+        if not resource.name:
+            raise ValueError("metadata.name must be set to wait for a resource")
+        if not predicates:
+            raise ValueError("At least one wait predicate is required")
+        if timeout is not None and timeout <= 0:
+            raise WaitTimeout("Timeout waiting for condition")
+
         class WatchResult:
             def __init__(self) -> None:
                 self.predicate_name: str | None = None
@@ -444,6 +462,10 @@ class APIClient(_BaseAPIClient[T]):
                     namespace=resource.namespace,
                     field_selector=f"metadata.name={resource.name}",
                     resource_version=resource.resource_version,
+                    timeout_seconds=min(_WATCH_TIMEOUT_SECONDS, max(1, math.ceil(timeout)))
+                    if timeout is not None
+                    else _WATCH_TIMEOUT_SECONDS,
+                    _stop_event=stop_event,
                 ):
                     if stop_event.is_set():
                         return
@@ -467,7 +489,9 @@ class APIClient(_BaseAPIClient[T]):
                 result.error = e
 
         # Start the watch in a separate thread
-        watch_thread = threading.Thread(target=watch_and_evaluate)
+        watch_thread = threading.Thread(
+            target=copy_context().run, args=(watch_and_evaluate,), daemon=True
+        )
         watch_thread.start()
 
         try:
@@ -790,7 +814,12 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                             self.kind.gvk().kind,
                             namespace,
                         )
-                        raise ResourceNotFound("Watch endpoint not found") from e
+                        raise ResourceNotFound("Watch endpoint not found", status_code=404) from e
+                    if 400 <= e.response.status_code < 500 and e.response.status_code not in {
+                        408,
+                        429,
+                    }:
+                        raise APIError(str(e), status_code=e.response.status_code) from e
 
                 retry_count += 1
                 backoff = self._get_backoff_time(retry_count)

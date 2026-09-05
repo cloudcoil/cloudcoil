@@ -725,6 +725,12 @@ class Config:
             }
         )
         base_params.update(overrides)
+        if "context" in overrides or "kubeconfig" in overrides:
+            for key in ("server", "namespace", "token", "auth", "skip_verify"):
+                if key not in overrides:
+                    base_params[key] = self._constructor_params[key]
+            if "kubeconfig" in overrides and "context" not in overrides:
+                base_params["context"] = None
 
         return Config(**base_params)
 

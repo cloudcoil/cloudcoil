@@ -2,7 +2,7 @@
 {{ decorator }}
 {% endfor -%}
 {%- if is_list %}
-{{ class_name }} = ResourceList["{{ class_name[:-4] }}"]
+{{ class_name }} = ResourceList[{{ class_name[:-4] }}]
 {%- else %}
 {%- if is_gvk %}
 class {{ class_name }}(Resource):{% if comment is defined %}  # {{ comment }}{% endif %}

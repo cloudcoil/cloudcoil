@@ -21,9 +21,11 @@ from cloudcoil.codegen.schema import (
     SchemaError,
     infer_resource_identities,
     inferred_name,
+    iter_refs,
     lift_inline_objects,
     normalize_definition,
     pointer_name,
+    resolve_relative_refs,
     rewrite_refs,
 )
 from cloudcoil.codegen.typing import generate_lookup
@@ -423,9 +425,7 @@ def process_transformations(transformations: list[Transformation], schema: dict)
             prefix + pointer_name(name) for name, target in renames.items() if target is None
         }
         for name, definition in definitions.items():
-            if renames[name] is not None and any(
-                ref in excluded for ref in _references(definition)
-            ):
+            if renames[name] is not None and any(ref in excluded for ref in iter_refs(definition)):
                 renames[name] = None
                 changed = True
 
@@ -450,17 +450,6 @@ def process_transformations(transformations: list[Transformation], schema: dict)
             if target is not None
         },
     )
-
-
-def _references(node):
-    if isinstance(node, dict):
-        if isinstance(node.get("$ref"), str):
-            yield node["$ref"]
-        for value in node.values():
-            yield from _references(value)
-    elif isinstance(node, list):
-        for value in node:
-            yield from _references(value)
 
 
 def load_yaml_documents(file_path: str) -> Iterator[dict]:
@@ -615,6 +604,7 @@ def process_input(config: ModelConfig, workdir: Path) -> tuple[Path, Path]:
     def collect(doc, source):
         if not isinstance(doc, dict):
             return
+        doc = resolve_relative_refs(doc, source)
         if is_crd(doc):
             crd_groups.add(doc["spec"]["group"])
             schemas.append(convert_crd_to_schema(doc))
@@ -968,6 +958,7 @@ def _generate(config: ModelConfig, workdir: Path):
             continue
         package, _, model = name.rpartition(".")
         external.setdefault(package, {})[model] = definitions.pop(name)
+    external_mappings = []
     for index, (package, models) in enumerate(sorted(external.items())):
         external_file = workdir / f"external_{index}.json"
         external_file.write_text(json.dumps({"definitions": models}))
@@ -975,7 +966,9 @@ def _generate(config: ModelConfig, workdir: Path):
             references[prefix + pointer_name(f"{package}.{model}")] = (
                 f"{external_file}#/definitions/{pointer_name(model)}"
             )
-        args += ["--external-ref-mapping", f"{external_file}={package}"]
+        external_mappings.append(f"{external_file}={package}")
+    if external_mappings:
+        args += ["--external-ref-mapping", *external_mappings]
     schema = rewrite_refs(schema, references)
     input_file.write_text(json.dumps(schema))
     extra = json.loads(extra_data_file.read_text())
@@ -1043,6 +1036,7 @@ def _generate(config: ModelConfig, workdir: Path):
                 "--output",
                 str(workdir),
                 "--snake-case-field",
+                "--strict-refs",
                 "--target-python-version",
                 "3.14",
                 "--base-class",
