@@ -390,22 +390,32 @@ async def test_async_informer_memory_efficiency(test_config):
             cms = []
             for i in range(10):
                 cm = await k8s.core.v1.ConfigMap(
-                    metadata=dict(name=f"test-memory-{batch}-{i}", namespace=ns.name),
+                    metadata=dict(
+                        name=f"test-memory-{batch}-{i}",
+                        namespace=ns.name,
+                        labels={"cloudcoil-test": "memory"},
+                    ),
                     data={"batch": str(batch)},
                 ).async_create()
                 cms.append(cm)
 
             # Observe the actual cached instances, independently of HTTP response models.
             async with asyncio.timeout(10):
-                while len(informer.list(namespace=ns.name)) != 10:
+                while (
+                    len(informer.list(namespace=ns.name, label_selector="cloudcoil-test=memory"))
+                    != 10
+                ):
                     await asyncio.sleep(0.05)
-            cached_refs.extend(weakref.ref(item) for item in informer.list(namespace=ns.name))
+            cached_refs.extend(
+                weakref.ref(item)
+                for item in informer.list(namespace=ns.name, label_selector="cloudcoil-test=memory")
+            )
 
             # Delete batch
             await asyncio.gather(*[cm.async_remove() for cm in cms])
 
             async with asyncio.timeout(10):
-                while informer.list(namespace=ns.name):
+                while informer.list(namespace=ns.name, label_selector="cloudcoil-test=memory"):
                     await asyncio.sleep(0.05)
 
         gc.collect()
