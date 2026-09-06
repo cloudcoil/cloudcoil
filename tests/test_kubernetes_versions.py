@@ -22,6 +22,19 @@ def test_latest_shared_metadata_round_trip():
     )
 
 
+def test_secret_binary_data_preserves_base64_wire_values():
+    from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
+
+    # The decoded bytes are not UTF-8; a Base64Str field cannot represent them.
+    encoded = "/wCA/w=="
+    secret = Secret(metadata={"name": "binary"}, data={"key": encoded})
+    config_map = ConfigMap(metadata={"name": "binary"}, binaryData={"key": encoded})
+    assert secret.data["key"] == encoded
+    assert config_map.binary_data["key"] == encoded
+    assert secret.model_dump(mode="json", by_alias=True)["data"]["key"] == encoded
+    assert config_map.model_dump(mode="json", by_alias=True)["binaryData"]["key"] == encoded
+
+
 @pytest.mark.skipif(
     tuple(map(int, version("cloudcoil.models.kubernetes").split(".")[:2])) < (1, 37),
     reason="Runs with the generated Kubernetes 1.37 models in CI",

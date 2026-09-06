@@ -6,3 +6,7 @@ transformations = [
     { match = "^io\\.k8s\\.api\\.(.+)$", replace = "\\g<1>"},
     { match = "^io\\.k8s\\.kube-aggregator\\.pkg\\.apis\\.(.+)$", replace = "\\g<1>"},
 ]
+
+# Kubernetes byte fields (Secret.data, ConfigMap.binaryData) hold base64 wire
+# strings, including arbitrary binary data. Do not decode them as UTF-8 text.
+additional-datamodel-codegen-args = ["--type-mappings", "string+byte=string"]
