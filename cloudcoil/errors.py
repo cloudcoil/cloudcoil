@@ -20,3 +20,7 @@ class WatchError(APIError):
 
 class WaitTimeout(APIError):
     pass
+
+
+class WatchExpired(WatchError):
+    """The watch history expired; a caching consumer must relist."""

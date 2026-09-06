@@ -4,10 +4,12 @@ import asyncio
 import logging
 import random
 import threading
+from contextlib import aclosing, closing
 from contextvars import copy_context
 from typing import Any, Awaitable, Callable, Generic, List, Optional, TypeVar
 
 from cloudcoil.client._api_client import APIClient, AsyncAPIClient
+from cloudcoil.errors import APIError, WatchExpired
 from cloudcoil.resources import Resource
 
 from ._types import InformerOptions, InformerState
@@ -41,6 +43,7 @@ class _AsyncWatchManager(Generic[T]):
         # State management
         self._state = InformerState.STOPPED
         self._task: Optional[asyncio.Task] = None
+        self._error: Exception | None = None
         self._resource_version: Optional[str] = None
         self._stop_event = asyncio.Event()
 
@@ -53,6 +56,8 @@ class _AsyncWatchManager(Generic[T]):
             return
 
         self._state = InformerState.STARTING
+        self._resource_version = None
+        self._error = None
         self._stop_event.clear()
         self._task = asyncio.create_task(self._run())
 
@@ -82,17 +87,25 @@ class _AsyncWatchManager(Generic[T]):
                     await self._initial_list()
 
                 # Watch for changes
-                await self._watch()
+                async with asyncio.timeout(self._options.resync_period):
+                    await self._watch()
 
                 # Reset backoff on success
                 self._backoff.reset()
 
             except asyncio.CancelledError:
                 break
+            except WatchExpired, TimeoutError:
+                self._resource_version = None
             except Exception as e:
                 logger.error("Watch error for %s: %s", self._client.kind.__name__, e)
 
-                if self._state == InformerState.STARTING:
+                if (
+                    isinstance(e, APIError)
+                    and e.status_code is not None
+                    and (400 <= e.status_code < 500 and e.status_code not in {408, 429})
+                ):
+                    self._error = e
                     self._state = InformerState.FAILED
                     break
 
@@ -126,23 +139,27 @@ class _AsyncWatchManager(Generic[T]):
 
     async def _watch(self) -> None:
         """Watch for resource changes."""
-        async for event_type, event_obj in self._client.watch(
-            namespace=self._options.namespace,
-            all_namespaces=self._options.all_namespaces,
-            label_selector=self._options.label_selector,
-            field_selector=self._options.field_selector,
-            resource_version=self._resource_version,
-            timeout_seconds=self._options.timeout_seconds,
-        ):
-            if self._stop_event.is_set():
-                break
+        async with aclosing(
+            self._client.watch(
+                namespace=self._options.namespace,
+                all_namespaces=self._options.all_namespaces,
+                label_selector=self._options.label_selector,
+                field_selector=self._options.field_selector,
+                resource_version=self._resource_version,
+                timeout_seconds=self._options.timeout_seconds,
+                _raise_on_expired=True,
+            )
+        ) as stream:
+            async for event_type, event_obj in stream:
+                if self._stop_event.is_set():
+                    break
 
-            # Update resource version
-            if hasattr(event_obj, "metadata") and event_obj.metadata:
-                self._resource_version = event_obj.metadata.resource_version
+                # Update resource version
+                if hasattr(event_obj, "metadata") and event_obj.metadata:
+                    self._resource_version = event_obj.metadata.resource_version
 
-            # Handle event
-            await self._on_event(event_type, event_obj)
+                # Handle event
+                await self._on_event(event_type, event_obj)
 
     @property
     def is_running(self) -> bool:
@@ -170,6 +187,7 @@ class _SyncWatchManager(Generic[T]):
         self._state_lock = threading.RLock()
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
+        self._error: Exception | None = None
         self._resource_version: Optional[str] = None
 
         # Exponential backoff
@@ -182,6 +200,8 @@ class _SyncWatchManager(Generic[T]):
                 return
 
             self._state = InformerState.STARTING
+            self._resource_version = None
+            self._error = None
             self._stop_event.clear()
 
             self._thread = threading.Thread(
@@ -221,11 +241,14 @@ class _SyncWatchManager(Generic[T]):
                 # Reset backoff on success
                 self._backoff.reset()
 
+            except WatchExpired:
+                self._resource_version = None
             except Exception as e:
                 logger.error("Watch error for %s: %s", self._client.kind.__name__, e)
 
                 with self._state_lock:
                     if self._state == InformerState.STARTING:
+                        self._error = e
                         self._state = InformerState.FAILED
                         break
 
@@ -260,23 +283,28 @@ class _SyncWatchManager(Generic[T]):
 
     def _watch(self) -> None:
         """Watch for resource changes."""
-        for event_type, event_obj in self._client.watch(
-            namespace=self._options.namespace,
-            all_namespaces=self._options.all_namespaces,
-            label_selector=self._options.label_selector,
-            field_selector=self._options.field_selector,
-            resource_version=self._resource_version,
-            timeout_seconds=self._options.timeout_seconds,
-        ):
-            if self._stop_event.is_set():
-                break
+        with closing(
+            self._client.watch(
+                namespace=self._options.namespace,
+                all_namespaces=self._options.all_namespaces,
+                label_selector=self._options.label_selector,
+                field_selector=self._options.field_selector,
+                resource_version=self._resource_version,
+                timeout_seconds=self._options.timeout_seconds,
+                _raise_on_expired=True,
+                _stop_event=self._stop_event,
+            )
+        ) as stream:
+            for event_type, event_obj in stream:
+                if self._stop_event.is_set():
+                    break
 
-            # Update resource version
-            if hasattr(event_obj, "metadata") and event_obj.metadata:
-                self._resource_version = event_obj.metadata.resource_version
+                # Update resource version
+                if hasattr(event_obj, "metadata") and event_obj.metadata:
+                    self._resource_version = event_obj.metadata.resource_version
 
-            # Handle event
-            self._on_event(event_type, event_obj)
+                # Handle event
+                self._on_event(event_type, event_obj)
 
     @property
     def is_running(self) -> bool:

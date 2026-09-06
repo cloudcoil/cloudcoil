@@ -11,8 +11,8 @@ from typing import (
     Any,
     AsyncGenerator,
     Callable,
+    Generator,
     Generic,
-    Iterator,
     Literal,
     Type,
     TypeVar,
@@ -28,6 +28,7 @@ from cloudcoil.errors import (
     ResourceNotFound,
     WaitTimeout,
     WatchError,
+    WatchExpired,
 )
 from cloudcoil.resources import (
     DEFAULT_PAGE_LIMIT,
@@ -81,6 +82,16 @@ class _BaseAPIClient(Generic[T]):
         if self.namespaced:
             return f"{api_base}/namespaces/{namespace}/{self.resource}/{name}"
         return f"{api_base}/{self.resource}/{name}"
+
+    def _patch_url(self, body: T, subresource: Literal["status"] | None) -> str:
+        if not body.name:
+            raise ValueError("metadata.name must be set for patch operations")
+        if subresource is not None and (
+            subresource != "status" or subresource not in self.subresources
+        ):
+            raise ValueError(f"Resource {body.gvk().kind} does not support this subresource")
+        url = self._build_url(namespace=body.namespace or self.default_namespace, name=body.name)
+        return f"{url}/{subresource}" if subresource else url
 
     def _raise_for_status(self, response: httpx.Response) -> None:
         raise_for_status(response)
@@ -182,6 +193,24 @@ class APIClient(_BaseAPIClient[T]):
             params["dryRun"] = "All"
         response = self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
+        )
+        return self._handle_create_response(response)
+
+    def patch(
+        self,
+        body: T,
+        operations: list[dict[str, Any]],
+        *,
+        subresource: Literal["status"] | None = None,
+        dry_run: bool = False,
+    ) -> T:
+        """Apply an RFC 6902 JSON Patch; include tests for optimistic concurrency."""
+        url = self._patch_url(body, subresource)
+        response = self._client.patch(
+            url,
+            json=operations,
+            headers={"Content-Type": "application/json-patch+json"},
+            params={"dryRun": "All"} if dry_run else {},
         )
         return self._handle_create_response(response)
 
@@ -323,7 +352,8 @@ class APIClient(_BaseAPIClient[T]):
         resource_version: str | None = None,
         timeout_seconds: int | None = None,
         _stop_event: threading.Event | None = None,
-    ) -> Iterator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured]]:
+        _raise_on_expired: bool = False,
+    ) -> Generator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured], None, None]:
         retry_count = 0
         curr_resource_version = resource_version
         kind_name = self.kind.gvk().kind
@@ -346,6 +376,10 @@ class APIClient(_BaseAPIClient[T]):
                     timeout=(timeout_seconds or _WATCH_TIMEOUT_SECONDS) + 5,
                 ) as response:
                     if response.status_code == 410:  # Gone
+                        if _raise_on_expired:
+                            raise WatchExpired(
+                                "Watch history expired; relist required", status_code=410
+                            )
                         logger.debug(
                             "Watch resource version expired, restarting: kind=%s namespace=%s",
                             kind_name,
@@ -364,6 +398,20 @@ class APIClient(_BaseAPIClient[T]):
                         type_ = event["type"]
 
                         if type_ == "ERROR":
+                            if _raise_on_expired and (
+                                event["object"].get("code") == 410
+                                or event["object"].get("reason") in {"Expired", "Gone"}
+                            ):
+                                raise WatchExpired(
+                                    "Watch history expired; relist required", status_code=410
+                                )
+                            code = event["object"].get("code")
+                            if (
+                                isinstance(code, int)
+                                and 400 <= code < 500
+                                and code not in {408, 410, 429}
+                            ):
+                                raise APIError(event["object"], status_code=code)
                             if "status" in event["object"]:
                                 status = event["object"]["status"]
                                 if status == "Failure":
@@ -394,6 +442,8 @@ class APIClient(_BaseAPIClient[T]):
                                 curr_resource_version = obj.metadata.resource_version
                             yield type_, obj
 
+            except WatchExpired:
+                raise
             except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
                 if isinstance(e, httpx.HTTPStatusError):
                     if e.response.status_code == 410:  # Gone
@@ -583,6 +633,24 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         )
         return self._handle_create_response(response)
 
+    async def patch(
+        self,
+        body: T,
+        operations: list[dict[str, Any]],
+        *,
+        subresource: Literal["status"] | None = None,
+        dry_run: bool = False,
+    ) -> T:
+        """Apply an RFC 6902 JSON Patch without blocking the event loop."""
+        url = self._patch_url(body, subresource)
+        response = await self._client.patch(
+            url,
+            json=operations,
+            headers={"Content-Type": "application/json-patch+json"},
+            params={"dryRun": "All"} if dry_run else {},
+        )
+        return self._handle_create_response(response)
+
     async def update_status(self, body: T, dry_run: bool = False) -> T:
         if not (body.metadata):
             raise ValueError(f"metadata must be set for {body=}")
@@ -721,6 +789,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         label_selector: str | None = None,
         resource_version: str | None = None,
         timeout_seconds: int | None = None,
+        _raise_on_expired: bool = False,
     ) -> AsyncGenerator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured], None]:
         retry_count = 0
         curr_resource_version = resource_version
@@ -744,6 +813,10 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                     timeout=(timeout_seconds or _WATCH_TIMEOUT_SECONDS) + 5,
                 ) as response:
                     if response.status_code == 410:  # Gone
+                        if _raise_on_expired:
+                            raise WatchExpired(
+                                "Watch history expired; relist required", status_code=410
+                            )
                         logger.debug(
                             "Watch resource version expired, restarting: kind=%s namespace=%s",
                             kind_name,
@@ -762,6 +835,20 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                         type_ = event["type"]
 
                         if type_ == "ERROR":
+                            if _raise_on_expired and (
+                                event["object"].get("code") == 410
+                                or event["object"].get("reason") in {"Expired", "Gone"}
+                            ):
+                                raise WatchExpired(
+                                    "Watch history expired; relist required", status_code=410
+                                )
+                            code = event["object"].get("code")
+                            if (
+                                isinstance(code, int)
+                                and 400 <= code < 500
+                                and code not in {408, 410, 429}
+                            ):
+                                raise APIError(event["object"], status_code=code)
                             if "status" in event["object"]:
                                 status = event["object"]["status"]
                                 if status == "Failure":
@@ -792,6 +879,8 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                                 curr_resource_version = obj.metadata.resource_version
                             yield type_, obj
 
+            except WatchExpired:
+                raise
             except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
                 if isinstance(e, httpx.HTTPStatusError):
                     if e.response.status_code == 410:  # Gone

@@ -34,6 +34,7 @@ class InformerState(Enum):
 class InformerOptions(BaseModel):
     """Options for configuring an informer."""
 
+    max_items: int = Field(default=10000, ge=0, description="Cache capacity (0 = unlimited)")
     resync_period: float = Field(
         default=300.0,
         ge=30.0,

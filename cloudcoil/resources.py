@@ -149,6 +149,32 @@ class Resource(BaseResource):
         config = context.active_config
         return await (await config.async_client_for(self.__class__)).update(self, dry_run=dry_run)
 
+    def patch(
+        self,
+        operations: list[dict[str, Any]],
+        *,
+        subresource: Literal["status"] | None = None,
+        dry_run: bool = False,
+    ) -> Self:
+        """Apply a JSON Patch; cloudcoil.patches.diff adds UID/version preconditions."""
+        config = context.active_config
+        return config.client_for(self.__class__, sync=True).patch(
+            self, operations, subresource=subresource, dry_run=dry_run
+        )
+
+    async def async_patch(
+        self,
+        operations: list[dict[str, Any]],
+        *,
+        subresource: Literal["status"] | None = None,
+        dry_run: bool = False,
+    ) -> Self:
+        """Asynchronously apply a JSON Patch to this resource or its status."""
+        config = context.active_config
+        return await (await config.async_client_for(self.__class__)).patch(
+            self, operations, subresource=subresource, dry_run=dry_run
+        )
+
     def update_status(self, dry_run: bool = False) -> Self:
         config = context.active_config
         return config.client_for(self.__class__, sync=True).update_status(self, dry_run=dry_run)
