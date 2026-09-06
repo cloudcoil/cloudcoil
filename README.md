@@ -104,6 +104,7 @@ These built-in workload objects work too, including metadata-only references:
 | StatefulSet | `sts/database` |
 | DaemonSet | `ds/agent` |
 | Job | `job/migration` |
+| CronJob | `cj/nightly` |
 | ReplicationController | `rc/worker` |
 
 A workload selects
@@ -143,14 +144,20 @@ the server-generated selector when it is missing. Empty selectors are rejected. 
 discovery requires Pod-list permission, and a name or metadata-only reference also requires
 permission to get that workload. Log reads additionally require `pods/log`.
 An empty workload returns no discovered sources;
-read/stream raise `ResourceNotFound` if no Pods match. Selection follows Kubernetes label
-selector semantics, not an owner-reference traversal.
+read/stream raise `ResourceNotFound` if no Pods match. Built-in workload selectors retain
+Kubernetes label-selector semantics.
 
 **Custom resources:** pass a generated `Resource` instance or `Unstructured` object.
 If its `spec.selector` describes its Pods, both the standard `matchLabels`/`matchExpressions`
 shape and a flat label map work automatically. This is a convention, not a universal CRD
-guarantee: some operators use selectors for other resources. Supply `label_selector=` to
-explicitly define the Pod association when the convention does not apply. For custom
+guarantee: some operators use selectors for other resources. If the selector is absent or
+has another shape, discovery automatically traverses `ownerReferences` back from Pods.
+This supports chains such as custom resource → StatefulSet → Pod, as well as CronJob →
+Job → Pod. Pass a fetched resource with `metadata.uid` so ownership can be matched to
+the exact object; names alone are insufficient when an object has been recreated.
+
+Supply `label_selector=` to explicitly define the Pod association when the convention
+does not apply or the operator does not set ownership links. For custom
 resources this replaces the convention; for built-in workloads it narrows their selector.
 It works on `discover`, `read`, `stream`, and their async equivalents:
 
@@ -169,9 +176,13 @@ async def follow_custom_resource(resource: Resource, pod_labels: str):
 Use the operator's actual Pod labels. Custom kinds do not have string shortcuts or an
 automatic resource GET; the supplied object provides its selector and namespace. Use
 `namespace=` to select the Pod namespace for cluster-scoped or cross-namespace operators.
-CRDs without a usable selector raise a helpful error instead of scanning the namespace.
-CronJobs do not directly select Pods: use a created Job, or pass a CronJob object with an
-explicit Pod selector. Traversing CronJob/Job ownership is not automatic.
+The ownership fallback lists Pods in the selected namespace, then reads only referenced
+ancestors, caching lookups for that discovery call. It requests metadata where supported
+and uses API discovery for unfamiliar owner kinds. It respects namespaced/cluster-scoped
+ownership rules, skips deleted/recreated ancestors, and stops cycles. It requires permission
+to read intermediate owners and their API discovery endpoints; permission errors propagate
+instead of producing a silently incomplete result. Use `label_selector=` if those reads
+are unavailable. Resources without selectors or ownership links still need explicit Pod labels.
 
 Discover containers by Kubernetes selectors, then filter their log records:
 

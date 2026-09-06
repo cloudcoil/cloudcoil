@@ -14,6 +14,7 @@ import httpx
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from cloudcoil._context import context
+from cloudcoil._log_owners import OwnerTraversal
 from cloudcoil.client import Config
 from cloudcoil.client._response import raise_for_status
 from cloudcoil.errors import ResourceNotFound
@@ -293,6 +294,7 @@ _WORKLOADS = {
     ("apps/v1", "StatefulSet"): ("statefulsets", "sts"),
     ("apps/v1", "DaemonSet"): ("daemonsets", "ds"),
     ("batch/v1", "Job"): ("jobs", "job"),
+    ("batch/v1", "CronJob"): ("cronjobs", "cj"),
     ("v1", "ReplicationController"): ("replicationcontrollers", "rc"),
 }
 _WORKLOAD_NAMES = {
@@ -311,6 +313,12 @@ class _Workload:
     api_version: str
     plural: str | None
     data: dict[str, Any] | None
+
+    @property
+    def has_selector(self) -> bool:
+        return self.plural is not None and not (
+            self.api_version == "batch/v1" and self.kind == "CronJob"
+        )
 
     @property
     def url(self) -> str:
@@ -337,13 +345,19 @@ def _workload(
             or not api_version
         ):
             raise ValueError("A workload resource needs kind and apiVersion")
-        name = _name(target.name, "workload")
+        name = target.name
+        if not name:
+            raise ValueError("A workload name is required")
         namespace = namespace if namespace is not None else target.namespace
         data = target.model_dump(by_alias=True, exclude_none=True)
         entry = _WORKLOADS.get((api_version, kind))
         plural = entry[0] if entry else None
+        if plural is not None:
+            name = _name(name, "workload")
         if plural is not None and (
-            "spec" not in data or (kind == "Job" and not (data.get("spec") or {}).get("selector"))
+            "spec" not in data
+            or (kind == "Job" and not (data.get("spec") or {}).get("selector"))
+            or (kind == "CronJob" and not data.get("metadata", {}).get("uid"))
         ):
             data = None  # A metadata-only built-in workload is a reference to fetch.
     elif isinstance(target, str) and target.partition("/")[0] in _WORKLOAD_NAMES:
@@ -416,7 +430,7 @@ def _workload_params(
 ) -> tuple[Config, str, dict[str, str | int]]:
     spec = data.get("spec") or {}
     raw = spec.get("selector") if isinstance(spec, dict) else None
-    builtin = workload.plural is not None
+    builtin = workload.has_selector
     if not builtin and label_selector is not None:
         if not label_selector.strip(" \t\r\n,"):
             raise ValueError("label_selector must not be empty for a custom resource")
@@ -453,13 +467,13 @@ def _workload_query(
     label_selector: str | None = None,
     field_selector: str | None = None,
     page_size: int = 500,
-) -> tuple[Config, str, dict[str, str | int]]:
+) -> tuple[Config, str, dict[str, str | int], OwnerTraversal | None]:
     data = workload.data
     if data is None:
         response = workload.config.client.get(workload.url)
         raise_for_status(response)
         data = response.json()
-    return _workload_params(workload, data, label_selector, field_selector, page_size)
+    return _workload_pod_query(workload, data, label_selector, field_selector, page_size)
 
 
 async def _async_workload_query(
@@ -467,13 +481,33 @@ async def _async_workload_query(
     label_selector: str | None = None,
     field_selector: str | None = None,
     page_size: int = 500,
-) -> tuple[Config, str, dict[str, str | int]]:
+) -> tuple[Config, str, dict[str, str | int], OwnerTraversal | None]:
     data = workload.data
     if data is None:
         response = await workload.config.async_client.get(workload.url)
         raise_for_status(response)
         data = response.json()
-    return _workload_params(workload, data, label_selector, field_selector, page_size)
+    return _workload_pod_query(workload, data, label_selector, field_selector, page_size)
+
+
+def _workload_pod_query(
+    workload: _Workload,
+    data: dict[str, Any],
+    label_selector: str | None,
+    field_selector: str | None,
+    page_size: int,
+) -> tuple[Config, str, dict[str, str | int], OwnerTraversal | None]:
+    try:
+        query = _workload_params(workload, data, label_selector, field_selector, page_size)
+    except ValueError:
+        if workload.has_selector or label_selector is not None:
+            raise
+        ownership = OwnerTraversal(workload.config, data)
+        query = _discovery_request(
+            workload.config, workload.namespace, False, None, field_selector, page_size
+        )
+        return *query, ownership
+    return *query, None
 
 
 def _pod_priority(pod: dict[str, Any]) -> tuple[bool, bool, bool, str]:
@@ -575,8 +609,9 @@ def read(
     """Read text from a Pod or one selected workload Pod, preserving line endings.
 
     Built-in workload targets accept kind/name or a Resource instance. Custom
-    resources use spec.selector by convention; label_selector explicitly supplies
-    their Pod association. For built-ins, label_selector narrows their selector.
+    resources use spec.selector by convention, then UID-checked owner references.
+    label_selector explicitly supplies their Pod association. For built-ins with
+    Pod selectors, label_selector narrows their selector.
     """
     request = _resolve_request(
         pod, namespace, config, options, filters, follow=False, label_selector=label_selector
@@ -829,9 +864,11 @@ def discover(
     """Discover regular, init, and ephemeral containers without downloading logs.
 
     Pass a workload object or "deployment/name", "statefulset/name", etc. to use
-    its full Pod selector. Custom Resource instances use spec.selector by convention;
-    provide label_selector explicitly when their Pod association differs. It narrows
-    built-in workload selectors but replaces the convention for custom resources.
+    its full Pod selector. Custom Resource instances use spec.selector by convention,
+    falling back to recursive ownerReferences matched by UID; CronJobs also traverse
+    their ownership chains. The fallback needs metadata.uid and access to ancestors.
+    Provide label_selector explicitly when the Pod association differs. It narrows
+    built-in Pod selectors but replaces the convention for other resources.
     Defaults to the active namespace. Set all_namespaces=True for cluster-wide discovery.
     Kubernetes applies selectors before pagination. Errors (including RBAC) propagate.
     """
@@ -874,6 +911,7 @@ def _list_pods(
     config: Config,
     url: str,
     params: dict[str, str | int],
+    ownership: OwnerTraversal | None = None,
 ) -> Iterator[dict[str, Any]]:
     params = dict(params)
     seen: set[str] = set()
@@ -881,7 +919,9 @@ def _list_pods(
         response = config.client.get(url, params=params)
         raise_for_status(response)
         data = response.json()
-        yield from data["items"]
+        for pod in data["items"]:
+            if ownership is None or ownership.matches(pod):
+                yield pod
         token = data.get("metadata", {}).get("continue")
         if not token:
             return
@@ -920,6 +960,7 @@ async def _async_list_pods(
     config: Config,
     url: str,
     params: dict[str, str | int],
+    ownership: OwnerTraversal | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     params = dict(params)
     seen: set[str] = set()
@@ -928,7 +969,8 @@ async def _async_list_pods(
         raise_for_status(response)
         data = response.json()
         for pod in data["items"]:
-            yield pod
+            if ownership is None or await ownership.async_matches(pod):
+                yield pod
         token = data.get("metadata", {}).get("continue")
         if not token:
             return

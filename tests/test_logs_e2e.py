@@ -6,7 +6,7 @@ import time
 from importlib.metadata import version
 
 import pytest
-from cloudcoil.models.kubernetes.core.v1 import Namespace, Pod
+from cloudcoil.models.kubernetes.core.v1 import Namespace, Pod, ServiceAccount
 
 from cloudcoil import logs
 
@@ -24,6 +24,8 @@ async def test_live_logs_discovery_and_filtering(test_config, asynchronous):
     async with test_config:
         ns = await Namespace(metadata={"generateName": "test-logs-"}).async_create()
         try:
+            # Namespace creation does not wait for the default ServiceAccount controller.
+            await ServiceAccount(metadata={"name": "logger", "namespace": ns.name}).async_create()
             pod = await Pod.model_validate(
                 {
                     "metadata": {
@@ -32,6 +34,7 @@ async def test_live_logs_discovery_and_filtering(test_config, asynchronous):
                         "labels": {"app": "log-test"},
                     },
                     "spec": {
+                        "serviceAccountName": "logger",
                         "restartPolicy": "Never",
                         "initContainers": [
                             {
@@ -182,5 +185,80 @@ async def test_live_workload_logs(test_config, kind):
                 result = [record async for record in records]
             assert {record.pod for record in result} == seen
             assert all(record.message == "ERROR hello" for record in result)
+        finally:
+            await ns.async_remove()
+
+
+@pytest.mark.configure_test_cluster(
+    cluster_name=f"test-cloudcoil-sync-v{k8s_version}",
+    version=f"v{k8s_version}",
+    provider=os.environ.get("CLUSTER_PROVIDER", "kind"),
+    remove=False,
+)
+async def test_live_cronjob_ownership_logs(test_config):
+    from cloudcoil.models.kubernetes.batch.v1 import CronJob, Job
+
+    async with test_config:
+        ns = await Namespace(metadata={"generateName": "test-owned-logs-"}).async_create()
+        try:
+            spec = {
+                "template": {
+                    "spec": {
+                        "restartPolicy": "Never",
+                        "containers": [
+                            {
+                                "name": "app",
+                                "image": "busybox:1.36",
+                                "command": ["sh", "-c", "echo owned"],
+                            }
+                        ],
+                    }
+                }
+            }
+            cron = await CronJob.model_validate(
+                {
+                    "metadata": {"name": "nightly", "namespace": ns.name},
+                    "spec": {
+                        "schedule": "0 0 * * *",
+                        "suspend": True,
+                        "jobTemplate": {"spec": spec},
+                    },
+                }
+            ).async_create()
+            # Create a run with the same ownership relationship as the CronJob controller,
+            # so the test exercises real persisted ownership without a scheduling delay.
+            job = await Job.model_validate(
+                {
+                    "metadata": {
+                        "name": "run",
+                        "namespace": ns.name,
+                        "ownerReferences": [
+                            {
+                                "apiVersion": "batch/v1",
+                                "kind": "CronJob",
+                                "name": cron.name,
+                                "uid": cron.metadata.uid,
+                                "controller": True,
+                            }
+                        ],
+                    },
+                    "spec": spec,
+                }
+            ).async_create()
+            deadline = time.monotonic() + 180
+            while True:
+                job = await Job.async_get("run", ns.name)
+                if job.status and job.status.succeeded == 1:
+                    break
+                assert time.monotonic() < deadline, job.status
+                await asyncio.sleep(0.2)
+            sources = list(logs.discover(cron))
+            assert len(sources) == 1 and sources[0].container == "app"
+            assert logs.read("cj/nightly", namespace=ns.name) == "owned\n"
+            assert await logs.async_read(cron) == "owned\n"
+            async with logs.async_stream(cron, all_pods=True, follow=False) as records:
+                result = [record async for record in records]
+            assert len(result) == 1 and result[0].message == "owned"
+            assert result[0].pod == sources[0].pod
         finally:
             await ns.async_remove()
