@@ -77,7 +77,7 @@ uv add cloudcoil[test]
 ```
 
 The testing integration provides two key fixtures:
-- `test_cluster`: Creates and manages a k3d cluster for testing
+- `test_cluster`: Creates and manages a kind cluster by default, or a k3d cluster when selected
 - `test_config`: Provides a Config instance configured for the test cluster
 
 Example usage:
@@ -88,8 +88,9 @@ from cloudcoil.models.kubernetes.core import v1 as corev1
 
 @pytest.mark.configure_test_cluster(
     cluster_name="my-test-cluster",
-    k3d_version="v5.7.5",
-    k8s_version="v1.31.4",
+    provider="k3d",
+    k3d_version="v5.9.0",
+    k8s_version="v1.36.4",
     remove=True
 )
 def test_my_resources(test_config):
@@ -103,10 +104,17 @@ def test_my_resources(test_config):
 The `configure_test_cluster` mark accepts these arguments:
 
 - `cluster_name`: Name of the test cluster (default: auto-generated)
-- `k3d_version`: Version of k3d to use (default: v5.7.5)
-- `k8s_version`: Kubernetes version to use (default: v1.31.4)
-- `k8s_image`: Custom k3s image (default: rancher/k3s:{k8s_version}-k3s1)
+- `provider`: Cluster provider (`kind` by default, or `k3d`)
+- `kind_version`: Version of kind to use (default: v0.33.0)
+- `k3d_version`: Version of k3d to use (default: v5.9.0)
+- `k8s_version`: Kubernetes version (default: v1.37.0 for kind, v1.36.4 for k3d)
+- `k8s_image`: Custom node image for the selected provider; overrides `k8s_version`
 - `remove`: Whether to remove the cluster after tests (default: True)
+
+Cloudcoil deprecates Kubernetes minors at upstream end of life. As of September 6,
+2026, 1.33 and older are deprecated; active CI and model generation cover 1.34–1.37.
+See the [support policy and migration guide](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md#kubernetes-support-policy),
+including how to generate supported models until their PyPI releases are available.
 
 ## Documentation
 
