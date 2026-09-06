@@ -10,7 +10,8 @@ from filelock import FileLock
 
 DEFAULT_K3D_VERSION = "v5.7.5"
 DEFAULT_K8S_VERSION = "v1.31.4"
-DEFAULT_KIND_VERSION = "v0.20.0"
+# Supports the containerd 2.x node images used by the Kubernetes 1.29-1.32 CI matrix.
+DEFAULT_KIND_VERSION = "v0.27.0"
 
 
 @runtime_checkable
@@ -126,7 +127,7 @@ class KindCluster(BaseCluster):
         super().__init__(cluster_name, remove)
         self.kind_version = kind_version or DEFAULT_KIND_VERSION
         self.k8s_version = k8s_version or DEFAULT_K8S_VERSION
-        self.k8s_image = k8s_image
+        self.k8s_image = k8s_image or f"kindest/node:{self.k8s_version}"
         self.binary_path = (
             Path.home() / ".cache" / "cloudcoil" / "kind" / self.kind_version / "kind"
         )
@@ -154,9 +155,8 @@ class KindCluster(BaseCluster):
                     f"--name={self.cluster_name}",
                     f"--kubeconfig={self._kubeconfig}",
                     "--wait=5m",
+                    f"--image={self.k8s_image}",
                 ]
-                if self.k8s_image:
-                    command.append(f"--image={self.k8s_image}")
                 subprocess.run(command, check=True)
             else:
                 subprocess.run(

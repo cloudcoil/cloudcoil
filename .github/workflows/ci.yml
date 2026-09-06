@@ -11,6 +11,8 @@ on:
       - main
 jobs:
   test-python:
+    env:
+      CLOUDCOIL_K8S_IMAGE: kindest/node:v1.32.2@sha256:f226345927d7e348497136874b6d207e0b32cc52154ad8323129352923a3142f
     strategy:
       fail-fast: false
       matrix:
@@ -49,7 +51,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: ["1-29", "1-30", "1-31", "1-32"]
+        # Models and server patch releases are independent. These published images
+        # match Kind v0.27.0: https://github.com/kubernetes-sigs/kind/releases/tag/v0.27.0
+        include:
+          - k8s-version: "1-29"
+            image: kindest/node:v1.29.14@sha256:8703bd94ee24e51b778d5556ae310c6c0fa67d761fae6379c8e0bb480e6fea29
+          - k8s-version: "1-30"
+            image: kindest/node:v1.30.10@sha256:4de75d0e82481ea846c0ed1de86328d821c1e6a6a91ac37bf804e5313670e507
+          - k8s-version: "1-31"
+            image: kindest/node:v1.31.6@sha256:28b7cbb993dfe093c76641a0c95807637213c9109b761f1d422c2400e22b8e87
+          - k8s-version: "1-32"
+            image: kindest/node:v1.32.2@sha256:f226345927d7e348497136874b6d207e0b32cc52154ad8323129352923a3142f
+    env:
+      CLOUDCOIL_K8S_IMAGE: ${{ matrix.image }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -84,7 +98,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cluster-provider: [k3d, kind]
+        include:
+          - cluster-provider: k3d
+            image: rancher/k3s:v1.32.1-k3s1
+          - cluster-provider: kind
+            image: kindest/node:v1.32.2@sha256:f226345927d7e348497136874b6d207e0b32cc52154ad8323129352923a3142f
+    env:
+      CLOUDCOIL_K8S_IMAGE: ${{ matrix.image }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
