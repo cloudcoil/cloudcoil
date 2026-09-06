@@ -30,56 +30,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --extra kubernetes --dev
-
-      - name: Run Checks
-        run: make UV_RUN_FLAGS=--no-sync lint test
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: cloudcoil/cloudcoil
-    
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-  test-k8s:
-    strategy:
-      fail-fast: false
-      matrix:
-        # Models and server patch releases are independent. These published images
-        # were published with Kind v0.27.0: https://github.com/kubernetes-sigs/kind/releases/tag/v0.27.0
-        include:
-          - k8s-version: "1-29"
-            image: kindest/node:v1.29.14@sha256:8703bd94ee24e51b778d5556ae310c6c0fa67d761fae6379c8e0bb480e6fea29
-          - k8s-version: "1-30"
-            image: kindest/node:v1.30.10@sha256:4de75d0e82481ea846c0ed1de86328d821c1e6a6a91ac37bf804e5313670e507
-          - k8s-version: "1-31"
-            image: kindest/node:v1.31.6@sha256:28b7cbb993dfe093c76641a0c95807637213c9109b761f1d422c2400e22b8e87
-          - k8s-version: "1-32"
-            image: kindest/node:v1.32.2@sha256:f226345927d7e348497136874b6d207e0b32cc52154ad8323129352923a3142f
-    env:
-      CLOUDCOIL_K8S_IMAGE: ${{ matrix.image }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v4
-        with:
-          python-version: '3.14'
-          enable-cache: true
-          cache-dependency-glob: "**/uv.lock"
-
-      - name: Install dependencies
         run: |
-          uv sync --extra "kubernetes-${{ matrix.k8s-version }}" --dev
-          uv run --no-sync python -c 'from importlib.metadata import version; assert version("cloudcoil.models.kubernetes").startswith("${{ matrix.k8s-version }}".replace("-", ".") + ".")'
+          uv sync --frozen --extra kubernetes --extra codegen --dev
+          uv run --no-sync python tools/generate_kubernetes.py --version 1.37.0 --output /tmp/kubernetes-models
+          uv pip install --python .venv/bin/python --no-deps /tmp/kubernetes-models
+          uv run --no-sync python -c 'from importlib.metadata import version; assert version("cloudcoil.models.kubernetes") == "1.37.0.0"'
 
       - name: Run Checks
         run: make UV_RUN_FLAGS=--no-sync lint test
@@ -89,7 +44,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: cloudcoil/cloudcoil
-    
+
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
@@ -120,7 +75,11 @@ jobs:
           cache-dependency-glob: "**/uv.lock"
 
       - name: Install dependencies
-        run: uv sync --extra kubernetes --dev
+        run: |
+          uv sync --frozen --extra kubernetes --extra codegen --dev
+          uv run --no-sync python tools/generate_kubernetes.py --version 1.37.0 --output /tmp/kubernetes-models
+          uv pip install --python .venv/bin/python --no-deps /tmp/kubernetes-models
+          uv run --no-sync python -c 'from importlib.metadata import version; assert version("cloudcoil.models.kubernetes") == "1.37.0.0"'
 
       - name: Run Checks
         run: make UV_RUN_FLAGS=--no-sync lint test
@@ -132,18 +91,33 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: cloudcoil/cloudcoil
-    
+
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  test-k8s-latest:
-    name: test-k8s (1.37, generated models)
+  test-k8s:
+    name: test-k8s (${{ matrix.k8s-version }}, generated models)
+    strategy:
+      fail-fast: false
+      matrix:
+        # Retain each minor until its upstream EOL date (including 1.34's overlap).
+        # https://kubernetes.io/releases/
+        # Images: https://github.com/kubernetes-sigs/kind/releases/tag/v0.33.0
+        include:
+          - k8s-version: "1.34.11"
+            image: kindest/node:v1.34.11@sha256:44e222ee2132dab25ff87301682f89eb82c7880ea3a1bf543bfe9708fd08d67d
+          - k8s-version: "1.35.8"
+            image: kindest/node:v1.35.8@sha256:07b2536e30b803ed61d1677a79df6115f798ce64c80f9e22f6ed45afd09323c0
+          - k8s-version: "1.36.4"
+            image: kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
+          - k8s-version: "1.37.0"
+            image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
     runs-on: ubuntu-latest
     env:
-      CLOUDCOIL_K8S_IMAGE: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+      CLOUDCOIL_K8S_IMAGE: ${{ matrix.image }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -152,11 +126,11 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --frozen --extra kubernetes --extra codegen --dev
-      - name: Generate and install Kubernetes 1.37 models
+      - name: Generate and install matching Kubernetes models
         run: |
-          uv run --no-sync python tools/generate_kubernetes.py --version 1.37.0 --output /tmp/kubernetes-models
+          uv run --no-sync python tools/generate_kubernetes.py --version "${{ matrix.k8s-version }}" --output /tmp/kubernetes-models
           uv pip install --python .venv/bin/python --no-deps /tmp/kubernetes-models
-          uv run --no-sync python -c 'from importlib.metadata import version; assert version("cloudcoil.models.kubernetes") == "1.37.0.0"'
+          uv run --no-sync python -c 'from importlib.metadata import version; assert version("cloudcoil.models.kubernetes") == "${{ matrix.k8s-version }}.0"'
       - name: Run Checks with the generated models
         run: make UV_RUN_FLAGS=--no-sync lint test
       - name: Upload test results to Codecov

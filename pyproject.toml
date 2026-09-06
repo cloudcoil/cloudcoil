@@ -31,6 +31,8 @@ knative-eventing = ["cloudcoil.models.knative_eventing"]
 knative-serving = ["cloudcoil.models.knative_serving"]
 kpack = ["cloudcoil.models.kpack"]
 kubernetes = ["cloudcoil.models.kubernetes"]
+# Deprecated: EOL Kubernetes model extras; retained only for existing installations.
+# No active CI or new model releases. See VERSIONING.md for migration.
 kubernetes-1-29 = ["cloudcoil.models.kubernetes~=1.29.0"]
 kubernetes-1-30 = ["cloudcoil.models.kubernetes~=1.30.0"]
 kubernetes-1-31 = ["cloudcoil.models.kubernetes~=1.31.0"]

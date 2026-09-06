@@ -70,12 +70,6 @@ Using [uv](https://github.com/astral-sh/uv) (recommended):
 ```bash
 # Install with Kubernetes support
 uv add cloudcoil[kubernetes]
-
-# Install with specific Kubernetes version compatibility
-uv add cloudcoil[kubernetes-1-29]
-uv add cloudcoil[kubernetes-1-30]
-uv add cloudcoil[kubernetes-1-31]
-uv add cloudcoil[kubernetes-1-32]
 ```
 
 Using pip:
@@ -84,9 +78,16 @@ Using pip:
 pip install cloudcoil[kubernetes]
 ```
 
-Kubernetes 1.37 is covered by live CI using models generated from its upstream
-schema, alongside the published 1.29–1.32 model packages. Until the 1.37 model
-release is published, generate and install matching models from a checkout:
+Cloudcoil deprecates Kubernetes minors when they reach [upstream end of life](https://kubernetes.io/releases/).
+As of September 6, 2026, **1.33 and older are deprecated**; CI and model generation
+cover **1.34–1.37**. Kubernetes 1.34 remains supported until October 27, 2026.
+The `kubernetes-1-29` through `kubernetes-1-32` extras remain available only for
+existing installations; they receive no new model releases or dedicated CI.
+See the [support policy and migration guide](VERSIONING.md#kubernetes-support-policy).
+
+The unversioned `kubernetes` extra currently installs the latest published models,
+which are still 1.32. Until supported model releases are published, generate and
+install matching models from a checkout:
 
 ```bash
 uv run --extra codegen --extra kubernetes python tools/generate_kubernetes.py \
@@ -96,7 +97,7 @@ uv pip install --no-deps output/kubernetes-1.37
 
 Use `uv run --no-sync` with these locally installed models so uv does not replace
 them with the version in the lockfile. CI exercises the full controller, CRD, and
-admission suite against Kubernetes 1.37.0. Test fixtures default to kind 0.33.0 with
+admission suite against Kubernetes 1.34–1.37 using matching generated models. Test fixtures default to kind 0.33.0 with
 Kubernetes 1.37.0, or k3d 5.9.0 with its separately released k3s 1.36.4.
 
 ## 🔌 Integrations
