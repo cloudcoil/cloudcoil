@@ -77,7 +77,7 @@ async def installed_widget(config):
             while True:
                 response = await config.async_client.get(definition_url)
                 response.raise_for_status()
-                conditions = response.json().get("status", {}).get("conditions", [])
+                conditions = (response.json().get("status") or {}).get("conditions") or []
                 if any(c["type"] == "Established" and c["status"] == "True" for c in conditions):
                     break
                 await asyncio.sleep(0.1)
