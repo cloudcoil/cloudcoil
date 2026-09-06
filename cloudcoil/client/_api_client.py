@@ -22,9 +22,9 @@ import httpx
 from pydantic import TypeAdapter
 
 from cloudcoil.apimachinery import Status
+from cloudcoil.client._response import raise_for_status
 from cloudcoil.errors import (
     APIError,
-    ResourceConflict,
     ResourceNotFound,
     WaitTimeout,
     WatchError,
@@ -83,14 +83,7 @@ class _BaseAPIClient(Generic[T]):
         return f"{api_base}/{self.resource}/{name}"
 
     def _raise_for_status(self, response: httpx.Response) -> None:
-        if response.is_success:
-            return
-        try:
-            detail = response.json()
-        except ValueError:
-            detail = response.text or response.reason_phrase
-        error = {404: ResourceNotFound, 409: ResourceConflict}.get(response.status_code, APIError)
-        raise error(detail, status_code=response.status_code)
+        raise_for_status(response)
 
     def _handle_get_response(self, response: httpx.Response, namespace: str, name: str) -> T:
         self._raise_for_status(response)
