@@ -1,0 +1,997 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Cloud-native made easy with Python">
+      
+      
+        <meta name="author" content="Sambhav Kothari">
+      
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../api/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Controllers - cloudcoil</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#building-controllers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="cloudcoil" class="md-header__button md-logo" aria-label="cloudcoil" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cloudcoil
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Controllers
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cloudcoil/cloudcoil" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudcoil/cloudcoil
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Controllers
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API Reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="cloudcoil" class="md-nav__button md-logo" aria-label="cloudcoil" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cloudcoil
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cloudcoil/cloudcoil" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudcoil/cloudcoil
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controllers
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controllers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#incremental-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incremental roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workqueue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workqueue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation runtime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#leader-election" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leader election
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-and-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Health and metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#returning-resources-and-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returning resources and status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optimistic-changes-and-finalizers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optimistic changes and finalizers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runnable-example-and-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runnable example and verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#incremental-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Incremental roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#workqueue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workqueue
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reconciliation-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reconciliation runtime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#leader-election" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Leader election
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-and-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Health and metrics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#returning-resources-and-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returning resources and status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optimistic-changes-and-finalizers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optimistic changes and finalizers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runnable-example-and-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runnable example and verification
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="building-controllers">Building controllers</h1>
+<p>Cloudcoil is growing an async controller framework around its typed resources and
+informers. The goal is a small reconciliation API, with lifecycle and correctness
+handled by the runtime. Progress is tracked in <a href="https://github.com/cloudcoil/cloudcoil/issues/63">#63</a>.</p>
+<h2 id="incremental-roadmap">Incremental roadmap</h2>
+<ol>
+<li><strong>Implemented — Workqueue:</strong> deduplicated keys, one active worker per key, delayed requeues,
+   capped exponential retries with jitter, cancellation, and shutdown.</li>
+<li><strong>Implemented — Informer correctness:</strong> enqueue initial state and relist changes, recover from
+   expired resource versions, and reliably register handlers before startup.</li>
+<li><strong>Implemented — Controller runtime:</strong> typed reconciliation requests, concurrent workers,
+   readiness, startup/shutdown, retries, child ownership watches, and custom maps.</li>
+<li><strong>Partially implemented — Safe mutations:</strong> guarded JSON Patch calculation,
+   live-read mutation, status and finalizer helpers. Server-side apply and reusable
+   ownership-setting helpers remain.</li>
+<li><strong>Partially implemented — Production operation:</strong> shared informers, Lease-based
+   leader election, metrics, and health endpoints. Kubernetes Event reporting remains.</li>
+<li><strong>Later — Advanced framework:</strong> admission webhooks, optional CEL validation, and
+   multi-resource YAML application. These remain separate from the reconcile loop.</li>
+</ol>
+<h2 id="workqueue">Workqueue</h2>
+<p><code>cloudcoil.controller.WorkQueue[K]</code> is an in-memory queue for hashable keys. All
+operations run on one asyncio event loop. <code>add(key)</code> coalesces repeated events;
+<code>await get()</code> reserves a key until <code>done(key)</code>. An event arriving during processing
+schedules another pass without allowing concurrent processing of that key.</p>
+<p>Use <code>retry(key)</code> after a failure, <code>forget(key)</code> after success, and
+<code>add_after(key, seconds)</code> for explicit periodic work. A fresh event supersedes a
+pending delay. Timers are coalesced per key and do not create sleeping tasks.
+Always call <code>done</code> in <code>finally</code>, including when a worker is cancelled.</p>
+<p><code>shutdown()</code> stops accepting new work and discards delayed retries while allowing
+ready work to drain. <code>shutdown(immediate=True)</code> also discards ready work. Neither
+cancels in-flight work; the caller owns worker tasks. <code>await join()</code> waits for
+accepted work to finish. Keys are not persisted: a controller must list current
+state on startup to recover after process restarts.</p>
+<h2 id="reconciliation-runtime">Reconciliation runtime</h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">Controller</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Result</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.core.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigMap</span><span class="p">,</span> <span class="n">Secret</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reconcile</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">[</span><span class="n">ConfigMap</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Result</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">resource</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">resource</span>
+    <span class="k">if</span> <span class="n">resource</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span>  <span class="c1"># Absent from this controller's watched scope.</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">namespace</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">resource</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Result</span><span class="p">(</span><span class="n">requeue_after</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">Config</span><span class="p">()</span>
+    <span class="n">controller</span> <span class="o">=</span> <span class="n">Controller</span><span class="p">(</span>
+        <span class="n">ConfigMap</span><span class="p">,</span> <span class="n">reconcile</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+        <span class="n">namespace</span><span class="o">=</span><span class="s2">"default"</span><span class="p">,</span> <span class="n">label_selector</span><span class="o">=</span><span class="s2">"app=example"</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">owns</span><span class="p">(</span><span class="n">Secret</span><span class="p">)</span>
+    <span class="k">await</span> <span class="n">controller</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</code></pre></div>
+<p><code>Controller(ResourceType, reconcile, ...)</code> works with generated Kubernetes and CRD
+models. Standalone controllers own their informers; a Manager shares compatible watches. It lists
+before watching and waits for <strong>all</strong> initial snapshots before starting workers.
+There is no silent cache eviction in controller informers. Scope selection limits
+memory and list/watch permissions; secondary watches do not inherit the primary
+label selector. Resync periodically relists and enqueues unchanged objects too.</p>
+<p>A <code>Request[T]</code> contains <code>name</code>, <code>namespace</code>, <code>key</code>, and an independent deep copy of
+the latest cached <code>resource: T | None</code>. Reconciliation is level-based: events may
+coalesce and no event history or exactly-once execution is promised. Writes must
+be idempotent and use optimistic concurrency. A missing object may have left a
+label-selected scope; it is not sufficient evidence for destructive external
+cleanup. Use finalizers and a live read for external deletion workflows.</p>
+<p>Return a modified primary resource to persist its changes automatically, or use
+<code>Result(resource=resource, requeue_after=seconds)</code> to save and schedule another pass.
+Return <code>None</code>/<code>Result()</code> for success without a write, or <code>Result(requeue_after=seconds)</code>
+to check again without a write. See the write contract below.
+Exceptions are logged and retried with exponential backoff (1s base, 60s cap, 10%
+jitter). <code>TerminalError</code> suppresses that retry; future events/resyncs still run.
+<code>reconcile_timeout=</code> optionally limits each attempt. A fresh event takes priority
+over a delayed retry. Different keys can run concurrently; one key never does.</p>
+<p><code>.owns(ChildType)</code> watches direct controller-owner references, comparing group,
+kind, and UID. It handles cluster-scoped owners and children across namespaces.
+Use <code>.watch(OtherType, mapper=...)</code> for indirect or non-owning dependencies:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">ResourceKey</span>
+
+<span class="n">controller</span><span class="o">.</span><span class="n">watch</span><span class="p">(</span>
+    <span class="n">Secret</span><span class="p">,</span>
+    <span class="n">mapper</span><span class="o">=</span><span class="k">lambda</span> <span class="n">secret</span><span class="p">:</span> <span class="p">[</span><span class="n">ResourceKey</span><span class="p">(</span><span class="s2">"settings"</span><span class="p">,</span> <span class="n">secret</span><span class="o">.</span><span class="n">namespace</span><span class="p">)],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Mappers return primary keys, run on the event loop, and must be fast and free of
+I/O. Updates map both old and new state so removing or changing a dependency also
+reconciles its former target. Mapping failures stop the controller and propagate.
+Register watches before running. <code>controller.enqueue(key)</code> accepts external
+signals from the same event loop.</p>
+<p><code>await controller.run(stop=stop_event)</code> drains ready work on explicit stop up to
+<code>shutdown_timeout</code> (10s by default), discards delayed retries, and cancels unfinished
+workers. Task cancellation stops immediately and joins watch/worker tasks. Callbacks
+must cooperate with asyncio cancellation. Instances run once; create a new instance
+to restart. The runtime activates the supplied/ambient Config; callers own its HTTP
+clients. <code>controller.ready</code> and <code>await controller.wait_ready()</code> expose readiness and
+startup failures. Fatal watch errors propagate rather than leaving a ready zombie.</p>
+<p><code>Manager(controller_a, controller_b)</code> runs controllers with a shared lifetime:
+<code>await manager.run(stop=stop_event)</code> and <code>await manager.wait_ready()</code> have matching
+semantics. A fatal failure cancels siblings and propagates as an <code>ExceptionGroup</code>.
+Manager shares informers only for the same Config instance, model class, namespace
+scope, selectors, and timing settings. It registers all subscribers before starting
+any watch, ensuring every controller sees initial objects. Different scopes or
+Config instances stay separate. <code>manager.informer_count</code> exposes the actual watch
+count. Supply <code>Manager(..., config=config)</code> as a default; a controller-specific Config
+takes precedence.</p>
+<h2 id="leader-election">Leader election</h2>
+<p>Run multiple replicas with the same Lease name and namespace:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">LeaderElection</span><span class="p">,</span> <span class="n">Manager</span>
+
+<span class="n">manager</span> <span class="o">=</span> <span class="n">Manager</span><span class="p">(</span>
+    <span class="n">controller</span><span class="p">,</span>
+    <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
+    <span class="n">leader_election</span><span class="o">=</span><span class="n">LeaderElection</span><span class="p">(</span><span class="s2">"configmap-mirror"</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="s2">"default"</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stop</span><span class="o">=</span><span class="n">stop_event</span><span class="p">)</span>
+</code></pre></div>
+<p>Only the elected manager starts informers and workers. Standbys wait without listing
+watched resources, and <code>manager.ready</code> stays false until leadership and initial sync.
+Use the default unique identity for each replica; never share an explicit identity
+between live processes. Lease requests use the election's Config, then the manager's,
+then the first controller's, then the active context. The Lease namespace defaults
+to that Config's namespace. Resource watches retain their own Configs and scopes.</p>
+<p>The service account needs <code>get</code>, <code>create</code>, and <code>update</code> on <code>leases</code> in API group
+<code>coordination.k8s.io</code>, in the Lease namespace. Pre-creating the Lease allows omitting
+<code>create</code> and restricting <code>get/update</code> with <code>resourceNames</code>. Kubernetes RBAC cannot
+restrict <code>create</code> by resource name.</p>
+<p>Defaults are <code>lease_duration=15</code>, <code>renew_deadline=10</code>, and <code>retry_period=2</code> seconds;
+require <code>0 &lt; retry_period &lt; renew_deadline &lt; lease_duration</code>. Writes compare
+resourceVersion. Takeover waits for an unchanged record for the advertised duration,
+measured with a local monotonic clock, rather than trusting another host's timestamp.
+Explicit stop keeps renewal running while workers drain, then releases ownership.
+Loss of ownership or renewal deadline cancels and joins workers, raises
+<code>LeadershipLost</code>, and ends the manager; restart the process to participate again.
+Fatal authorization errors propagate immediately. Failed release leaves the Lease to
+expire; a successor's Lease is never deliberately cleared.</p>
+<p>Lease election coordinates cooperative processes; it cannot fence a paused process
+or an already-started external operation. Keep reconciliation idempotent and
+cancellable, and use external fencing where side effects require it. This follows
+the limitations described by <a href="https://pkg.go.dev/k8s.io/client-go/tools/leaderelection">client-go leader election</a>.
+See also <a href="https://kubernetes.io/docs/concepts/architecture/leases/">Kubernetes Leases</a>.</p>
+<h2 id="health-and-metrics">Health and metrics</h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">HealthServer</span><span class="p">,</span> <span class="n">Manager</span>
+
+<span class="n">manager</span> <span class="o">=</span> <span class="n">Manager</span><span class="p">(</span><span class="n">controller</span><span class="p">,</span> <span class="n">health</span><span class="o">=</span><span class="n">HealthServer</span><span class="p">(</span><span class="n">host</span><span class="o">=</span><span class="s2">"0.0.0.0"</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="mi">8080</span><span class="p">))</span>
+<span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">stop</span><span class="o">=</span><span class="n">stop_event</span><span class="p">)</span>
+</code></pre></div>
+<p>The optional listener starts before election and initial sync, and closes with the
+manager. No server is started by default. <code>HealthServer()</code> binds loopback; use an
+explicit container interface for Kubernetes probes. Bind failures stop startup.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /healthz</code></td>
+<td>200 while running, including startup and standby; 503 after fatal failure while shutting down.</td>
+</tr>
+<tr>
+<td><code>GET /readyz</code></td>
+<td>200 after every controller syncs and leadership is held when enabled; otherwise 503.</td>
+</tr>
+<tr>
+<td><code>GET /metrics</code></td>
+<td>Prometheus text format, including on standby.</td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>/healthz</code> for liveness and <code>/readyz</code> for readiness. Standby replicas are
+intentionally unready: do not use readiness to restart them. The listener is plain
+HTTP without authentication; use your Pod/network access controls. It only serves
+these GET routes, closes each connection, and bounds header size and read time.
+<code>health.address</code> exposes the bound address (<code>port=0</code> requests an available port).</p>
+<p><code>manager.healthy</code>, <code>manager.ready</code>, and <code>manager.metrics()</code> also work without an HTTP
+server, allowing integration with an existing application. <code>controller.status</code>
+returns an immutable snapshot of readiness, queued/processing/delayed keys, completed
+successes/errors/terminal errors/cancellations, and total reconcile duration.</p>
+<p>Metrics include manager readiness and informer count, leadership acquisitions and
+transient renewal failures, queue depth, active workers, delayed keys, reconcile
+outcomes, and a duration histogram in seconds. Counters are local to each instance,
+reset on recreation, and remain inspectable after shutdown. Duration includes failed
+and cancelled attempts; active attempts enter counters only when they finish.</p>
+<p>Set <code>Controller(..., name="configmap-mirror")</code> for a stable metric label. Names must
+be unique within a manager; unnamed controllers receive <code>&lt;kind&gt;-&lt;position&gt;</code> labels.
+No object names, namespaces, UIDs, or error messages become metric labels. Scrape
+instances separately, and sum/rate their counters as appropriate. Queue depth counts
+waiting keys, excluding keys currently processing and pending timers.</p>
+<h2 id="returning-resources-and-status">Returning resources and status</h2>
+<p>Returning the primary resource is the simplest way to save changes:</p>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reconcile</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">[</span><span class="n">ConfigMap</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ConfigMap</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">resource</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">resource</span>
+    <span class="k">if</span> <span class="n">resource</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">resource</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="p">(</span><span class="n">resource</span><span class="o">.</span><span class="n">data</span> <span class="ow">or</span> <span class="p">{}),</span> <span class="s2">"managed-by"</span><span class="p">:</span> <span class="s2">"cloudcoil"</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">resource</span>
+</code></pre></div>
+<p>The runtime retains an independent snapshot from dispatch, compares the returned
+resource against it, and sends only changed fields as JSON Patch. Editing
+<code>request.resource</code> and returning <code>None</code> does <strong>not</strong> save. Unchanged returned resources
+produce no request, avoiding a write loop when the controller sees its own updates.
+All writes test UID and resourceVersion; conflicts retry the <strong>whole reconciliation</strong>
+against the latest cached state. The runtime never rebases a stale desired snapshot
+onto a fresh object, which could remove another writer's changes.</p>
+<p>Status works the same way for generated built-in and CRD models:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># MyResource is your generated CRD model, with the status fields defined by its schema.</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reconcile</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">[</span><span class="n">MyResource</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">MyResource</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">resource</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">resource</span>
+    <span class="k">if</span> <span class="n">resource</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">resource</span><span class="o">.</span><span class="n">status</span> <span class="o">=</span> <span class="n">MyResourceStatus</span><span class="p">(</span><span class="n">phase</span><span class="o">=</span><span class="s2">"Ready"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">resource</span>
+</code></pre></div>
+<p>API discovery determines whether <code>/status</code> exists. When it does, status changes go
+there; ordinary fields go to the main endpoint. A status-only return sends one
+status PATCH. Changes to both use <strong>two non-atomic writes</strong>, main first, then status
+with the resourceVersion returned by the first write. If status changes unexpectedly
+in that response, or the second write conflicts, reconciliation retries; an already
+successful main write is not rolled back. CRDs without a status subresource persist
+inline status through the main endpoint. Grant <code>patch</code> on <code>&lt;plural&gt;/status</code> as well
+as <code>&lt;plural&gt;</code> when both are used. Stable status values are essential: timestamps
+updated on every pass will intentionally produce a write loop.</p>
+<p>The return value must be the same primary kind, name, namespace, UID, and version as
+the request snapshot. This updates existing resources; it does not create an absent
+resource, adopt a replacement UID, or save arbitrary child resources. Use resource
+creation APIs and <code>mutate(child, ...)</code> for children. Resource writes and the callback
+share <code>reconcile_timeout</code>; the runtime records success and schedules a requested
+requeue only after patches succeed. Arrays are replaced as whole fields, guarded by
+the version check; this is JSON Patch, not server-side apply or field ownership.</p>
+<p>Use <code>Result(resource=resource, requeue_after=60)</code> to combine saving with a timer.
+Use explicit helpers when you need to observe a write response, persist a finalizer
+<strong>before</strong> an external side effect, or make a change based on a live read. After an
+explicit write, return <code>None</code> or a scheduling-only <code>Result</code>; do not return the saved
+object against the older request snapshot. Likewise, do not mix explicit primary
+writes and automatic returned-primary writes within one attempt.</p>
+<h2 id="optimistic-changes-and-finalizers">Optimistic changes and finalizers</h2>
+<p>For explicit writes, use <code>mutate</code> for a narrow update based on a <strong>live, uncached</strong> read:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">mutate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.core.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigMap</span>
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">mark_observed</span><span class="p">(</span><span class="n">resource</span><span class="p">:</span> <span class="n">ConfigMap</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfigMap</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">change</span><span class="p">(</span><span class="n">current</span><span class="p">:</span> <span class="n">ConfigMap</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">current</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">current</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">annotations</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">annotations</span> <span class="ow">or</span> <span class="p">{}),</span>
+            <span class="s2">"example.com/observed"</span><span class="p">:</span> <span class="s2">"true"</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="k">await</span> <span class="n">mutate</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="n">change</span><span class="p">)</span>
+</code></pre></div>
+<p>The callback edits a deep copy, must return <code>None</code>, and must not perform external
+side effects. A no-op skips PATCH. Changes use JSON Patch with UID and resourceVersion
+tests; conflicts propagate for reconciliation to retry from fresh state. A resource
+recreated under the same name is rejected before invoking the callback. <code>status=True</code>
+uses the status subresource and rejects changes outside status.</p>
+<p>For explicit control, <code>cloudcoil.patches.diff(original, desired)</code> generates a guarded
+patch between copies of one fetched resource. Apply it with
+<code>await original.async_patch(operations)</code> or <code>original.patch(operations)</code>; both accept
+<code>subresource="status"</code> and <code>dry_run=True</code>. Skip the write when the diff is empty.
+<code>patches.json_patch(before_json, after_json)</code> calculates unguarded RFC 6902 patches
+for arbitrary JSON values. Arrays are replaced atomically, object keys are diffed,
+and JSON Pointer characters are escaped. No strategic-merge or field ownership is
+inferred. <a href="https://www.rfc-editor.org/rfc/rfc6902">JSON Patch specification</a>.</p>
+<p><code>await ensure_finalizer(resource, "example.com/cleanup")</code> persists your finalizer
+before provisioning external state; <code>await remove_finalizer(...)</code> removes only that
+entry after successful cleanup. Both use live reads and UID/version tests, preserve
+other controllers' finalizers, and skip no-op writes. Adding a missing finalizer
+after deletion starts raises <code>TerminalError</code>.</p>
+<p>Check deletionTimestamp before provisioning and again on the object returned by
+ensure_finalizer. On deletion, run idempotent cleanup only if your finalizer is
+present, then remove it. Kubernetes can mark deletion concurrently with any request;
+finalizers coordinate cleanup, not exactly-once external operations. Never remove a
+finalizer merely to bypass a failing cleanup. See <a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/">Kubernetes finalizers</a>.</p>
+<h2 id="runnable-example-and-verification">Runnable example and verification</h2>
+<p><a href="https://github.com/cloudcoil/cloudcoil/blob/main/examples/configmap_controller.py">configmap_controller.py</a>
+mirrors ConfigMaps labelled <code>example.com/mirror=true</code> to owned <code>&lt;name&gt;-mirror</code>
+ConfigMaps. It reconciles pre-existing sources, propagates source edits, repairs
+child edits, and recreates deleted children. It refuses to adopt an unrelated object
+and skips unchanged writes. Its namespaced service account needs <code>get/list/watch</code>,
+<code>create</code>, and <code>patch</code> on ConfigMaps; scope the role to the example namespace.</p>
+<p>From a checkout with dependencies installed and a kubeconfig pointing to your test
+cluster, run <code>uv run python examples/configmap_controller.py --namespace default</code>.
+Add <code>--lease configmap-mirror --health-port 8080</code> when running replicas with probes
+and metrics. All replicas must use the same Lease name and namespace and receive the
+Lease permissions described above. Set the Pod termination grace period above
+<code>shutdown_timeout + retry_period</code> (12 seconds with defaults), with additional room
+for process overhead. Create a labelled source ConfigMap to observe the mirror.
+SIGINT/SIGTERM drain the controller. This example assumes a Linux process, as used in Kubernetes containers.</p>
+<p>Tests cover the queue, snapshot/watch recovery, retry and shutdown behavior, child
+ownership, mapping changes, optimistic mutations, finalizers, and mypy/Pyright caller
+inference. The CI matrix also runs the example reconciler against real Kubernetes
+and checks UID/version preconditions, finalizer deletion, shared subscriptions, and
+Lease handoff between managers, and returned CRD spec/status patches without a write loop.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tabs"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
