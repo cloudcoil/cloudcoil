@@ -41,6 +41,21 @@ class WorkQueue[K: Hashable]:
         self._closed = False
         self._immediate = False
 
+    @property
+    def depth(self) -> int:
+        """Ready keys waiting for a worker; excludes in-flight and delayed keys."""
+        return len(self._ready)
+
+    @property
+    def processing(self) -> int:
+        """Keys currently reserved by workers."""
+        return len(self._processing)
+
+    @property
+    def delayed(self) -> int:
+        """Keys with a pending retry or scheduled requeue."""
+        return len(self._delayed)
+
     def add(self, key: K) -> None:
         """Request reconciliation now; fresh events supersede a delayed retry."""
         if self._closed:

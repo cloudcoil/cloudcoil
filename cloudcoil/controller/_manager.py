@@ -7,8 +7,10 @@ from cloudcoil._context import context
 from cloudcoil.client import Config
 
 from ._controller import Controller
+from ._health import HealthServer
 from ._informers import _InformerPool
 from ._leader import LeaderElection
+from ._metrics import _render
 
 
 class Manager:
@@ -24,11 +26,20 @@ class Manager:
         *controllers: Controller[Any],
         config: Config | None = None,
         leader_election: LeaderElection | None = None,
+        health: HealthServer | None = None,
     ) -> None:
         if not controllers:
             raise ValueError("A manager needs at least one controller")
         if len({id(controller) for controller in controllers}) != len(controllers):
             raise ValueError("A controller cannot be registered twice")
+        self._names = tuple(
+            controller.name or f"{controller.resource.gvk().kind.lower()}-{index}"
+            for index, controller in enumerate(controllers, 1)
+        )
+        if len(set(self._names)) != len(self._names):
+            raise ValueError("Managed controllers must have distinct metric names")
+        self.health = health
+        self._running = False
         self._controllers = controllers
         self._config = config
         self.leader_election = leader_election
@@ -40,10 +51,20 @@ class Manager:
     @property
     def ready(self) -> bool:
         return (
-            (self.leader_election is None or self.leader_election.is_leader)
+            self.healthy
+            and (self.leader_election is None or self.leader_election.is_leader)
             and not self._finished.is_set()
             and all(controller.ready for controller in self._controllers)
         )
+
+    @property
+    def healthy(self) -> bool:
+        """Running without fatal failure, including startup and standby."""
+        return self._running and self._failure is None and not self._finished.is_set()
+
+    def metrics(self) -> str:
+        """Prometheus text exposition; local counters persist after shutdown."""
+        return _render(self)
 
     @property
     def informer_count(self) -> int:
@@ -66,6 +87,8 @@ class Manager:
             if self._finished.is_set():
                 raise RuntimeError("Manager stopped before becoming ready")
             await ready
+            if not self.ready:
+                raise RuntimeError("Manager stopped or lost leadership before becoming ready")
         finally:
             ready.cancel()
             finished.cancel()
@@ -95,7 +118,10 @@ class Manager:
         if self._used:
             raise RuntimeError("Manager instances can only run once")
         self._used = True
+        self._running = True
         try:
+            if self.health is not None:
+                await self.health._start(self)
             stop = stop if stop is not None else asyncio.Event()
             if self.leader_election is None:
                 if not stop.is_set():
@@ -116,5 +142,12 @@ class Manager:
             self._failure = exc
             raise
         finally:
-            await self._pool.stop()
-            self._finished.set()
+            self._running = False
+            try:
+                await self._pool.stop()
+            finally:
+                try:
+                    if self.health is not None:
+                        await self.health._close()
+                finally:
+                    self._finished.set()

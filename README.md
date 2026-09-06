@@ -26,7 +26,7 @@ If you find Cloudcoil useful, please consider giving it a star on GitHub! Your s
 
 ## Controllers
 
-Build typed async controllers with retries, dependency watches, readiness, and graceful
+Build typed async controllers with retries, dependency watches, shared informers, and graceful
 shutdown. Reconcile the latest state while Cloudcoil handles watch recovery and work
 scheduling:
 
@@ -43,6 +43,9 @@ async def reconcile(request: Request[ConfigMap]) -> Result | None:
 controller = Controller(ConfigMap, reconcile, workers=4).owns(Secret)
 # In your async entry point: await controller.run()
 ```
+
+Use `Manager(..., leader_election=LeaderElection("my-controller"),
+health=HealthServer(port=8080))` for replica coordination, probes, and metrics.
 
 See the [controller guide](https://cloudcoil.github.io/cloudcoil/controllers/) for
 optimistic mutations, finalizers, custom dependencies, lifecycle, and the incremental

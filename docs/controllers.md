@@ -15,8 +15,8 @@ handled by the runtime. Progress is tracked in [#63](https://github.com/cloudcoi
 4. **Partially implemented — Safe mutations:** guarded JSON Patch calculation,
    live-read mutation, status and finalizer helpers. Server-side apply and reusable
    ownership-setting helpers remain.
-5. **Partially implemented — Production operation:** shared informers and Lease-based
-   leader election. Metrics, health endpoints, and Kubernetes Event reporting remain.
+5. **Partially implemented — Production operation:** shared informers, Lease-based
+   leader election, metrics, and health endpoints. Kubernetes Event reporting remains.
 6. **Later — Advanced framework:** admission webhooks, optional CEL validation, and
    multi-resource YAML application. These remain separate from the reconcile loop.
 
@@ -168,6 +168,48 @@ cancellable, and use external fencing where side effects require it. This follow
 the limitations described by [client-go leader election](https://pkg.go.dev/k8s.io/client-go/tools/leaderelection).
 See also [Kubernetes Leases](https://kubernetes.io/docs/concepts/architecture/leases/).
 
+## Health and metrics
+
+```python
+from cloudcoil.controller import HealthServer, Manager
+
+manager = Manager(controller, health=HealthServer(host="0.0.0.0", port=8080))
+await manager.run(stop=stop_event)
+```
+
+The optional listener starts before election and initial sync, and closes with the
+manager. No server is started by default. `HealthServer()` binds loopback; use an
+explicit container interface for Kubernetes probes. Bind failures stop startup.
+
+| Endpoint | Meaning |
+| --- | --- |
+| `GET /healthz` | 200 while running, including startup and standby; 503 after fatal failure while shutting down. |
+| `GET /readyz` | 200 after every controller syncs and leadership is held when enabled; otherwise 503. |
+| `GET /metrics` | Prometheus text format, including on standby. |
+
+Use `/healthz` for liveness and `/readyz` for readiness. Standby replicas are
+intentionally unready: do not use readiness to restart them. The listener is plain
+HTTP without authentication; use your Pod/network access controls. It only serves
+these GET routes, closes each connection, and bounds header size and read time.
+`health.address` exposes the bound address (`port=0` requests an available port).
+
+`manager.healthy`, `manager.ready`, and `manager.metrics()` also work without an HTTP
+server, allowing integration with an existing application. `controller.status`
+returns an immutable snapshot of readiness, queued/processing/delayed keys, completed
+successes/errors/terminal errors/cancellations, and total reconcile duration.
+
+Metrics include manager readiness and informer count, leadership acquisitions and
+transient renewal failures, queue depth, active workers, delayed keys, reconcile
+outcomes, and a duration histogram in seconds. Counters are local to each instance,
+reset on recreation, and remain inspectable after shutdown. Duration includes failed
+and cancelled attempts; active attempts enter counters only when they finish.
+
+Set `Controller(..., name="configmap-mirror")` for a stable metric label. Names must
+be unique within a manager; unnamed controllers receive `<kind>-<position>` labels.
+No object names, namespaces, UIDs, or error messages become metric labels. Scrape
+instances separately, and sum/rate their counters as appropriate. Queue depth counts
+waiting keys, excluding keys currently processing and pending timers.
+
 ## Optimistic changes and finalizers
 
 Use `mutate` for a narrow update based on a **live, uncached** read:
@@ -225,10 +267,15 @@ and skips unchanged writes. Its namespaced service account needs `get/list/watch
 
 From a checkout with dependencies installed and a kubeconfig pointing to your test
 cluster, run `uv run python examples/configmap_controller.py --namespace default`.
-Create a labelled source ConfigMap to observe the mirror. SIGINT/SIGTERM drain the
-controller. This example assumes a Linux process, as used in Kubernetes containers.
+Add `--lease configmap-mirror --health-port 8080` when running replicas with probes
+and metrics. All replicas must use the same Lease name and namespace and receive the
+Lease permissions described above. Set the Pod termination grace period above
+`shutdown_timeout + retry_period` (12 seconds with defaults), with additional room
+for process overhead. Create a labelled source ConfigMap to observe the mirror.
+SIGINT/SIGTERM drain the controller. This example assumes a Linux process, as used in Kubernetes containers.
 
 Tests cover the queue, snapshot/watch recovery, retry and shutdown behavior, child
 ownership, mapping changes, optimistic mutations, finalizers, and mypy/Pyright caller
 inference. The CI matrix also runs the example reconciler against real Kubernetes
-and checks UID/version preconditions and finalizer deletion behavior.
+and checks UID/version preconditions, finalizer deletion, shared subscriptions, and
+Lease handoff between managers.

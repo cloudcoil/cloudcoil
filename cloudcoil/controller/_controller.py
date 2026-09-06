@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import math
+import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, Self
@@ -14,6 +15,7 @@ from cloudcoil.client import Config
 from cloudcoil.resources import Resource
 
 from ._informers import _InformerPool
+from ._metrics import ControllerStatus, _ReconcileMetrics
 from ._queue import QueueClosed, WorkQueue
 from ._types import Request, ResourceKey, Result, TerminalError
 
@@ -43,6 +45,7 @@ class Controller[T: Resource]:
         resource: type[T],
         reconcile: Reconciler[T],
         *,
+        name: str | None = None,
         config: Config | None = None,
         namespace: str | None = None,
         all_namespaces: bool = False,
@@ -55,13 +58,17 @@ class Controller[T: Resource]:
     ) -> None:
         if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
             raise ValueError("workers must be a positive integer")
-        for name, value in (
+        for setting, value in (
             ("sync_timeout", sync_timeout),
             ("shutdown_timeout", shutdown_timeout),
             ("reconcile_timeout", reconcile_timeout),
         ):
             if value is not None and (not math.isfinite(value) or value <= 0):
-                raise ValueError(f"{name} must be finite and positive")
+                raise ValueError(f"{setting} must be finite and positive")
+        if name is not None and not name.strip():
+            raise ValueError("Controller name must not be empty")
+        self.name = name
+        self._metrics = _ReconcileMetrics()
         self.resource = resource
         self.reconcile = reconcile
         self.config = config
@@ -120,6 +127,22 @@ class Controller[T: Resource]:
     def ready(self) -> bool:
         """Whether all watches have synced and reconcile workers are running."""
         return self._ready.is_set()
+
+    @property
+    def status(self) -> ControllerStatus:
+        """Return local queue and reconcile statistics without inspecting cached objects."""
+        counts = self._metrics.outcomes
+        return ControllerStatus(
+            ready=self.ready,
+            queued=self._queue.depth,
+            processing=self._queue.processing,
+            delayed=self._queue.delayed,
+            successes=counts["success"],
+            errors=counts["error"],
+            terminal_errors=counts["terminal"],
+            cancellations=counts["cancelled"],
+            duration_seconds=self._metrics.duration,
+        )
 
     async def wait_ready(self, timeout: float = 30) -> None:
         """Wait for startup, propagating startup failure instead of hanging."""
@@ -235,6 +258,8 @@ class Controller[T: Resource]:
                 key = await self._queue.get()
             except QueueClosed:
                 return
+            started = time.monotonic()
+            outcome = "success"
             try:
                 resource = self._primary.get(key.name, key.namespace)
                 request = Request(
@@ -247,12 +272,17 @@ class Controller[T: Resource]:
                 self._queue.forget(key)
                 if result is not None and result.requeue_after is not None:
                     self._queue.add_after(key, result.requeue_after)
+            except asyncio.CancelledError:
+                outcome = "cancelled"
+                raise
             except TerminalError:
+                outcome = "terminal"
                 self._queue.forget(key)
                 logger.exception(
                     "Terminal reconcile error for %s %s", self.resource.gvk().kind, key
                 )
             except Exception:
+                outcome = "error"
                 delay = self._queue.retry(key)
                 logger.exception(
                     "Reconcile failed for %s %s; retry in %.2fs",
@@ -261,6 +291,7 @@ class Controller[T: Resource]:
                     delay,
                 )
             finally:
+                self._metrics.observe(outcome, time.monotonic() - started)
                 self._queue.done(key)
 
     async def run(self, *, stop: asyncio.Event | None = None) -> None:

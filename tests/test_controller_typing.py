@@ -10,7 +10,7 @@ import pytest
 def test_controller_api_typing(tmp_path, checker):
     script = tmp_path / "controller_usage.py"
     script.write_text("""from typing import assert_type
-from cloudcoil.controller import Controller, Manager, Request, ResourceKey, Result, mutate, ensure_finalizer
+from cloudcoil.controller import Controller, ControllerStatus, HealthServer, LeaderElection, Manager, Request, ResourceKey, Result, mutate, ensure_finalizer
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
 from cloudcoil import patches
 
@@ -30,7 +30,11 @@ async def reconcile(request: Request[ConfigMap]) -> Result | None:
 controller = Controller(ConfigMap, reconcile, workers=4).owns(Secret)
 assert_type(controller, Controller[ConfigMap])
 controller.watch(Secret, mapper=lambda secret: [ResourceKey("settings", secret.namespace)])
-manager = Manager(controller)
+manager = Manager(controller, health=HealthServer(port=0), leader_election=LeaderElection("example"))
+assert_type(controller.status, ControllerStatus)
+assert_type(manager.metrics(), str)
+assert_type(manager.healthy, bool)
+assert_type(manager.informer_count, int)
 """)
     args = (
         ["--cache-dir", str(tmp_path / "mypy-cache")]
