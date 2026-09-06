@@ -288,10 +288,10 @@ Admission never installs a global/default Config and never closes caller clients
 
 `AdmissionWebhook` is a dependency-free ASGI application. Serve it with your existing
 ASGI server and TLS setup; installing Cloudcoil does not install or start an HTTP
-server. For the runnable example:
+server. For an application named `admission` in `my_webhooks.py`:
 
 ```bash
-uv run --extra kubernetes --with uvicorn uvicorn examples.widget_operator:admission \
+uv run --extra kubernetes --with uvicorn uvicorn my_webhooks:admission \
   --host 0.0.0.0 --port 9443 \
   --ssl-certfile /certs/tls.crt --ssl-keyfile /certs/tls.key
 ```
@@ -340,39 +340,19 @@ child, and returns stable status containing the observed generation and child na
 It refuses to adopt an unrelated ConfigMap. Kubernetes owner references handle
 child cleanup when the Widget is deleted.
 
-From a checkout:
+It now uses the shared `Operator(...).main()` entry point to generate CRDs, RBAC,
+webhook Service/registration, and a Deployment, then run HTTPS and the controller
+manager together. See the [operator guide](operators.md) for `manifests`, `install`,
+and `run`, TLS setup, client ownership, and deployment ordering.
 
-```bash
-uv run --extra kubernetes python examples/widget_operator.py crd > widgets.crd.yaml
-kubectl apply -f widgets.crd.yaml
-uv run --extra kubernetes python examples/widget_operator.py controller --namespace default
-```
-
-Create a resource to reconcile:
+Create a resource to reconcile after installing the operator:
 
 ```yaml
 apiVersion: examples.cloudcoil.dev/v1alpha1
 kind: Widget
 metadata:
   name: greeting
-  namespace: default
+  namespace: operators
 spec:
   message: Hello from Cloudcoil
 ```
-
-For the admission example, serve the ASGI application with TLS, create its Service,
-then generate and apply registration manifests:
-
-```bash
-uv run --extra kubernetes python examples/widget_operator.py webhook-config \
-  --namespace operators --service widget-webhook --ca-file /certs/ca.crt \
-  > widgets.webhooks.yaml
-kubectl apply -f widgets.webhooks.yaml
-```
-
-The controller needs get/list/watch on Widgets and ConfigMaps, create/patch on
-ConfigMaps, and patch on `widgets/status`. Lease election additionally needs the
-Lease permissions described in the controller guide. Admission handlers in this
-example need no Kubernetes API permissions. CRD and webhook-configuration
-installation require separate cluster-level permissions; controller startup does
-not install either automatically.

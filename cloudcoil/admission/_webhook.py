@@ -122,6 +122,10 @@ class AdmissionWebhook:
         The optional Config and its HTTP clients remain owned by the caller.
         Client-taking handlers require Config; no discovery occurs during registration.
         """
+        return self._register_models(models, require_config=True)
+
+    def _register_models(self, models: Sequence[type[Resource]], *, require_config: bool) -> Self:
+        # Operator manifest generation can collect routes before loading credentials.
         from cloudcoil.crd import _resource_options
 
         staged = AdmissionWebhook(config=self._config, max_body_bytes=self._max_body_bytes)
@@ -137,7 +141,7 @@ class AdmissionWebhook:
                 raise ValueError(f"{model.__name__} has no decorated admission methods")
             gvk = model.gvk()
             for name, handler, policy, needs_client in methods:
-                if needs_client and self._config is None:
+                if needs_client and self._config is None and require_config:
                     raise ValueError(f"{model.__name__}.{name} needs AdmissionWebhook(config=...)")
 
                 # Capture each handler independently; route dispatch never closes over loop variables.
@@ -148,7 +152,8 @@ class AdmissionWebhook:
                 ) -> Callable[[AdmissionRequest[Any]], Awaitable[Any]]:
                     async def invoke(request: AdmissionRequest[Any]) -> Any:
                         if inject_client:
-                            assert self._config is not None
+                            if self._config is None:
+                                raise RuntimeError("Serving injected handlers requires Config")
                             client = await self._config.async_client_for(resource, cached=False)
                             if client.namespaced and request.namespace:
                                 client.default_namespace = request.namespace

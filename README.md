@@ -60,6 +60,11 @@ generate its Kubernetes definition. Typed `AdmissionWebhook` handlers use the sa
 model for mutation and validation. See the [custom resource guide](https://cloudcoil.github.io/cloudcoil/custom-resources/)
 and the [complete Widget operator example](examples/widget_operator.py).
 
+Use `Operator("widgets", Controller(Widget, reconcile), ...)` and `operator.main()`
+for shared `manifests`, `install`, and `run` commands: generated CRDs/RBAC,
+webhook HTTPS and registration, deployment, leader election, and graceful shutdown.
+See the [operator guide](https://cloudcoil.github.io/cloudcoil/operators/).
+
 ## 🔧 Installation
 
 > [!NOTE]

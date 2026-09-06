@@ -1,39 +1,34 @@
 """One typed resource used for CRD generation, reconciliation, and admission.
 
-Generate: python examples/widget_operator.py crd
-Reconcile: python examples/widget_operator.py controller --namespace default
-Serve admission with an ASGI server; see docs/custom-resources.md for TLS setup.
+Generate: python examples/widget_operator.py manifests --image example/widgets:v1
+Install: python examples/widget_operator.py install --image example/widgets:v1
+Run: python examples/widget_operator.py run
+See docs/operators.md for TLS, namespace, image entry point, and RBAC setup.
 """
 
-import argparse
-import asyncio
-import signal
+import os
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
-import yaml
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 from pydantic import Field
 
 from cloudcoil.admission import (
     AdmissionDenied,
     AdmissionRequest,
-    AdmissionWebhook,
     mutating,
     validating,
 )
-from cloudcoil.client import Config
 from cloudcoil.controller import (
     Controller,
-    HealthServer,
     LeaderElection,
-    Manager,
     Request,
     TerminalError,
     mutate,
 )
-from cloudcoil.crd import CRD, PrinterColumn, custom_resource
+from cloudcoil.crd import PrinterColumn, custom_resource
 from cloudcoil.errors import ResourceNotFound
+from cloudcoil.operator import Operator, RBACRule, WebhookServer
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
@@ -77,10 +72,6 @@ class Widget(Resource):
             raise AdmissionDenied("spec.message must contain a non-whitespace character")
 
 
-crd = CRD(Widget)
-admission = AdmissionWebhook().register(Widget)
-
-
 async def reconcile(request: Request[Widget]) -> Widget | None:
     obj = request.resource
     if obj is None or obj.metadata is None or obj.metadata.deletion_timestamp:
@@ -122,58 +113,26 @@ async def reconcile(request: Request[Widget]) -> Widget | None:
     return obj  # Only status changed; the runtime sends a guarded /status patch.
 
 
-async def run_controller(namespace: str, lease: str | None, health_port: int | None) -> None:
-    config = Config(namespace=namespace)
-    manager = Manager(
-        Controller(Widget, reconcile, name="widget", namespace=namespace).owns(ConfigMap),
-        config=config,
-        leader_election=LeaderElection(lease, namespace=namespace) if lease else None,
-        health=HealthServer(host="0.0.0.0", port=health_port) if health_port is not None else None,
-    )
-    stop = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop.set)
-    try:
-        await manager.run(stop=stop)
-    finally:
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.remove_signal_handler(sig)
-        config.client.close()
-        await config.async_client.aclose()
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("crd", help="Print the generated CRD manifest")
-    controller = commands.add_parser("controller", help="Run the reconciliation manager")
-    controller.add_argument("--namespace", default="default")
-    controller.add_argument("--lease")
-    controller.add_argument("--health-port", type=int)
-    webhooks = commands.add_parser("webhook-config", help="Print admission registration manifests")
-    webhooks.add_argument("--namespace", required=True)
-    webhooks.add_argument("--service", required=True)
-    webhooks.add_argument("--ca-file", type=Path, required=True)
-    args = parser.parse_args()
-    if args.command == "crd":
-        print(crd.to_yaml(), end="")
-    elif args.command == "webhook-config":
-        print(
-            yaml.safe_dump_all(
-                admission.configurations(
-                    name="widgets.examples.cloudcoil.dev",
-                    service_name=args.service,
-                    service_namespace=args.namespace,
-                    ca_bundle=args.ca_file.read_bytes(),
-                ),
-                sort_keys=False,
-            ),
-            end="",
-        )
-    else:
-        asyncio.run(run_controller(args.namespace, args.lease, args.health_port))
-
+# The same definition generates installation manifests and runs the process.
+# Supply the public CA bundle when generating/installing webhook configurations.
+ca_file = os.environ.get("CLOUDCOIL_WEBHOOK_CA_FILE")
+operator = Operator(
+    "widgets",
+    Controller(Widget, reconcile, name="widget").owns(ConfigMap),
+    rules=(
+        RBACRule(
+            ConfigMap,
+            ("get", "create", "patch"),
+            plural="configmaps",
+            scope="Namespaced",
+        ),
+    ),
+    webhook=WebhookServer(
+        ca_bundle=Path(ca_file).read_bytes() if ca_file else b"",
+        tls_secret="widgets-tls",
+    ),
+    leader_election=LeaderElection("widgets"),
+)
 
 if __name__ == "__main__":
-    main()
+    operator.main()

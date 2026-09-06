@@ -22,6 +22,7 @@ cloudcoil-model-codegen = "cloudcoil.codegen.generator:main"
 
 [project.optional-dependencies]
 test = ["pytest", "filelock", "pytest-asyncio"]
+operator = ["uvicorn>=0.38,<1"]
 codegen = ["datamodel-code-generator[http]>=0.72,<0.73", "ruff"]
 cert-manager = ["cloudcoil.models.cert_manager"]
 fluxcd = ["cloudcoil.models.fluxcd"]
@@ -97,6 +98,7 @@ asyncio_default_fixture_loop_scope = "function"
 [dependency-groups]
 dev = [
     "mypy>=1.19",
+    "uvicorn>=0.38,<1",
     "pyright>=1.1.407",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.5.3",

@@ -17,6 +17,7 @@ theme:
 nav:
   - Home: index.md
   - Controllers: controllers.md
+  - Operators: operators.md
   - Custom Resources and Admission: custom-resources.md
   - API Reference: api.md
 

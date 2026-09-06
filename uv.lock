@@ -346,6 +346,9 @@ kubernetes-1-32 = [
 kyverno = [
     { name = "cloudcoil-models-kyverno" },
 ]
+operator = [
+    { name = "uvicorn" },
+]
 prometheus-operator = [
     { name = "cloudcoil-models-prometheus-operator" },
 ]
@@ -388,6 +391,7 @@ dev = [
     { name = "ruff" },
     { name = "truststore" },
     { name = "types-pyyaml" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -429,8 +433,9 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", marker = "extra == 'codegen'" },
     { name = "truststore", marker = "extra == 'truststore'", specifier = ">=0.8.0" },
+    { name = "uvicorn", marker = "extra == 'operator'", specifier = ">=0.38,<1" },
 ]
-provides-extras = ["test", "codegen", "cert-manager", "fluxcd", "istio", "keda", "knative-eventing", "knative-serving", "kpack", "kubernetes", "kubernetes-1-29", "kubernetes-1-30", "kubernetes-1-31", "kubernetes-1-32", "kyverno", "prometheus-operator", "sealed-secrets", "velero", "truststore", "all-models"]
+provides-extras = ["test", "operator", "codegen", "cert-manager", "fluxcd", "istio", "keda", "knative-eventing", "knative-serving", "kpack", "kubernetes", "kubernetes-1-29", "kubernetes-1-30", "kubernetes-1-31", "kubernetes-1-32", "kyverno", "prometheus-operator", "sealed-secrets", "velero", "truststore", "all-models"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -454,6 +459,7 @@ dev = [
     { name = "ruff", specifier = ">=0.14" },
     { name = "truststore", specifier = ">=0.8.0" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20241221" },
+    { name = "uvicorn", specifier = ">=0.38,<1" },
 ]
 
 [[package]]
@@ -601,7 +607,7 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 dependencies = [
-    { name = "cloudcoil" },
+    { name = "cloudcoil", marker = "extra == 'extra-9-cloudcoil-kubernetes-1-32' or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-30') or (extra == 'extra-9-cloudcoil-kubernetes-1-29' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra == 'extra-9-cloudcoil-kubernetes-1-30' and extra == 'extra-9-cloudcoil-kubernetes-1-31') or (extra != 'extra-9-cloudcoil-kubernetes-1-29' and extra != 'extra-9-cloudcoil-kubernetes-1-30' and extra != 'extra-9-cloudcoil-kubernetes-1-31')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/86/5d/3b49375453c610b010f8c969503a5f7b1a3bca5b073551fd51b195522292/cloudcoil_models_kubernetes-1.32.1.3.tar.gz", hash = "sha256:a0ba052d756878bf50637553e9670e2ea102ba82a25f3b1da818d4d9426f051b", size = 364158, upload-time = "2025-02-10T04:25:01.948Z" }
 wheels = [
@@ -1747,6 +1753,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
+]
+
+[[package]]
+name = "uvicorn"
+version = "0.52.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "h11" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/0f/3f86e61397dd33bf2ccf28188c40db6a740658aeebbbf6e7dbc101a1f487/uvicorn-0.52.4.tar.gz", hash = "sha256:73acfee47a0b133c5de13d219492d62d8a31e935f4fe6e41a232451a15379f86", size = 100627, upload-time = "2026-08-19T06:27:41.821Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f1/79/4a20b54ab0491485ccd8c077db2d39187c7f12b3e15485d38a7be37c81b4/uvicorn-0.52.4-py3-none-any.whl", hash = "sha256:f86e41a149d7d05a9969337e3946a9c171c06a5d42680896daaba624aeac8da1", size = 79871, upload-time = "2026-08-19T06:27:40.36Z" },
 ]
 
 [[package]]
