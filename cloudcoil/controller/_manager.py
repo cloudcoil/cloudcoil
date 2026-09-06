@@ -8,6 +8,7 @@ from cloudcoil.client import Config
 
 from ._controller import Controller
 from ._informers import _InformerPool
+from ._leader import LeaderElection
 
 
 class Manager:
@@ -18,13 +19,19 @@ class Manager:
     manager runs once and owns the shared informers until all workers have stopped.
     """
 
-    def __init__(self, *controllers: Controller[Any], config: Config | None = None) -> None:
+    def __init__(
+        self,
+        *controllers: Controller[Any],
+        config: Config | None = None,
+        leader_election: LeaderElection | None = None,
+    ) -> None:
         if not controllers:
             raise ValueError("A manager needs at least one controller")
         if len({id(controller) for controller in controllers}) != len(controllers):
             raise ValueError("A controller cannot be registered twice")
         self._controllers = controllers
         self._config = config
+        self.leader_election = leader_election
         self._pool = _InformerPool()
         self._used = False
         self._finished = asyncio.Event()
@@ -32,8 +39,10 @@ class Manager:
 
     @property
     def ready(self) -> bool:
-        return not self._finished.is_set() and all(
-            controller.ready for controller in self._controllers
+        return (
+            (self.leader_election is None or self.leader_election.is_leader)
+            and not self._finished.is_set()
+            and all(controller.ready for controller in self._controllers)
         )
 
     @property
@@ -87,8 +96,22 @@ class Manager:
             raise RuntimeError("Manager instances can only run once")
         self._used = True
         try:
-            if stop is None or not stop.is_set():
-                await self._run_controllers(stop)
+            stop = stop if stop is not None else asyncio.Event()
+            if self.leader_election is None:
+                if not stop.is_set():
+                    await self._run_controllers(stop)
+            else:
+                config = (
+                    self.leader_election.config
+                    or self._config
+                    or self._controllers[0].config
+                    or context.active_config
+                )
+                await self.leader_election._run(
+                    lambda: self._run_controllers(stop),
+                    config=config,
+                    stop=stop,
+                )
         except BaseException as exc:
             self._failure = exc
             raise

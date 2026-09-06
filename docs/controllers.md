@@ -15,8 +15,8 @@ handled by the runtime. Progress is tracked in [#63](https://github.com/cloudcoi
 4. **Partially implemented — Safe mutations:** guarded JSON Patch calculation,
    live-read mutation, status and finalizer helpers. Server-side apply and reusable
    ownership-setting helpers remain.
-5. **Next — Production operation:** shared informer management, leader election with
-   Leases, metrics, health endpoints, and Kubernetes Event reporting.
+5. **Partially implemented — Production operation:** shared informers and Lease-based
+   leader election. Metrics, health endpoints, and Kubernetes Event reporting remain.
 6. **Later — Advanced framework:** admission webhooks, optional CEL validation, and
    multi-resource YAML application. These remain separate from the reconcile loop.
 
@@ -123,7 +123,50 @@ scope, selectors, and timing settings. It registers all subscribers before start
 any watch, ensuring every controller sees initial objects. Different scopes or
 Config instances stay separate. `manager.informer_count` exposes the actual watch
 count. Supply `Manager(..., config=config)` as a default; a controller-specific Config
-takes precedence. Leader election remains the next milestone.
+takes precedence.
+
+## Leader election
+
+Run multiple replicas with the same Lease name and namespace:
+
+```python
+from cloudcoil.controller import LeaderElection, Manager
+
+manager = Manager(
+    controller,
+    config=config,
+    leader_election=LeaderElection("configmap-mirror", namespace="default"),
+)
+await manager.run(stop=stop_event)
+```
+
+Only the elected manager starts informers and workers. Standbys wait without listing
+watched resources, and `manager.ready` stays false until leadership and initial sync.
+Use the default unique identity for each replica; never share an explicit identity
+between live processes. Lease requests use the election's Config, then the manager's,
+then the first controller's, then the active context. The Lease namespace defaults
+to that Config's namespace. Resource watches retain their own Configs and scopes.
+
+The service account needs `get`, `create`, and `update` on `leases` in API group
+`coordination.k8s.io`, in the Lease namespace. Pre-creating the Lease allows omitting
+`create` and restricting `get/update` with `resourceNames`. Kubernetes RBAC cannot
+restrict `create` by resource name.
+
+Defaults are `lease_duration=15`, `renew_deadline=10`, and `retry_period=2` seconds;
+require `0 < retry_period < renew_deadline < lease_duration`. Writes compare
+resourceVersion. Takeover waits for an unchanged record for the advertised duration,
+measured with a local monotonic clock, rather than trusting another host's timestamp.
+Explicit stop keeps renewal running while workers drain, then releases ownership.
+Loss of ownership or renewal deadline cancels and joins workers, raises
+`LeadershipLost`, and ends the manager; restart the process to participate again.
+Fatal authorization errors propagate immediately. Failed release leaves the Lease to
+expire; a successor's Lease is never deliberately cleared.
+
+Lease election coordinates cooperative processes; it cannot fence a paused process
+or an already-started external operation. Keep reconciliation idempotent and
+cancellable, and use external fencing where side effects require it. This follows
+the limitations described by [client-go leader election](https://pkg.go.dev/k8s.io/client-go/tools/leaderelection).
+See also [Kubernetes Leases](https://kubernetes.io/docs/concepts/architecture/leases/).
 
 ## Optimistic changes and finalizers
 
