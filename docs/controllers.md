@@ -17,8 +17,12 @@ handled by the runtime. Progress is tracked in [#63](https://github.com/cloudcoi
    ownership-setting helpers remain.
 5. **Partially implemented — Production operation:** shared informers, Lease-based
    leader election, metrics, and health endpoints. Kubernetes Event reporting remains.
-6. **Later — Advanced framework:** admission webhooks, optional CEL validation, and
-   multi-resource YAML application. These remain separate from the reconcile loop.
+6. **Partially implemented — Extension authoring:** model-driven CRD generation and
+   typed mutating/validating admission webhooks. Conversion webhooks, local CEL
+   evaluation, and multi-resource YAML application remain later milestones.
+
+See [Custom resources and admission](custom-resources.md) to define one resource
+model for schema generation, reconciliation, and admission.
 
 ## Workqueue
 

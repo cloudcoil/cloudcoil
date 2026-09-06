@@ -55,6 +55,11 @@ ConfigMaps into owned children and repairs drift. Returned resources are patched
 UID/version guards, with automatic status-subresource routing. Use
 `Result(resource=resource, requeue_after=60)` to save and schedule another pass.
 
+Define your own resource once and use `CRD(Widget, plural="widgets").to_yaml()` to
+generate its Kubernetes definition. Typed `AdmissionWebhook` handlers use the same
+model for mutation and validation. See the [custom resource guide](https://cloudcoil.github.io/cloudcoil/custom-resources/)
+and the [complete Widget operator example](examples/widget_operator.py).
+
 ## 🔧 Installation
 
 > [!NOTE]

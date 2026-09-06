@@ -13,6 +13,7 @@ from cloudcoil._testing import clusters, plugin
 @pytest.fixture(autouse=True)
 def isolated_cluster_environment(monkeypatch, tmp_path):
     monkeypatch.delenv("CLOUDCOIL_K8S_IMAGE", raising=False)
+    monkeypatch.delenv("CLUSTER_PROVIDER", raising=False)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     monkeypatch.setattr(clusters.BaseCluster, "_download_binary", lambda self, url, path: str(path))
 
@@ -79,6 +80,7 @@ def test_fixture_forwards_version_alias(monkeypatch, provider, settings, expecte
 @pytest.mark.parametrize("provider", ["kind", "k3d"])
 @pytest.mark.parametrize("marker_image", [None, "example.test/explicit:v1"])
 def test_fixture_image_overrides_version_and_environment(monkeypatch, provider, marker_image):
+    monkeypatch.setenv("CLUSTER_PROVIDER", provider)
     monkeypatch.setenv("CLOUDCOIL_K8S_IMAGE", "example.test/matrix:v2")
     constructor = Mock()
     monkeypatch.setattr(plugin, "KindCluster" if provider == "kind" else "K3DCluster", constructor)
@@ -100,3 +102,52 @@ def test_fixture_image_overrides_version_and_environment(monkeypatch, provider, 
         "version-test", False, None, "v1.29.0", marker_image or "example.test/matrix:v2"
     )
     constructor.return_value.remove_cluster.assert_not_called()
+
+
+@pytest.mark.parametrize("environment_provider", [None, "kind", "k3d"])
+def test_unmarked_fixture_uses_environment_provider_and_image(monkeypatch, environment_provider):
+    if environment_provider is not None:
+        monkeypatch.setenv("CLUSTER_PROVIDER", environment_provider)
+    monkeypatch.setenv("CLOUDCOIL_K8S_IMAGE", "example.test/matrix:v2")
+    kind, k3d = Mock(), Mock()
+    monkeypatch.setattr(plugin, "KindCluster", kind)
+    monkeypatch.setattr(plugin, "K3DCluster", k3d)
+
+    list(plugin.test_cluster.__wrapped__(SimpleNamespace(keywords={})))
+
+    constructor, unused = (k3d, kind) if environment_provider == "k3d" else (kind, k3d)
+    constructor.assert_called_once()
+    assert constructor.call_args.args[1:] == (True, None, None, "example.test/matrix:v2")
+    constructor.return_value.create_cluster.assert_called_once_with()
+    constructor.return_value.remove_cluster.assert_called_once_with()
+    unused.assert_not_called()
+
+
+@pytest.mark.parametrize("environment_provider", ["kind", "k3d"])
+@pytest.mark.parametrize("marker_image", [None, "example.test/explicit:v1"])
+def test_marker_provider_override_does_not_inherit_incompatible_image(
+    monkeypatch, environment_provider, marker_image
+):
+    monkeypatch.setenv("CLUSTER_PROVIDER", environment_provider)
+    monkeypatch.setenv("CLOUDCOIL_K8S_IMAGE", "example.test/other-provider:v2")
+    kind, k3d = Mock(), Mock()
+    monkeypatch.setattr(plugin, "KindCluster", kind)
+    monkeypatch.setattr(plugin, "K3DCluster", k3d)
+    provider = "k3d" if environment_provider == "kind" else "kind"
+    request = SimpleNamespace(
+        keywords={
+            "configure_test_cluster": SimpleNamespace(
+                kwargs={
+                    "cluster_name": "version-test",
+                    "provider": provider,
+                    "k8s_image": marker_image,
+                }
+            )
+        }
+    )
+
+    list(plugin.test_cluster.__wrapped__(request))
+
+    constructor, unused = (k3d, kind) if provider == "k3d" else (kind, k3d)
+    constructor.assert_called_once_with("version-test", True, None, None, marker_image)
+    unused.assert_not_called()
