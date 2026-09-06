@@ -8,7 +8,7 @@ from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
 if TYPE_CHECKING:
-    from cloudcoil.client import Config
+    from cloudcoil.client import AsyncAPIClient, Config
 
 type Operation = Literal["CREATE", "UPDATE", "DELETE"]
 
@@ -38,6 +38,18 @@ class AdmissionRequest[T: Resource](BaseModel):
     def config(self) -> "Config | None":
         """Caller-owned config injected by AdmissionWebhook, for other resource clients."""
         return self._config
+
+    async def client[U: Resource](self, resource: type[U]) -> "AsyncAPIClient[U]":
+        """Read any resource kind using the webhook's connection and request namespace.
+
+        Admission handlers must only read: API writes would have side effects
+        even when the admission request is a dry run or is subsequently rejected.
+        """
+        if self._config is None:
+            raise RuntimeError("Admission clients require AdmissionWebhook(config=...)")
+        return await resource.async_client(
+            self._config, namespace=self.namespace or None, cached=False
+        )
 
     uid: str
     operation: Operation

@@ -12,6 +12,9 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
 {%- if description %}
     {{ description | tojson }}
 {%- endif %}
+{%- if is_gvk and api_metadata is defined %}
+    __cloudcoil_api__: ClassVar[dict] = {"plural": {{ api_metadata.plural | tojson }}, "scope": {{ api_metadata.scope | tojson }}, "status": {{ "True" if api_metadata.status else "False" }}}
+{%- endif %}
 
     class Builder(BaseModelBuilder):
 

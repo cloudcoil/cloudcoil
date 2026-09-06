@@ -152,11 +152,7 @@ class AdmissionWebhook:
                 ) -> Callable[[AdmissionRequest[Any]], Awaitable[Any]]:
                     async def invoke(request: AdmissionRequest[Any]) -> Any:
                         if inject_client:
-                            if self._config is None:
-                                raise RuntimeError("Serving injected handlers requires Config")
-                            client = await self._config.async_client_for(resource, cached=False)
-                            if client.namespaced and request.namespace:
-                                client.default_namespace = request.namespace
+                            client = await request.client(resource)
                             return await callback(request, client)
                         return await callback(request)
 

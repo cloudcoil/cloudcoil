@@ -29,12 +29,8 @@ class WidgetStatus(BaseModel):
     observed_generation: int | None = Field(default=None, alias="observedGeneration")
 
 
-@custom_resource(plural="widgets", short_names=("wd",))
+@custom_resource(api_version="examples.cloudcoil.dev/v1alpha1", plural="widgets", short_names=("wd",))
 class Widget(Resource):
-    api_version: Literal["examples.cloudcoil.dev/v1alpha1"] = Field(
-        default="examples.cloudcoil.dev/v1alpha1", alias="apiVersion"
-    )
-    kind: Literal["Widget"] = "Widget"
     spec: WidgetSpec
     status: WidgetStatus | None = None
 
@@ -63,8 +59,9 @@ print(crd.to_yaml())
 manifest = crd.manifest()  # Ordinary dictionary; no cluster access.
 ```
 
-Group, version, and kind come from the model. Explicit plural names avoid guessing
-English plurals. Keep the `apiVersion` alias when overriding `api_version`, and use
+The decorator sets validated `apiVersion` and `kind` fields; kind defaults to the
+class name. Explicit Literal fields are also supported when omitting `api_version`
+from the decorator. Explicit plural names avoid guessing English plurals. Keep the `apiVersion` alias when overriding `api_version`, and use
 aliases such as `observedGeneration` for fields whose Kubernetes names differ from
 Python names. Generation checks that validation and serialization agree on names.
 `PrinterColumn` on an `Annotated` field infers its serialized JSONPath and scalar
@@ -241,48 +238,39 @@ this increment; configurations use exact matching.
 
 ## API client and request context
 
-Add a second argument to a resource's bound handler when a policy needs a Kubernetes
-lookup. The application injects `AsyncAPIClient[Self]` from an explicitly supplied
-`Config`, alongside the complete admission context:
+Use `await request.client(ResourceType)` for a live typed client of **any** kind,
+just as in a reconciler. It defaults to the admission namespace and shares the
+operator connection without changing the Config or another request's client:
 
 ```python
-from cloudcoil.client import AsyncAPIClient, Config
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
 # Inside Widget:
 @classmethod
-@validating(operations=("UPDATE",))
-async def protect_ready_spec(
-    cls, request: AdmissionRequest[Self], client: AsyncAPIClient[Self]
-) -> None:
-    current = await client.get(request.name)
-    if (
-        current.status is not None
-        and request.resource is not None
-        and request.resource.spec.message != current.spec.message
-    ):
-        raise AdmissionDenied("A ready Widget's message cannot be changed")
-
-# Supply the credentials and cluster explicitly in the application setup:
-config = Config()
-admission = AdmissionWebhook(config=config).register(Widget)
+@validating()
+async def check_policy(cls, request: AdmissionRequest[Self]) -> None:
+    if request.resource is None:
+        return
+    policies = await request.client(ConfigMap)
+    policy = await policies.get("widget-policy")
+    limit = int((policy.data or {}).get("maxLength", "200"))
+    if len(request.resource.spec.message) > limit:
+        raise AdmissionDenied(f"Namespace policy limits messages to {limit} characters")
 ```
 
-Pure handlers take just `request` and need no Config. Client-taking handlers fail
-registration clearly if Config is absent. Registration performs no discovery;
-client discovery and any lookup happen asynchronously within the webhook's timeout.
-Injected clients bypass informer caches. For namespaced resources, the injected
-client defaults to the admission request's namespace, so `await client.get(name)`
-looks up that namespace without changing Config or clients for other requests. `request.config` exposes that same Config
-for other types, for example
-`await request.config.async_client_for(ConfigMap, cached=False)` after checking it
-is not `None`. `request` also carries `old_resource`, `dry_run`, `user_info`,
-`options`, and raw current/previous objects. Read-only lookups work during dry runs;
-keep all callbacks free of external writes. Admission does not make a lookup and
-subsequent API-server persistence atomic.
+`Operator` supplies the Config and manages its lifetime. For standalone hosting,
+use `AdmissionWebhook(config=config).register(Widget)` and keep that Config alive
+until requests have drained. Pure handlers need no Config; requesting a client
+without one raises a clear error. `request.config` is available for advanced use.
+The optional second `AsyncAPIClient[Self]` handler argument remains supported, but
+`request.client(...)` works for both primary and unrelated resources without extra
+handler signatures.
 
-The caller owns the Config: keep it alive while the app serves, drain requests, and
-close `config.client` and `config.async_client` during application shutdown.
-Admission never installs a global/default Config and never closes caller clients.
+Client discovery and live reads happen asynchronously within the admission
+timeout. `request` also carries `old_resource`, `dry_run`, `user_info`, `options`,
+and raw current/previous objects. Read-only lookups work during dry runs; keep
+callbacks free of external writes. A lookup and subsequent API-server persistence
+are not an atomic transaction. Declare additional read access with `RBACRule`.
 
 ## Serve and register
 

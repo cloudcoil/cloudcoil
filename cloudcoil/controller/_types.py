@@ -2,8 +2,12 @@
 
 import math
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from cloudcoil.resources import Resource
+
+if TYPE_CHECKING:
+    from cloudcoil.client import AsyncAPIClient, Config
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,29 @@ class Request[T: Resource]:
 
     key: ResourceKey
     resource: T | None
+    config: "Config | None" = None
+
+    async def client[U: Resource](self, resource: type[U]) -> "AsyncAPIClient[U]":
+        """A live client for any kind, sharing this operator's connection.
+
+        Namespaced clients default to this request's namespace. Pass a namespace
+        to client operations for cross-namespace reads. Clients share the Config
+        lifetime and must not be closed by handlers.
+        """
+        return await resource.async_client(self.config, namespace=self.namespace, cached=False)
+
+    async def ensure[U: Resource](self, desired: U) -> U:
+        """Create or patch an owned child; omitted fields remain untouched.
+
+        Defaults name and namespace from the parent. Refuses unrelated existing
+        objects. Maps merge, lists replace, and explicit None removes a field.
+        Child events are subscribed separately with Controller.owns(...).
+        """
+        from ._children import ensure
+
+        if self.resource is None:
+            raise ValueError("Cannot ensure a child for an absent parent")
+        return await ensure(self.resource, desired, config=self.config)
 
     @property
     def name(self) -> str:

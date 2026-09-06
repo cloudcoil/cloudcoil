@@ -6,7 +6,7 @@ import pytest
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, computed_field, create_model, field_serializer
 
-from cloudcoil.crd import CRD, PrinterColumn, SchemaError
+from cloudcoil.crd import CRD, PrinterColumn, SchemaError, custom_resource
 from cloudcoil.resources import Resource
 
 
@@ -447,3 +447,26 @@ def test_explicit_columns_replace_annotated_columns_without_requiring_inference(
     version = CRD(model, plural="widgets", columns=[]).manifest()["spec"]["versions"][0]
     assert "additionalPrinterColumns" not in version
     assert "x-cloudcoil" not in str(version)
+
+
+def test_decorator_defines_wire_identity_without_repeating_literal_fields():
+    @custom_resource(api_version="simple.example.com/v1", plural="gadgets")
+    class Gadget(Resource):
+        pass
+
+    obj = Gadget()
+    assert obj.api_version == "simple.example.com/v1"
+    assert obj.kind == "Gadget"
+    assert Gadget.model_validate({"apiVersion": obj.api_version, "kind": "Gadget"}) == obj
+    with pytest.raises(ValueError):
+        Gadget.model_validate({"kind": "Wrong"})
+    assert CRD(Gadget).manifest()["spec"]["names"]["kind"] == "Gadget"
+    assert Resource.model_fields["kind"].is_required()
+
+
+def test_decorator_identity_conflicts_are_rejected():
+    with pytest.raises(ValueError, match="conflicts"):
+
+        @custom_resource(api_version="simple.example.com/v1", plural="gadgets")
+        class Wrong(Resource):
+            kind: Literal["Other"] = "Other"

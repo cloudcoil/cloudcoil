@@ -32,8 +32,8 @@ def _label(value: str, description: str) -> str:
 class RBACRule:
     """Additional access, with offline API metadata for generated resource classes.
 
-    Custom resources use their CRD declaration. Other resources require ``plural``
-    and ``scope`` once. Namespaced access defaults to the operator's namespace;
+    Custom resources use their CRD declaration; generated models carry API metadata.
+    Older models require ``plural`` and ``scope`` once. Namespaced access defaults to the operator's namespace;
     use ``all_namespaces=True`` explicitly for a cluster-wide grant. ``subresources``
     selects those endpoints instead of the main resource. Reconcile and admission
     function bodies cannot be inspected to infer their additional access needs.
@@ -106,7 +106,8 @@ def build_manifests(
     """
     _label(name, "Operator name")
     _label(namespace, "Operator namespace")
-    crd_names = [crd.manifest()["metadata"]["name"] for crd in crds]
+    crd_documents = {crd.resource: crd.manifest() for crd in crds}
+    crd_names = [crd_documents[crd.resource]["metadata"]["name"] for crd in crds]
     if len(set(crd_names)) != len(crd_names):
         raise ValueError(
             "CRDs must have distinct metadata.name values; multi-version CRDs are not supported"
@@ -143,7 +144,7 @@ def build_manifests(
         )
 
     for crd in crds:
-        spec = crd.manifest()["spec"]
+        spec = crd_documents[crd.resource]["spec"]
         register(
             crd.resource,
             _Identity(
@@ -160,6 +161,9 @@ def build_manifests(
         *(watch.resource for controller in controllers for watch in controller._watches),
         *(rule.resource for rule in rules),
     ]:
+        api = resource.__dict__.get("__cloudcoil_api__")
+        if api is not None:
+            register(resource, _Identity(resource.gvk().group, **api))
         options = _resource_options(resource)
         if options is not None and (resource.gvk().group, resource.gvk().kind) not in identities:
             register(
@@ -228,7 +232,7 @@ def build_manifests(
         for watch in controller._watches:
             grant(
                 identity(watch.resource),
-                _READ,
+                (*_READ, "create", "patch") if watch.mapper is None else _READ,
                 None if primary.scope == "Cluster" else watched_namespace,
             )
     for rule in rules:
@@ -249,9 +253,7 @@ def build_manifests(
         grant(lease, ("create",), lease_namespace)
         grant(lease, ("get", "update"), lease_namespace, names=(leader_election.name,))
 
-    manifests = [
-        crd.manifest() for crd in sorted(crds, key=lambda crd: crd.manifest()["metadata"]["name"])
-    ]
+    manifests = sorted(crd_documents.values(), key=lambda document: document["metadata"]["name"])
     manifests.append(
         {
             "apiVersion": "v1",

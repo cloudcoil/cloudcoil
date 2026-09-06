@@ -101,14 +101,14 @@ def test_cluster_owner_watches_namespaced_children_across_namespaces():
     rules = policy(documents, "ClusterRole")
     assert {tuple(rule["resources"]): set(rule["verbs"]) for rule in rules} == {
         ("fleets",): {"get", "list", "watch", "patch"},
-        ("widgets",): {"get", "list", "watch"},
+        ("widgets",): {"get", "list", "watch", "create", "patch"},
     }
     assert not policy(documents, "Role", "operators")
 
 
 def test_all_namespaces_watch_does_not_expand_explicit_write_permission():
     documents = manifests(
-        Controller(Widget, reconcile, all_namespaces=True).owns(ConfigMap),
+        Controller(Widget, reconcile, all_namespaces=True).watch(ConfigMap, mapper=lambda obj: []),
         rules=(configmap_rule(),),
     )
     cluster = policy(documents, "ClusterRole")
@@ -294,3 +294,20 @@ def test_two_crd_versions_cannot_silently_overwrite_one_another():
             controllers=(),
             crds=(CRD(Widget), CRD(WidgetV2, plural="widgets")),
         )
+
+
+def test_generated_metadata_and_multiple_owned_resources_need_no_extra_rules():
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+    from cloudcoil.models.kubernetes.core.v1 import ConfigMap as GeneratedConfigMap
+    from cloudcoil.models.kubernetes.core.v1 import Service
+
+    documents = manifests(
+        Controller(Widget, reconcile).owns(GeneratedConfigMap, Deployment, Service)
+    )
+    rules = {
+        tuple(rule["resources"]): set(rule["verbs"])
+        for rule in policy(documents, "Role", "operators")
+    }
+    for endpoint in ("configmaps", "deployments", "services"):
+        assert rules[(endpoint,)] == {"get", "list", "watch", "create", "patch"}
+    assert ("deployments/status",) not in rules

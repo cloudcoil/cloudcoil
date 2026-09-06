@@ -96,13 +96,17 @@ class Controller[T: Resource]:
         self._finished = asyncio.Event()
         self._failure: BaseException | None = None
 
-    def owns(self, resource: type[Resource]) -> Self:
+    def owns(self, *resources: type[Resource]) -> Self:
         """Enqueue primary owners when a child changes (direct controller references).
 
         Owner matching uses group/kind and UID, including across served versions.
         For indirect or non-owning relationships use watch(..., mapper=...).
+        Operator manifests grant get/list/watch/create/patch for owned children.
+        Deletion is left to Kubernetes garbage collection or explicit RBAC.
         """
-        return self._add_watch(_Watch(resource))
+        for resource in resources:
+            self._add_watch(_Watch(resource))
+        return self
 
     def watch[U: Resource](self, resource: type[U], *, mapper: Mapper[U]) -> Self:
         """Map secondary resources to primary keys; updates map both old and new state.
@@ -267,7 +271,9 @@ class Controller[T: Resource]:
                 # while reconcile awaits, or the caller edits request.resource in place.
                 original = resource.model_copy(deep=True) if resource is not None else None
                 request = Request(
-                    key, original.model_copy(deep=True) if original is not None else None
+                    key,
+                    original.model_copy(deep=True) if original is not None else None,
+                    config=context.active_config,
                 )
                 async with asyncio.timeout(self._reconcile_timeout):
                     returned = await self.reconcile(request)

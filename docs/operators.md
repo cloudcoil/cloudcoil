@@ -5,21 +5,15 @@ controller manager into one application definition. Use `operator.main()` instea
 of writing argument parsing, signal handling, or client cleanup for each operator.
 
 ```python
-from cloudcoil.controller import Controller, LeaderElection
+from cloudcoil.controller import Controller
 from cloudcoil.operator import Operator, RBACRule, WebhookServer
 
-# Widget is an @custom_resource class with its mutators and validators attached.
 operator = Operator(
     "widgets",
-    Controller(Widget, reconcile).owns(ConfigMap),
-    rules=(
-        RBACRule(
-            ConfigMap, ("get", "create", "patch"),
-            plural="configmaps", scope="Namespaced",
-        ),
-    ),
-    webhook=WebhookServer(ca_bundle=public_ca_pem, tls_secret="widgets-tls"),
-    leader_election=LeaderElection("widgets"),
+    Controller(Widget, reconcile).owns(ConfigMap, Deployment, Service),
+    rules=(RBACRule(ConfigMap, ("get",), resource_names=("widget-policy",)),),
+    webhook=WebhookServer(tls_secret="widgets-tls"),
+    leader_election=True,
 )
 
 if __name__ == "__main__":
@@ -28,7 +22,10 @@ if __name__ == "__main__":
 
 The [complete Widget example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py)
 defines the resource, policies, reconciler, and operator in one module. It maintains
-an owned ConfigMap and returns the Widget with updated status for automatic patching.
+an owned ConfigMap, Deployment and Service using `request.ensure(...)`, and returns
+the Widget with updated status for automatic patching. The
+[local demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets) includes
+a Dockerfile, TLS setup, installation, drift repair and admission policy checks.
 Handwritten resources inherit normal client operations; for explicit access use
 `client = await Widget.async_client(config)` and `await client.get("example")`.
 
@@ -72,8 +69,8 @@ python examples/widget_operator.py install --image example/widgets:v1
 ```
 
 Create the namespace and `widgets-tls` Secret first. The Secret contains `tls.crt`
-and `tls.key`; the certificate must cover `widgets.operators.svc`. The example
-reads the public CA file only when supplied, so it can start in the Pod using
+and `tls.key`; the certificate must cover `widgets.operators.svc`. The shared CLI accepts `--ca-file` (or `CLOUDCOIL_WEBHOOK_CA_FILE`) for manifests
+and installation, so it can start in the Pod using
 the mounted certificate and key without that environment variable. TLS defaults
 to `/var/run/cloudcoil/tls/tls.crt` and `tls.key`, port 9443, behind Service port 443.
 Certificate issuance and rotation remain with your certificate/deployment tooling;
@@ -113,19 +110,20 @@ RBAC inference covers the framework's own operations:
 | --- | --- |
 | Primary resource | get, list, watch, patch |
 | Enabled primary status | patch on `/status` |
-| Secondary watches | get, list, watch |
+| Owned children (`owns`) | get, list, watch, create, patch |
+| Referenced dependencies (`watch`) | get, list, watch |
 | Leader election | create Leases; get/update the named Lease |
 | Arbitrary reconcile/webhook client calls | Declare with `RBACRule` |
 
-CRDs provide exact plurals and scope. Generated builtin models need those values
-declared once in an `RBACRule`; the example declares `configmaps`, `Namespaced`.
+CRDs and newly generated models provide exact plurals and scope. Older generated
+models need these declared once in an `RBACRule`, or can be regenerated.
 This avoids guessing irregular plurals or accidentally granting cluster-wide
 access. Namespaced rules default to the operator namespace. Use `namespace=` for
 another namespace or `all_namespaces=True` explicitly; `scope="Cluster"` describes
 cluster-scoped resources. Controller `namespace`/`all_namespaces` settings drive
 watch permissions, and cluster-scoped owners may watch children across namespaces.
-An all-namespace watch does not automatically expand a separately declared write
-permission. `subresources=("status",)` targets only those endpoints;
+Owned-child write permissions follow the controller watch scope. A mapped
+`watch` only grants read access and does not expand separate write permissions. `subresources=("status",)` targets only those endpoints;
 `resource_names=("settings",)` restricts named operations where Kubernetes permits it.
 
 Runtime ServiceAccounts receive no implicit permission to install CRDs, edit RBAC,
@@ -149,6 +147,10 @@ traffic. `/healthz` and `/metrics` are available on the same listener. For an
 operator without webhooks, pass `health=HealthServer(...)` to expose the manager's
 health server. `operator.manager` becomes available during startup for direct
 manager readiness and metrics access.
+
+Controllers and webhooks both use `await request.client(ResourceType)` for a live
+client of any kind, defaulting to the request namespace and sharing the operator
+connection. Callbacks do not manage connections or their lifetime.
 
 All managed controllers share the operator Config. For controllers targeting
 different clusters, use separate operators or the lower-level `Manager` API.

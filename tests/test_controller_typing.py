@@ -13,9 +13,12 @@ def test_controller_api_typing(tmp_path, checker):
 from cloudcoil.controller import Controller, ControllerStatus, HealthServer, LeaderElection, Manager, Request, ResourceKey, Result, mutate, ensure_finalizer
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
 from cloudcoil import patches
+from cloudcoil.client import AsyncAPIClient
 
 async def reconcile(request: Request[ConfigMap]) -> ConfigMap | Result | None:
     assert_type(request.resource, ConfigMap | None)
+    assert_type(await request.client(Secret), AsyncAPIClient[Secret])
+    assert_type(await request.ensure(Secret()), Secret)
     assert_type(request.name, str)
     if request.resource is None:
         return None

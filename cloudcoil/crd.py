@@ -10,7 +10,7 @@ import copy
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
-from typing import Any, Literal, get_args
+from typing import Any, Literal, cast, get_args
 
 import yaml
 from pydantic import BaseModel, GetJsonSchemaHandler
@@ -155,6 +155,8 @@ def _resource_options(resource: type[Resource]) -> _ResourceOptions | None:
 def custom_resource[T: Resource](
     *,
     plural: str,
+    api_version: str | None = None,
+    kind: str | None = None,
     scope: Literal["Namespaced", "Cluster"] = "Namespaced",
     singular: str | None = None,
     short_names: Sequence[str] = (),
@@ -165,7 +167,8 @@ def custom_resource[T: Resource](
     """Keep CRD metadata with a Resource; generate with CRD(Model).
 
     The decorator preserves the class and performs no cluster I/O or app registration.
-    Each concrete resource declares its own metadata, including an explicit plural.
+    Supply api_version to define the wire fields here; kind defaults to the class
+    name. Explicit Literal fields remain supported for precise static typing.
     """
     if isinstance(short_names, str) or isinstance(categories, str):
         raise ValueError("short_names and categories must be sequences of names")
@@ -184,6 +187,17 @@ def custom_resource[T: Resource](
             raise TypeError("custom_resource requires a Resource subclass")
         if _resource_options(resource) is not None:
             raise ValueError("custom_resource metadata is already declared on this class")
+        if kind is not None and api_version is None:
+            raise ValueError("kind requires api_version")
+        if api_version is not None:
+            for name, value in (("api_version", api_version), ("kind", kind or resource.__name__)):
+                field = copy.copy(resource.model_fields[name])
+                if name in resource.__annotations__ and field.default != value:
+                    raise ValueError(f"{name} conflicts with the resource field")
+                field.annotation = cast(Any, Literal[value])
+                field.default = value
+                resource.model_fields[name] = field
+            resource.model_rebuild(force=True)
         resource.__cloudcoil_crd__ = options  # type: ignore[attr-defined]
         return resource
 

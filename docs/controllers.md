@@ -4,72 +4,28 @@ Cloudcoil is growing an async controller framework around its typed resources an
 informers. The goal is a small reconciliation API, with lifecycle and correctness
 handled by the runtime. Progress is tracked in [#63](https://github.com/cloudcoil/cloudcoil/issues/63).
 
-## Incremental roadmap
-
-1. **Implemented — Workqueue:** deduplicated keys, one active worker per key, delayed requeues,
-   capped exponential retries with jitter, cancellation, and shutdown.
-2. **Implemented — Informer correctness:** enqueue initial state and relist changes, recover from
-   expired resource versions, and reliably register handlers before startup.
-3. **Implemented — Controller runtime:** typed reconciliation requests, concurrent workers,
-   readiness, startup/shutdown, retries, child ownership watches, and custom maps.
-4. **Partially implemented — Safe mutations:** guarded JSON Patch calculation,
-   live-read mutation, status and finalizer helpers. Server-side apply and reusable
-   ownership-setting helpers remain.
-5. **Partially implemented — Production operation:** shared informers, Lease-based
-   leader election, metrics, and health endpoints. Kubernetes Event reporting remains.
-6. **Partially implemented — Extension authoring:** model-driven CRD generation and
-   typed mutating/validating admission webhooks. Conversion webhooks, local CEL
-   evaluation, and multi-resource YAML application remain later milestones.
-
-See [Custom resources and admission](custom-resources.md) to define one resource
-model for schema generation, reconciliation, and admission.
-
-## Workqueue
-
-`cloudcoil.controller.WorkQueue[K]` is an in-memory queue for hashable keys. All
-operations run on one asyncio event loop. `add(key)` coalesces repeated events;
-`await get()` reserves a key until `done(key)`. An event arriving during processing
-schedules another pass without allowing concurrent processing of that key.
-
-Use `retry(key)` after a failure, `forget(key)` after success, and
-`add_after(key, seconds)` for explicit periodic work. A fresh event supersedes a
-pending delay. Timers are coalesced per key and do not create sleeping tasks.
-Always call `done` in `finally`, including when a worker is cancelled.
-
-`shutdown()` stops accepting new work and discards delayed retries while allowing
-ready work to drain. `shutdown(immediate=True)` also discards ready work. Neither
-cancels in-flight work; the caller owns worker tasks. `await join()` waits for
-accepted work to finish. Keys are not persisted: a controller must list current
-state on startup to recover after process restarts.
+For a complete CRD, webhook and multi-child operator, start with the
+[Widget example](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets).
+Use `Operator.main()` to handle configuration, signals, queues and worker cleanup.
 
 ## Reconciliation runtime
 
 ```python
-import asyncio
-
-from cloudcoil.client import Config
 from cloudcoil.controller import Controller, Request, Result
+from cloudcoil.operator import Operator
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
 
-
 async def reconcile(request: Request[ConfigMap]) -> Result | None:
-    resource = request.resource
-    if resource is None:
-        return  # Absent from this controller's watched scope.
-    print(request.namespace, request.name, resource.data)
+    if request.resource is None:
+        return
+    print(request.namespace, request.name, request.resource.data)
     return Result(requeue_after=60)
 
+operator = Operator("configmaps", Controller(ConfigMap, reconcile, workers=4))
 
-async def main():
-    config = Config()
-    controller = Controller(
-        ConfigMap, reconcile, config=config,
-        namespace="default", label_selector="app=example", workers=4,
-    ).owns(Secret)
-    await controller.run()
+if __name__ == "__main__":
+    operator.main()
 
-
-asyncio.run(main())
 ```
 
 `Controller(ResourceType, reconcile, ...)` works with generated Kubernetes and CRD
@@ -95,7 +51,7 @@ jitter). `TerminalError` suppresses that retry; future events/resyncs still run.
 `reconcile_timeout=` optionally limits each attempt. A fresh event takes priority
 over a delayed retry. Different keys can run concurrently; one key never does.
 
-`.owns(ChildType)` watches direct controller-owner references, comparing group,
+`.owns(ChildType, OtherChildType, ...)` watches direct controller-owner references, comparing group,
 kind, and UID. It handles cluster-scoped owners and children across namespaces.
 Use `.watch(OtherType, mapper=...)` for indirect or non-owning dependencies:
 
@@ -344,3 +300,69 @@ ownership, mapping changes, optimistic mutations, finalizers, and mypy/Pyright c
 inference. The CI matrix also runs the example reconciler against real Kubernetes
 and checks UID/version preconditions, finalizer deletion, shared subscriptions, and
 Lease handoff between managers, and returned CRD spec/status patches without a write loop.
+
+## Managing children
+
+Use `await request.ensure(ConfigMap(data={"message": "hello"}))` to create or
+converge an owned child. Name and namespace default to the parent. Supply metadata
+explicitly for multiple children of the same kind. Pair this with `.owns(ConfigMap)`
+to repair drift and recreate deleted children from watch events.
+
+Only supplied fields are managed: maps merge, lists replace, explicit `None`
+removes a field, and omitted fields (including server-allocated Service IPs) survive.
+No-op reconciliation performs no patch. Updates test UID and resourceVersion;
+conflicts retry the entire reconciler. An existing child with another owner is
+never adopted. Cross-namespace ownership is rejected. No child is written while
+the parent is deleting; parent deletion uses Kubernetes garbage collection.
+
+Children are written sequentially, without a multi-resource transaction. A retry
+converges partially completed work. Obsolete children are not automatically pruned;
+delete them explicitly with a client and declare delete access when required.
+
+For arbitrary reads, both reconciliation and admission use
+`client = await request.client(OtherResource)`. The client shares the operator's
+connection and defaults to this request's namespace; pass a namespace to operations
+for cross-namespace reads. Admission handlers must only read.
+
+## Runtime internals and roadmap
+
+Application reconcilers do not need to construct or operate a queue. The following
+lower-level APIs are available for custom integrations.
+
+## Incremental roadmap
+
+1. **Implemented — Workqueue:** deduplicated keys, one active worker per key, delayed requeues,
+   capped exponential retries with jitter, cancellation, and shutdown.
+2. **Implemented — Informer correctness:** enqueue initial state and relist changes, recover from
+   expired resource versions, and reliably register handlers before startup.
+3. **Implemented — Controller runtime:** typed reconciliation requests, concurrent workers,
+   readiness, startup/shutdown, retries, child ownership watches, and custom maps.
+4. **Partially implemented — Safe mutations:** guarded JSON Patch calculation,
+   live-read mutation, status and finalizer helpers. Owned-child convergence is available through `request.ensure`.
+   Server-side apply for child fields remains separate from guarded patches.
+5. **Partially implemented — Production operation:** shared informers, Lease-based
+   leader election, metrics, and health endpoints. Kubernetes Event reporting remains.
+6. **Partially implemented — Extension authoring:** model-driven CRD generation and
+   typed mutating/validating admission webhooks. Conversion webhooks, local CEL
+   evaluation, and multi-resource YAML application remain later milestones.
+
+See [Custom resources and admission](custom-resources.md) to define one resource
+model for schema generation, reconciliation, and admission.
+
+## Workqueue
+
+`cloudcoil.controller.WorkQueue[K]` is an in-memory queue for hashable keys. All
+operations run on one asyncio event loop. `add(key)` coalesces repeated events;
+`await get()` reserves a key until `done(key)`. An event arriving during processing
+schedules another pass without allowing concurrent processing of that key.
+
+Use `retry(key)` after a failure, `forget(key)` after success, and
+`add_after(key, seconds)` for explicit periodic work. A fresh event supersedes a
+pending delay. Timers are coalesced per key and do not create sleeping tasks.
+Always call `done` in `finally`, including when a worker is cancelled.
+
+`shutdown()` stops accepting new work and discards delayed retries while allowing
+ready work to drain. `shutdown(immediate=True)` also discards ready work. Neither
+cancels in-flight work; the caller owns worker tasks. `await join()` waits for
+accepted work to finish. Keys are not persisted: a controller must list current
+state on startup to recover after process restarts.

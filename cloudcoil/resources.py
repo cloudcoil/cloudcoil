@@ -11,6 +11,7 @@ from typing import (
     Any,
     AsyncGenerator,
     Callable,
+    ClassVar,
     Generic,
     Iterator,
     Literal,
@@ -76,6 +77,8 @@ class BaseResource(BaseModel):
 
 
 class Resource(BaseResource):
+    # Generated from API paths/CRDs, so manifest generation needs no discovery.
+    __cloudcoil_api__: ClassVar[dict[str, Any] | None] = None
     metadata: ObjectMeta | None = None
 
     @classmethod

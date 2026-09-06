@@ -7,6 +7,8 @@ import os
 import signal
 from collections.abc import Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
+from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -41,7 +43,7 @@ class Operator:
         config: Config | None = None,
         rules: Sequence[RBACRule] = (),
         webhook: WebhookServer | None = None,
-        leader_election: LeaderElection | None = None,
+        leader_election: LeaderElection | bool | None = None,
         health: HealthServer | None = None,
     ) -> None:
         namespace = namespace or (
@@ -52,6 +54,9 @@ class Operator:
         self.controllers = tuple(controllers)
         self.rules = tuple(rules)
         self.webhook = webhook
+        leader_election = (
+            LeaderElection(name) if leader_election is True else leader_election or None
+        )
         self.leader_election = leader_election
         self.health = health
         self.config = config
@@ -357,6 +362,11 @@ class Operator:
             command.add_argument("--command", nargs="+", help="Container entry point before run")
             command.add_argument("--replicas", type=int, default=1)
             command.add_argument("--without-webhooks", action="store_true")
+            command.add_argument(
+                "--ca-file",
+                default=os.environ.get("CLOUDCOIL_WEBHOOK_CA_FILE"),
+                help="Public PEM CA for webhook registration (or CLOUDCOIL_WEBHOOK_CA_FILE)",
+            )
             if name == "install":
                 command.add_argument("--timeout", type=float, default=120)
                 command.add_argument("--force", action="store_true")
@@ -365,6 +375,10 @@ class Operator:
         if args.command_name == "run":
             asyncio.run(self._main_run())
         else:
+            if args.ca_file:
+                if self.webhook is None:
+                    parser.error("--ca-file requires a webhook server")
+                self.webhook = replace(self.webhook, ca_bundle=Path(args.ca_file).read_bytes())
             options = dict(
                 image=args.image,
                 command=args.command,
