@@ -120,3 +120,48 @@ semantics. A fatal failure cancels siblings and propagates as an `ExceptionGroup
 This is process lifecycle management; informer sharing and leader election are
 future milestones. Run one active process for each controller until leader election
 is implemented, or supply external coordination.
+
+## Optimistic changes and finalizers
+
+Use `mutate` for a narrow update based on a **live, uncached** read:
+
+```python
+from cloudcoil.controller import mutate
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
+
+async def mark_observed(resource: ConfigMap) -> ConfigMap:
+    def change(current: ConfigMap) -> None:
+        assert current.metadata is not None
+        current.metadata.annotations = {
+            **(current.metadata.annotations or {}),
+            "example.com/observed": "true",
+        }
+    return await mutate(resource, change)
+```
+
+The callback edits a deep copy, must return `None`, and must not perform external
+side effects. A no-op skips PATCH. Changes use JSON Patch with UID and resourceVersion
+tests; conflicts propagate for reconciliation to retry from fresh state. A resource
+recreated under the same name is rejected before invoking the callback. `status=True`
+uses the status subresource and rejects changes outside status.
+
+For explicit control, `cloudcoil.patches.diff(original, desired)` generates a guarded
+patch between copies of one fetched resource. Apply it with
+`await original.async_patch(operations)` or `original.patch(operations)`; both accept
+`subresource="status"` and `dry_run=True`. Skip the write when the diff is empty.
+`patches.json_patch(before_json, after_json)` calculates unguarded RFC 6902 patches
+for arbitrary JSON values. Arrays are replaced atomically, object keys are diffed,
+and JSON Pointer characters are escaped. No strategic-merge or field ownership is
+inferred. [JSON Patch specification](https://www.rfc-editor.org/rfc/rfc6902).
+
+`await ensure_finalizer(resource, "example.com/cleanup")` persists your finalizer
+before provisioning external state; `await remove_finalizer(...)` removes only that
+entry after successful cleanup. Both use live reads and UID/version tests, preserve
+other controllers' finalizers, and skip no-op writes. Adding a missing finalizer
+after deletion starts raises `TerminalError`.
+
+Check deletionTimestamp before provisioning and again on the object returned by
+ensure_finalizer. On deletion, run idempotent cleanup only if your finalizer is
+present, then remove it. Kubernetes can mark deletion concurrently with any request;
+finalizers coordinate cleanup, not exactly-once external operations. Never remove a
+finalizer merely to bypass a failing cleanup. See [Kubernetes finalizers](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/).

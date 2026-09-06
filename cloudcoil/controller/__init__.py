@@ -2,6 +2,7 @@
 
 from ._controller import Controller
 from ._manager import Manager
+from ._mutations import ensure_finalizer, mutate, remove_finalizer
 from ._queue import QueueClosed, WorkQueue
 from ._types import Request, ResourceKey, Result, TerminalError
 
@@ -14,4 +15,7 @@ __all__ = [
     "Result",
     "TerminalError",
     "WorkQueue",
+    "ensure_finalizer",
+    "mutate",
+    "remove_finalizer",
 ]

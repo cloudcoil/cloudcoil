@@ -83,6 +83,16 @@ class _BaseAPIClient(Generic[T]):
             return f"{api_base}/namespaces/{namespace}/{self.resource}/{name}"
         return f"{api_base}/{self.resource}/{name}"
 
+    def _patch_url(self, body: T, subresource: Literal["status"] | None) -> str:
+        if not body.name:
+            raise ValueError("metadata.name must be set for patch operations")
+        if subresource is not None and (
+            subresource != "status" or subresource not in self.subresources
+        ):
+            raise ValueError(f"Resource {body.gvk().kind} does not support this subresource")
+        url = self._build_url(namespace=body.namespace or self.default_namespace, name=body.name)
+        return f"{url}/{subresource}" if subresource else url
+
     def _raise_for_status(self, response: httpx.Response) -> None:
         raise_for_status(response)
 
@@ -183,6 +193,24 @@ class APIClient(_BaseAPIClient[T]):
             params["dryRun"] = "All"
         response = self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
+        )
+        return self._handle_create_response(response)
+
+    def patch(
+        self,
+        body: T,
+        operations: list[dict[str, Any]],
+        *,
+        subresource: Literal["status"] | None = None,
+        dry_run: bool = False,
+    ) -> T:
+        """Apply an RFC 6902 JSON Patch; include tests for optimistic concurrency."""
+        url = self._patch_url(body, subresource)
+        response = self._client.patch(
+            url,
+            json=operations,
+            headers={"Content-Type": "application/json-patch+json"},
+            params={"dryRun": "All"} if dry_run else {},
         )
         return self._handle_create_response(response)
 
@@ -595,6 +623,24 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             params["dryRun"] = "All"
         response = await self._client.put(
             url, json=body.model_dump(mode="json", by_alias=True, exclude_none=True), params=params
+        )
+        return self._handle_create_response(response)
+
+    async def patch(
+        self,
+        body: T,
+        operations: list[dict[str, Any]],
+        *,
+        subresource: Literal["status"] | None = None,
+        dry_run: bool = False,
+    ) -> T:
+        """Apply an RFC 6902 JSON Patch without blocking the event loop."""
+        url = self._patch_url(body, subresource)
+        response = await self._client.patch(
+            url,
+            json=operations,
+            headers={"Content-Type": "application/json-patch+json"},
+            params={"dryRun": "All"} if dry_run else {},
         )
         return self._handle_create_response(response)
 
