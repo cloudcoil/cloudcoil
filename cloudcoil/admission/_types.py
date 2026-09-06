@@ -1,11 +1,14 @@
 """Typed admission inputs and explicit policy denials."""
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, PrivateAttr
 
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
+
+if TYPE_CHECKING:
+    from cloudcoil.client import Config
 
 type Operation = Literal["CREATE", "UPDATE", "DELETE"]
 
@@ -28,6 +31,13 @@ class AdmissionRequest[T: Resource](BaseModel):
     """
 
     model_config = ConfigDict(frozen=True)
+
+    _config: "Config | None" = PrivateAttr(default=None)
+
+    @property
+    def config(self) -> "Config | None":
+        """Caller-owned config injected by AdmissionWebhook, for other resource clients."""
+        return self._config
 
     uid: str
     operation: Operation

@@ -8,43 +8,216 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import asdict, dataclass
 from typing import Any, Literal, get_args
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, GetJsonSchemaHandler
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import CoreSchema
 
 from cloudcoil.resources import Resource
 
-__all__ = ["CRD", "PrinterColumn", "SchemaError"]
+__all__ = ["CEL", "CRD", "ListType", "PrinterColumn", "SchemaError", "custom_resource"]
 
 
 class SchemaError(ValueError):
     """A model cannot be represented faithfully as a structural CRD schema."""
 
 
-class PrinterColumn(BaseModel):
-    """A kubectl get column; paths use serialized Kubernetes field names."""
+@dataclass(frozen=True)
+class PrinterColumn:
+    """A kubectl column; Annotated fields infer the wire path and scalar type.
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    name: str = Field(min_length=1)
-    json_path: str
-    type: Literal["string", "integer", "number", "boolean", "date"] = "string"
+    For explicit CRD columns supply json_path; type defaults to string there.
+    """
+
+    name: str
+    json_path: str | None = None
+    type: Literal["string", "integer", "number", "boolean", "date"] | None = None
     description: str | None = None
     format: str | None = None
-    priority: int = Field(default=0, ge=0)
+    priority: int = 0
 
-    @field_validator("json_path")
-    @classmethod
-    def _path(cls, value: str) -> str:
-        if not value.startswith(".") or any(char in value for char in "\n\r"):
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("PrinterColumn name must not be empty")
+        if self.json_path is not None and (
+            not isinstance(self.json_path, str)
+            or not self.json_path.startswith(".")
+            or any(char in self.json_path for char in "\n\r")
+        ):
             raise ValueError("json_path must start with '.' and contain no newline")
-        return value
+        if self.type not in (None, "string", "integer", "number", "boolean", "date"):
+            raise ValueError("PrinterColumn type must be string, integer, number, boolean, or date")
+        if (
+            isinstance(self.priority, bool)
+            or not isinstance(self.priority, int)
+            or self.priority < 0
+        ):
+            raise ValueError("PrinterColumn priority must be a nonnegative integer")
 
     def _manifest(self) -> dict[str, Any]:
-        result = self.model_dump(exclude_none=True)
+        if self.json_path is None:
+            raise ValueError("json_path is required outside an Annotated field")
+        result = {key: value for key, value in asdict(self).items() if value is not None}
+        result.setdefault("type", "string")
         result["jsonPath"] = result.pop("json_path")
         return result
+
+    def __get_pydantic_json_schema__(
+        self, schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        result = handler(schema).copy()
+        if "x-cloudcoil-printer-column" in result:
+            raise SchemaError("A field can declare only one PrinterColumn")
+        result["x-cloudcoil-printer-column"] = {
+            key: value for key, value in asdict(self).items() if value is not None
+        }
+        return result
+
+
+@dataclass(frozen=True)
+class CEL:
+    """An Annotated constraint enforced by Kubernetes, not by Python validators."""
+
+    rule: str
+    message: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.rule, str) or not self.rule.strip():
+            raise ValueError("CEL rule must not be empty")
+
+    def __get_pydantic_json_schema__(
+        self, schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        result = handler(schema).copy()
+        rule = {"rule": self.rule}
+        if self.message is not None:
+            rule["message"] = self.message
+        result["x-kubernetes-validations"] = [*result.get("x-kubernetes-validations", []), rule]
+        return result
+
+
+@dataclass(frozen=True)
+class ListType:
+    """Kubernetes list merge semantics for an Annotated list field.
+
+    Map keys refer to serialized field names, just like Kubernetes manifests.
+    """
+
+    type: Literal["atomic", "set", "map"]
+    keys: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.type not in ("atomic", "set", "map"):
+            raise ValueError("ListType must be atomic, set, or map")
+        if isinstance(self.keys, str) or any(
+            not isinstance(key, str) or not key for key in self.keys
+        ):
+            raise ValueError("ListType keys must be nonempty field names")
+        object.__setattr__(self, "keys", tuple(self.keys))
+        if self.type == "map":
+            if not self.keys or len(set(self.keys)) != len(self.keys):
+                raise ValueError("Map lists require nonempty, unique keys")
+        elif self.keys:
+            raise ValueError("Only map lists accept keys")
+
+    def __get_pydantic_json_schema__(
+        self, schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        result = handler(schema).copy()
+        if "x-kubernetes-list-type" in result:
+            raise SchemaError("A field can declare only one list type")
+        result["x-kubernetes-list-type"] = self.type
+        if self.keys:
+            result["x-kubernetes-list-map-keys"] = list(self.keys)
+        return result
+
+
+@dataclass(frozen=True)
+class _ResourceOptions:
+    plural: str
+    scope: Literal["Namespaced", "Cluster"]
+    singular: str | None
+    short_names: tuple[str, ...]
+    categories: tuple[str, ...]
+    status: bool | None
+    columns: tuple[PrinterColumn, ...] | None
+
+
+def _resource_options(resource: type[Resource]) -> _ResourceOptions | None:
+    # A new concrete kind must declare its own plural rather than inherit its parent's.
+    return resource.__dict__.get("__cloudcoil_crd__")
+
+
+def custom_resource[T: Resource](
+    *,
+    plural: str,
+    scope: Literal["Namespaced", "Cluster"] = "Namespaced",
+    singular: str | None = None,
+    short_names: Sequence[str] = (),
+    categories: Sequence[str] = (),
+    status: bool | None = None,
+    columns: Sequence[PrinterColumn] | None = None,
+) -> Callable[[type[T]], type[T]]:
+    """Keep CRD metadata with a Resource; generate with CRD(Model).
+
+    The decorator preserves the class and performs no cluster I/O or app registration.
+    Each concrete resource declares its own metadata, including an explicit plural.
+    """
+    if isinstance(short_names, str) or isinstance(categories, str):
+        raise ValueError("short_names and categories must be sequences of names")
+    options = _ResourceOptions(
+        plural,
+        scope,
+        singular,
+        tuple(short_names),
+        tuple(categories),
+        status,
+        tuple(columns) if columns is not None else None,
+    )
+
+    def decorate(resource: type[T]) -> type[T]:
+        if not isinstance(resource, type) or not issubclass(resource, Resource):
+            raise TypeError("custom_resource requires a Resource subclass")
+        if _resource_options(resource) is not None:
+            raise ValueError("custom_resource metadata is already declared on this class")
+        resource.__cloudcoil_crd__ = options  # type: ignore[attr-defined]
+        return resource
+
+    return decorate
+
+
+def _printer_columns(
+    schema: dict[str, Any], path: str = "", *, enabled: bool = True
+) -> list[PrinterColumn]:
+    columns: list[PrinterColumn] = []
+    annotation = schema.pop("x-cloudcoil-printer-column", None)
+    if annotation is not None and enabled:
+        column = dict(annotation)
+        if not column.get("json_path"):
+            if not path or "[]" in path or "*" in path:
+                raise SchemaError("PrinterColumn inside a list/map needs an explicit json_path")
+            column["json_path"] = path
+        if not column.get("type"):
+            kind = schema.get("type")
+            if kind not in ("string", "integer", "number", "boolean"):
+                raise SchemaError(f"{path}: PrinterColumn needs a scalar field or explicit type")
+            column["type"] = "date" if schema.get("format") == "date-time" else kind
+        columns.append(PrinterColumn(**column))
+    for name, child in schema.get("properties", {}).items():
+        # JSONPath uses backslash escapes for punctuation in serialized property names.
+        escaped = re.sub(r"([^a-zA-Z0-9_-])", r"\\\1", name)
+        columns.extend(_printer_columns(child, f"{path}.{escaped}", enabled=enabled))
+    if "items" in schema:
+        columns.extend(_printer_columns(schema["items"], f"{path}[]", enabled=enabled))
+    if isinstance(schema.get("additionalProperties"), dict):
+        columns.extend(
+            _printer_columns(schema["additionalProperties"], f"{path}.*", enabled=enabled)
+        )
+    return columns
 
 
 _LABEL = re.compile(r"[a-z0-9](?:[-a-z0-9]*[a-z0-9])?\Z")
@@ -76,6 +249,7 @@ _KEYWORDS = {
     "maxProperties",
     "example",
     "externalDocs",
+    "x-cloudcoil-printer-column",
     "x-kubernetes-preserve-unknown-fields",
     "x-kubernetes-embedded-resource",
     "x-kubernetes-int-or-string",
@@ -84,7 +258,7 @@ _KEYWORDS = {
     "x-kubernetes-map-type",
     "x-kubernetes-validations",
 }
-_ANNOTATIONS = {"title", "description", "default", "example"}
+_ANNOTATIONS = {"title", "description", "default", "example", "x-cloudcoil-printer-column"}
 
 
 def _error(path: str, message: str) -> SchemaError:
@@ -326,16 +500,28 @@ class CRD:
         self,
         resource: type[Resource],
         *,
-        plural: str,
-        scope: Literal["Namespaced", "Cluster"] = "Namespaced",
+        plural: str | None = None,
+        scope: Literal["Namespaced", "Cluster"] | None = None,
         singular: str | None = None,
-        short_names: Sequence[str] = (),
-        categories: Sequence[str] = (),
+        short_names: Sequence[str] | None = None,
+        categories: Sequence[str] | None = None,
         status: bool | None = None,
         columns: Sequence[PrinterColumn] | None = None,
     ) -> None:
         if not isinstance(resource, type) or not issubclass(resource, Resource):
             raise TypeError("resource must be a Resource subclass")
+        options = _resource_options(resource)
+        plural = plural if plural is not None else options.plural if options else None
+        if plural is None:
+            raise ValueError("Pass plural=... or declare @custom_resource(plural=...) on the model")
+        scope = scope if scope is not None else options.scope if options else "Namespaced"
+        singular = singular if singular is not None else options.singular if options else None
+        short_names = (
+            short_names if short_names is not None else options.short_names if options else ()
+        )
+        categories = categories if categories is not None else options.categories if options else ()
+        status = status if status is not None else options.status if options else None
+        columns = columns if columns is not None else options.columns if options else None
         gvk = resource.gvk()
         group, version, kind = gvk.group, gvk.version, gvk.kind
         if gvk.api_version != f"{group}/{version}":
@@ -376,6 +562,7 @@ class CRD:
         properties["kind"] = {"type": "string"}
         properties["metadata"] = {"type": "object"}
         schema = _convert(raw, definitions, resource.__name__)
+        annotated_columns = _printer_columns(schema, enabled=columns is None)
         enabled = "status" in properties if status is None else status
         if enabled:
             if "status" not in properties:
@@ -396,7 +583,8 @@ class CRD:
             version_spec["subresources"] = {"status": {}}
         if columns is None:
             columns = [
-                PrinterColumn(name="Age", json_path=".metadata.creationTimestamp", type="date")
+                *annotated_columns,
+                PrinterColumn(name="Age", json_path=".metadata.creationTimestamp", type="date"),
             ]
         if columns:
             version_spec["additionalPrinterColumns"] = [column._manifest() for column in columns]

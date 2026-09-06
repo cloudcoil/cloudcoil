@@ -8,11 +8,14 @@ patches, status, retries, leadership, and health endpoints.
 ## Define and generate
 
 ```python
-from typing import Literal
+from typing import Annotated, Literal, Self
 
 from pydantic import Field
 
-from cloudcoil.crd import CRD, PrinterColumn
+from cloudcoil.admission import (
+    AdmissionDenied, AdmissionRequest, AdmissionWebhook, mutating, validating,
+)
+from cloudcoil.crd import CRD, PrinterColumn, custom_resource
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
@@ -22,10 +25,11 @@ class WidgetSpec(BaseModel):
 
 
 class WidgetStatus(BaseModel):
-    phase: Literal["Ready"] = "Ready"
+    phase: Annotated[Literal["Ready"], PrinterColumn(name="Phase")] = "Ready"
     observed_generation: int | None = Field(default=None, alias="observedGeneration")
 
 
+@custom_resource(plural="widgets", short_names=("wd",))
 class Widget(Resource):
     api_version: Literal["examples.cloudcoil.dev/v1alpha1"] = Field(
         default="examples.cloudcoil.dev/v1alpha1", alias="apiVersion"
@@ -35,13 +39,26 @@ class Widget(Resource):
     status: WidgetStatus | None = None
 
 
-crd = CRD(
-    Widget,
-    plural="widgets",
-    scope="Namespaced",
-    short_names=["wd"],
-    columns=[PrinterColumn(name="Phase", type="string", json_path=".status.phase")],
-)
+    @classmethod
+    @mutating()
+    async def default_labels(cls, request: AdmissionRequest[Self]) -> Self | None:
+        obj = request.resource
+        if obj is not None and obj.metadata is not None:
+            obj.metadata.labels = {
+                "app.kubernetes.io/managed-by": "cloudcoil",
+                **(obj.metadata.labels or {}),
+            }
+        return obj
+
+    @classmethod
+    @validating()
+    async def validate_message(cls, request: AdmissionRequest[Self]) -> None:
+        if request.resource is not None and not request.resource.spec.message.strip():
+            raise AdmissionDenied("spec.message must contain a non-whitespace character")
+
+
+crd = CRD(Widget)
+admission = AdmissionWebhook().register(Widget)
 print(crd.to_yaml())
 manifest = crd.manifest()  # Ordinary dictionary; no cluster access.
 ```
@@ -50,6 +67,16 @@ Group, version, and kind come from the model. Explicit plural names avoid guessi
 English plurals. Keep the `apiVersion` alias when overriding `api_version`, and use
 aliases such as `observedGeneration` for fields whose Kubernetes names differ from
 Python names. Generation checks that validation and serialization agree on names.
+`PrinterColumn` on an `Annotated` field infers its serialized JSONPath and scalar
+type, including nested models and aliases; a `date-time` field becomes a `date`
+column. Inferred columns are followed by the default Age column. Explicit
+`CRD(Widget, columns=[...])` replaces them; `columns=[]` disables all columns.
+Collection-item columns need an explicit `json_path`.
+
+The class decorator preserves the Pydantic model and stores metadata only. It does
+not create a controller, install the CRD, or register a global webhook. Each concrete
+subclass declares its own plural. Existing models can still use
+`CRD(Widget, plural="widgets", ...)`; constructor options override class metadata.
 
 The initial generator emits one served/storage version in
 `apiextensions.k8s.io/v1`. It enables the status subresource when the model has a
@@ -80,36 +107,54 @@ validation webhook for Python business rules, or explicit Kubernetes CEL schema
 extensions when appropriate. Pydantic may coerce input during local validation;
 Kubernetes's schema validation does not promise the same coercions.
 
-Kubernetes extensions can be declared with `Field(json_schema_extra=...)`, for
-example list/map semantics and `x-kubernetes-validations`. These must still be valid
-for the field's Kubernetes schema. Generation is not a CEL compiler; test your CRD
+Use regular Pydantic `Field` annotations for bounds and aliases. `CEL` and
+`ListType` express common Kubernetes-only extensions next to the type:
+
+```python
+from cloudcoil.crd import CEL, ListType
+
+
+class Condition(BaseModel):
+    type: str
+    status: Literal["True", "False", "Unknown"]
+
+
+class ExampleSpec(BaseModel):
+    replicas: Annotated[int, Field(ge=0), CEL("self <= 10", "At most ten replicas")] = 1
+    conditions: Annotated[list[Condition], ListType("map", keys=("type",))] = Field(
+        default_factory=list
+    )
+```
+
+`ListType("set")` and `ListType("atomic")` are also supported. Map keys use wire
+names. CEL runs in Kubernetes, not in Pydantic; Python `field_validator` and
+`model_validator` still apply when admission parses the typed resource.
+`Field(json_schema_extra=...)` remains available for other Kubernetes extensions.
+These must still be valid for the field's Kubernetes schema. Generation is not a CEL compiler; test your CRD
 against the API-server versions you support. The repository's integration test
 installs generated CRDs and checks schema validation and status operations.
 
 ## Admission handlers
 
+Keep policies on the resource class with `@mutating()` and `@validating()` as
+above, then register one or more models with `admission.register(Widget, Other)`.
+Use `@classmethod` outermost; `@staticmethod` also works. Class methods receive
+`AdmissionRequest[Self]`, so inherited policies remain typed to the concrete model
+and DELETE does not require a current instance. Normal Python method shadowing
+applies: overriding a method without the admission decorator removes that policy.
+Registration is atomic and rejects duplicate paths.
+
+The plural and scope come from `@custom_resource`. Default paths use the operation,
+DNS group components, version, plural, and method name; for example
+`/mutate/examples/cloudcoil/dev/v1alpha1/widgets/default_labels`. A decorator's
+`path=` can override it. Explicit functions remain supported for existing resource
+models or policies kept in another module:
+
 ```python
-from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
-
-admission = AdmissionWebhook()
-
-
-@admission.mutating(Widget, resource="widgets", path="/mutate-widgets", scope="Namespaced")
-async def default_labels(request: AdmissionRequest[Widget]) -> Widget | None:
-    obj = request.resource
-    if obj is None or obj.metadata is None:
-        return None
-    obj.metadata.labels = {
-        "app.kubernetes.io/managed-by": "cloudcoil",
-        **(obj.metadata.labels or {}),
-    }
-    return obj
-
-
-@admission.validating(Widget, resource="widgets", path="/validate-widgets", scope="Namespaced")
-async def validate_message(request: AdmissionRequest[Widget]) -> None:
-    if request.resource is not None and not request.resource.spec.message.strip():
-        raise AdmissionDenied("spec.message must contain a non-whitespace character")
+@admission.validating(Widget, resource="widgets", path="/additional-check")
+async def additional_check(request: AdmissionRequest[Widget]) -> None:
+    if request.name.startswith("reserved-"):
+        raise AdmissionDenied("Names beginning with reserved- are reserved")
 ```
 
 Handlers are async. `AdmissionRequest[T]` provides the typed current and old
@@ -123,8 +168,8 @@ Malformed envelopes and unexpected handler failures remain transport/server erro
 subject to Kubernetes's configured failure policy.
 
 The runtime speaks `admission.k8s.io/v1`, echoes the request UID, and generates the
-base64 JSON Patch response expected by Kubernetes. It does not fetch or patch the
-object through a Kubernetes client: the API server applies the admission patch as
+base64 JSON Patch response expected by Kubernetes. It does not persist the
+returned resource through a Kubernetes client: the API server applies the admission patch as
 part of the pending request. Keep handlers fast and free of external side effects,
 including on dry-run. The generated registration declares `sideEffects: None`.
 [Kubernetes admission request/response protocol](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#webhook-request-and-response).
@@ -144,6 +189,51 @@ explicitly and uses `old_resource` when `resource` is absent. Same-kind subresou
 can be registered explicitly. CONNECT, differing-kind subresources such as scale,
 conversion webhooks, and automatic discovery of equivalent API versions are outside
 this increment; configurations use exact matching.
+
+## API client and request context
+
+Add a second argument to a resource's bound handler when a policy needs a Kubernetes
+lookup. The application injects `AsyncAPIClient[Self]` from an explicitly supplied
+`Config`, alongside the complete admission context:
+
+```python
+from cloudcoil.client import AsyncAPIClient, Config
+
+# Inside Widget:
+@classmethod
+@validating(operations=("UPDATE",))
+async def protect_ready_spec(
+    cls, request: AdmissionRequest[Self], client: AsyncAPIClient[Self]
+) -> None:
+    current = await client.get(request.name)
+    if (
+        current.status is not None
+        and request.resource is not None
+        and request.resource.spec.message != current.spec.message
+    ):
+        raise AdmissionDenied("A ready Widget's message cannot be changed")
+
+# Supply the credentials and cluster explicitly in the application setup:
+config = Config()
+admission = AdmissionWebhook(config=config).register(Widget)
+```
+
+Pure handlers take just `request` and need no Config. Client-taking handlers fail
+registration clearly if Config is absent. Registration performs no discovery;
+client discovery and any lookup happen asynchronously within the webhook's timeout.
+Injected clients bypass informer caches. For namespaced resources, the injected
+client defaults to the admission request's namespace, so `await client.get(name)`
+looks up that namespace without changing Config or clients for other requests. `request.config` exposes that same Config
+for other types, for example
+`await request.config.async_client_for(ConfigMap, cached=False)` after checking it
+is not `None`. `request` also carries `old_resource`, `dry_run`, `user_info`,
+`options`, and raw current/previous objects. Read-only lookups work during dry runs;
+keep all callbacks free of external writes. Admission does not make a lookup and
+subsequent API-server persistence atomic.
+
+The caller owns the Config: keep it alive while the app serves, drain requests, and
+close `config.client` and `config.async_client` during application shutdown.
+Admission never installs a global/default Config and never closes caller clients.
 
 ## Serve and register
 

@@ -8,13 +8,17 @@ import re
 from collections.abc import Awaitable, Callable, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from pydantic import ConfigDict, Field, ValidationError
 
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
+if TYPE_CHECKING:
+    from cloudcoil.client import Config
+
+from ._decorators import _methods
 from ._mutation import mutation_patch
 from ._types import AdmissionDenied, AdmissionRequest, Operation, UserInfo
 
@@ -93,19 +97,87 @@ class AdmissionWebhook:
     """Register typed async mutators/validators and serve them as an ASGI app.
 
     Use an ASGI server for HTTPS and deployment. Callbacks must be side-effect
-    free. The application performs no Kubernetes API reads or writes. Register
-    all routes before serving or generating configurations.
+    free. An explicit Config enables injected clients for lookups; returned
+    mutations are applied by the API server. Register all routes before serving
+    or generating configurations.
     """
 
-    def __init__(self, *, max_body_bytes: int = 4 * 1024 * 1024) -> None:
+    def __init__(
+        self, *, config: "Config | None" = None, max_body_bytes: int = 4 * 1024 * 1024
+    ) -> None:
         if (
             isinstance(max_body_bytes, bool)
             or not isinstance(max_body_bytes, int)
             or max_body_bytes < 1
         ):
             raise ValueError("max_body_bytes must be a positive integer")
+        self._config = config
         self._max_body_bytes = max_body_bytes
         self._routes: dict[str, _Route] = {}
+
+    def register(self, *models: type[Resource]) -> Self:
+        """Register policies declared on @custom_resource models, atomically.
+
+        Paths default to /{mutate|validate}/{group}/{version}/{plural}/{method}.
+        The optional Config and its HTTP clients remain owned by the caller.
+        Client-taking handlers require Config; no discovery occurs during registration.
+        """
+        from cloudcoil.crd import _resource_options
+
+        staged = AdmissionWebhook(config=self._config, max_body_bytes=self._max_body_bytes)
+        staged._routes = dict(self._routes)
+        for model in models:
+            options = _resource_options(model)
+            if options is None:
+                raise ValueError(
+                    f"{model.__name__} needs @custom_resource(plural=...) for registration"
+                )
+            methods = _methods(model)
+            if not methods:
+                raise ValueError(f"{model.__name__} has no decorated admission methods")
+            gvk = model.gvk()
+            for name, handler, policy, needs_client in methods:
+                if needs_client and self._config is None:
+                    raise ValueError(f"{model.__name__}.{name} needs AdmissionWebhook(config=...)")
+
+                # Capture each handler independently; route dispatch never closes over loop variables.
+                def bind(
+                    callback: Callable[..., Awaitable[Any]],
+                    resource: type[Resource],
+                    inject_client: bool,
+                ) -> Callable[[AdmissionRequest[Any]], Awaitable[Any]]:
+                    async def invoke(request: AdmissionRequest[Any]) -> Any:
+                        if inject_client:
+                            assert self._config is not None
+                            client = await self._config.async_client_for(resource, cached=False)
+                            if client.namespaced and request.namespace:
+                                client.default_namespace = request.namespace
+                            return await callback(request, client)
+                        return await callback(request)
+
+                    return invoke
+
+                prefix = "mutate" if policy.mutation else "validate"
+                # Dots in DNS groups are harmless path characters but our public route
+                # validator deliberately uses a narrower alphabet, so encode as slashes.
+                group_path = gvk.group.replace(".", "/")
+                path = (
+                    policy.path or f"/{prefix}/{group_path}/{gvk.version}/{options.plural}/{name}"
+                )
+                staged._register(
+                    model,
+                    bind(handler, model, needs_client),
+                    policy.mutation,
+                    path,
+                    options.plural,
+                    policy.operations,
+                    policy.subresource,
+                    options.scope,
+                    policy.timeout_seconds,
+                    policy.failure_policy,
+                )
+        self._routes = staged._routes
+        return self
 
     def mutating[T: Resource](
         self,
@@ -374,6 +446,7 @@ class AdmissionWebhook:
                     return
                 try:
                     request = self._request(route, review.request)
+                    request._config = self._config
                 except ValidationError as error:
                     causes = [
                         {

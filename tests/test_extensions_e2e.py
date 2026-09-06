@@ -9,7 +9,7 @@ import threading
 from contextlib import asynccontextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.metadata import version
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 import httpx
@@ -17,9 +17,9 @@ import pytest
 from cloudcoil.models.kubernetes.core.v1 import Namespace
 from pydantic import BaseModel, Field, create_model
 
-from cloudcoil.admission import AdmissionDenied, AdmissionWebhook
+from cloudcoil.admission import AdmissionDenied, AdmissionWebhook, mutating, validating
 from cloudcoil.controller import Controller
-from cloudcoil.crd import CRD, PrinterColumn
+from cloudcoil.crd import CEL, CRD, ListType, PrinterColumn, custom_resource
 from cloudcoil.resources import Resource
 
 k8s_version = ".".join(version("cloudcoil.models.kubernetes").split(".")[:3])
@@ -34,7 +34,10 @@ pytestmark = pytest.mark.configure_test_cluster(
 
 
 class ExtensionSpec(BaseModel):
-    replicas: int = Field(default=1, ge=1, le=5)
+    replicas: Annotated[int, CEL("self <= 4", "At most four replicas")] = Field(
+        default=1, ge=1, le=5
+    )
+    tags: Annotated[list[str], ListType("set")] = Field(default_factory=list)
     message: str = "hello"
     mode: Literal["Active", "Paused"] = "Active"
     target: int | str = 80
@@ -43,7 +46,7 @@ class ExtensionSpec(BaseModel):
 
 
 class ExtensionStatus(BaseModel):
-    ready: bool
+    ready: Annotated[bool, PrinterColumn(name="Ready")]
     observed_generation: int = Field(alias="observedGeneration")
 
 
@@ -60,11 +63,14 @@ async def installed_widget(config):
         spec=(ExtensionSpec, ...),
         status=(ExtensionStatus | None, None),
     )
-    manifest = CRD(
-        widget_type,
-        plural="widgets",
-        columns=[PrinterColumn(name="Ready", json_path=".status.ready", type="boolean")],
-    ).manifest()
+    widget_type = custom_resource(plural="widgets")(widget_type)
+    manifest = CRD(widget_type).manifest()
+    assert manifest["spec"]["versions"][0]["additionalPrinterColumns"][0] == {
+        "name": "Ready",
+        "jsonPath": ".status.ready",
+        "type": "boolean",
+        "priority": 0,
+    }
     definitions = "/apis/apiextensions.k8s.io/v1/customresourcedefinitions"
     definition_url = f"{definitions}/{manifest['metadata']['name']}"
     namespace = await Namespace(metadata={"generateName": "test-extensions-"}).async_create()
@@ -103,7 +109,14 @@ async def test_live_generated_crd_validation_defaults_and_controller_status(test
             }
 
         # Raw HTTP bypasses Pydantic: these failures prove API-server validation.
-        for spec in ({"replicas": 0}, {"replicas": 6}, {"mode": "Invalid"}, {"target": True}):
+        for spec in (
+            {"replicas": 0},
+            {"replicas": 6},
+            {"replicas": 5},
+            {"mode": "Invalid"},
+            {"target": True},
+            {"tags": ["duplicate", "duplicate"]},
+        ):
             response = await test_config.async_client.post(collection, json=document(spec))
             assert response.status_code == 422, response.text
         response = await test_config.async_client.post(
@@ -239,24 +252,39 @@ async def admission_listener(app, tmp_path):
 
 async def test_live_generated_admission_mutation_validation_and_dry_run(test_config, tmp_path):
     async with test_config, installed_widget(test_config) as (widget_type, namespace, group):
-        app = AdmissionWebhook()
         calls = []
         old_messages = []
 
-        @app.mutating(widget_type, resource="widgets", path="/mutate", scope="Namespaced")
-        async def mutate(request):
-            calls.append(("mutate", request.operation, request.dry_run))
-            obj = request.resource
-            obj.metadata.labels = {**(obj.metadata.labels or {}), "cloudcoil.dev/admitted": "yes"}
-            return obj
+        @custom_resource(plural="widgets")
+        class AdmissionWidget(widget_type):
+            @classmethod
+            @mutating()
+            async def default_labels(cls, request):
+                calls.append(("mutate", request.operation, request.dry_run))
+                obj = request.resource
+                assert isinstance(obj, cls)
+                obj.metadata.labels = {
+                    **(obj.metadata.labels or {}),
+                    "cloudcoil.dev/admitted": "yes",
+                }
+                return obj
 
-        @app.validating(widget_type, resource="widgets", path="/validate", scope="Namespaced")
-        async def validate(request):
-            calls.append(("validate", request.operation, request.dry_run))
-            if request.operation == "UPDATE":
-                old_messages.append(request.old_resource.spec.message)
-            if request.resource.spec.message == "forbidden":
-                raise AdmissionDenied("message is forbidden")
+            @classmethod
+            @validating()
+            async def validate_message(cls, request, client):
+                calls.append(("validate", request.operation, request.dry_run))
+                assert request.config is test_config
+                namespaces = await request.config.async_client_for(Namespace, cached=False)
+                assert (await namespaces.get(request.namespace)).name == namespace
+                if request.operation == "UPDATE":
+                    stored = await client.get(request.name)
+                    assert isinstance(stored, cls)
+                    assert stored.metadata.uid == request.old_resource.metadata.uid
+                    old_messages.append(request.old_resource.spec.message)
+                if request.resource.spec.message == "forbidden":
+                    raise AdmissionDenied("message is forbidden")
+
+        app = AdmissionWebhook(config=test_config).register(AdmissionWidget)
 
         async with admission_listener(app, tmp_path) as (url, certificate):
             configured = []

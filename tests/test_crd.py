@@ -324,3 +324,126 @@ def test_invalid_api_version_does_not_get_truncated():
 
     with pytest.raises(ValueError, match="exactly one"):
         schema(WrongVersion)
+
+
+def test_resource_metadata_and_annotated_columns_share_wire_names_and_types():
+    from datetime import datetime
+
+    from cloudcoil.crd import custom_resource
+
+    class Status(BaseModel):
+        available_replicas: Annotated[int, PrinterColumn(name="Available")] = Field(
+            default=0, alias="availableReplicas"
+        )
+        ready: Annotated[bool, PrinterColumn(name="Ready")] = False
+        updated: Annotated[datetime | None, PrinterColumn(name="Updated")] = None
+
+    @custom_resource(plural="gadgets", scope="Cluster", short_names=("gd",))
+    class Gadget(Widget):
+        status: Status | None = None
+
+    definition = CRD(Gadget).manifest()["spec"]
+    assert definition["scope"] == "Cluster"
+    assert definition["names"]["plural"] == "gadgets"
+    assert definition["names"]["shortNames"] == ["gd"]
+    columns = definition["versions"][0]["additionalPrinterColumns"]
+    assert [(column["jsonPath"], column["type"]) for column in columns] == [
+        (".status.availableReplicas", "integer"),
+        (".status.ready", "boolean"),
+        (".status.updated", "date"),
+        (".metadata.creationTimestamp", "date"),
+    ]
+    assert "x-cloudcoil" not in str(definition)
+    # Explicit constructor options override metadata, including empty collections.
+    explicit = CRD(Gadget, plural="others", scope="Namespaced", short_names=[], columns=[])
+    assert explicit.plural == "others" and explicit.scope == "Namespaced"
+    assert "shortNames" not in explicit.manifest()["spec"]["names"]
+    assert "additionalPrinterColumns" not in explicit.manifest()["spec"]["versions"][0]
+
+
+def test_resource_metadata_requires_explicit_plural_on_concrete_subclasses():
+    from cloudcoil.crd import custom_resource
+
+    @custom_resource(plural="widgets")
+    class Parent(Widget):
+        pass
+
+    class Child(Parent):
+        pass
+
+    with pytest.raises(ValueError, match="plural"):
+        CRD(Child)
+    assert CRD(Child, plural="children").plural == "children"
+    with pytest.raises(ValueError, match="already declared"):
+        custom_resource(plural="other")(Parent)
+
+
+def test_annotated_cel_and_list_semantics_preserve_pydantic_constraints():
+    from cloudcoil.crd import CEL, ListType
+
+    class Condition(BaseModel):
+        condition_type: str = Field(alias="conditionType")
+        status: Literal["True", "False"]
+
+    class Spec(BaseModel):
+        replicas: Annotated[
+            int,
+            Field(ge=0),
+            CEL("self <= 10", "Too many replicas"),
+            CEL("self % 2 == 0", "Must be even"),
+        ] = 2
+        conditions: Annotated[list[Condition], ListType("map", keys=("conditionType",))]
+        tags: Annotated[list[str], ListType("set")] = Field(default_factory=list)
+
+    props = schema(model_for(Spec))["properties"]["spec"]["properties"]
+    assert props["replicas"]["minimum"] == 0
+    assert props["replicas"]["x-kubernetes-validations"] == [
+        {"rule": "self <= 10", "message": "Too many replicas"},
+        {"rule": "self % 2 == 0", "message": "Must be even"},
+    ]
+    assert props["conditions"]["x-kubernetes-list-map-keys"] == ["conditionType"]
+    assert props["tags"]["x-kubernetes-list-type"] == "set"
+    # CEL is intentionally a server constraint, not an implicit Python validator.
+    assert Spec(replicas=11, conditions=[]).replicas == 11
+
+
+def test_annotation_errors_do_not_silently_generate_invalid_columns_or_lists():
+    from cloudcoil.crd import ListType
+
+    with pytest.raises(ValueError, match="keys"):
+        ListType("map")
+    with pytest.raises(ValueError, match="keys"):
+        ListType("set", keys=("name",))
+    with pytest.raises(SchemaError, match="requires an array"):
+        schema(model_for(Annotated[str, ListType("atomic")]))
+    with pytest.raises(SchemaError, match="scalar field"):
+        schema(model_for(Annotated[WidgetSpec, PrinterColumn(name="Spec")]))
+    with pytest.raises(ValueError, match="json_path"):
+        CRD(Widget, plural="widgets", columns=[PrinterColumn(name="Unknown")])
+
+
+def test_annotated_columns_resolve_each_reused_model_path_and_escape_aliases():
+    class Nested(BaseModel):
+        value: Annotated[int, PrinterColumn(name="Value")] = Field(alias="some.value")
+
+    class Spec(BaseModel):
+        first: Nested
+        second: Nested
+
+    columns = CRD(model_for(Spec), plural="widgets").manifest()["spec"]["versions"][0][
+        "additionalPrinterColumns"
+    ]
+    assert [column["jsonPath"] for column in columns[:2]] == [
+        r".spec.first.some\.value",
+        r".spec.second.some\.value",
+    ]
+    # Collection items have no single inferred JSONPath; require an explicit path.
+    with pytest.raises(SchemaError, match="explicit json_path"):
+        schema(model_for(list[Nested]))
+
+
+def test_explicit_columns_replace_annotated_columns_without_requiring_inference():
+    model = model_for(Annotated[WidgetSpec, PrinterColumn(name="Spec")])
+    version = CRD(model, plural="widgets", columns=[]).manifest()["spec"]["versions"][0]
+    assert "additionalPrinterColumns" not in version
+    assert "x-cloudcoil" not in str(version)

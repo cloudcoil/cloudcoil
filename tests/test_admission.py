@@ -713,3 +713,221 @@ async def test_nonfinite_json_rejected():
             "/mutate", content=json.dumps(payload), headers={"Content-Type": "application/json"}
         )
     assert response.status_code == 400
+
+
+async def test_resource_attached_policies_receive_typed_payload_and_live_client():
+    from unittest.mock import AsyncMock, Mock
+
+    from cloudcoil.admission import mutating, validating
+    from cloudcoil.crd import custom_resource
+
+    clients = [Mock(name="first-client"), Mock(name="second-client")]
+    configs = [Mock(async_client_for=AsyncMock(return_value=client)) for client in clients]
+    seen = []
+
+    @custom_resource(plural="widgets")
+    class Attached(Widget):
+        @classmethod
+        @mutating(path="/mutate")
+        async def defaults(cls, request, client):
+            assert isinstance(request.resource, cls)
+            assert request.dry_run and request.user_info.username == "sam"
+            seen.append((request.config, client))
+            # Mutators edit the payload, not the API resource. No write methods are called.
+            request.resource.spec.replicas = 4
+            return request.resource
+
+        @staticmethod
+        @validating(path="/validate", operations=("DELETE",))
+        async def protect_delete(request):
+            assert request.resource is None
+            assert isinstance(request.old_resource, Attached)
+            raise AdmissionDenied("Deletion requires an administrator")
+
+    apps = [AdmissionWebhook(config=config).register(Attached) for config in configs]
+    assert all(config.async_client_for.await_count == 0 for config in configs)
+    payload = review(dryRun=True, userInfo={"username": "sam"})
+    for app, config, client in zip(apps, configs, clients, strict=True):
+        assert patch(await post(app, payload)) == [
+            {"op": "add", "path": "/spec/replicas", "value": 4}
+        ]
+        config.async_client_for.assert_awaited_once_with(Attached, cached=False)
+        assert not client.method_calls
+    assert seen == list(zip(configs, clients, strict=True))
+    response = await post(apps[0], review("DELETE"), path="/validate")
+    assert response.json()["response"]["allowed"] is False
+    assert response.json()["response"]["status"]["message"].startswith("Deletion requires")
+    configs[0].async_client_for.assert_awaited_once()  # Pure callback does not discover clients.
+
+
+def test_resource_registration_is_atomic_and_requires_client_config():
+    from cloudcoil.admission import mutating, validating
+    from cloudcoil.crd import custom_resource
+
+    @custom_resource(plural="widgets")
+    class Collision(Widget):
+        @classmethod
+        @mutating(path="/same")
+        async def first(cls, request):
+            return request.resource
+
+        @classmethod
+        @validating(path="/same")
+        async def second(cls, request):
+            pass
+
+    app = AdmissionWebhook()
+    with pytest.raises(ValueError, match="unique"):
+        app.register(Collision)
+    assert app._routes == {}
+
+    @custom_resource(plural="widgets")
+    class NeedsClient(Widget):
+        @classmethod
+        @validating()
+        async def validate_lookup(cls, request, client):
+            pass
+
+    with pytest.raises(ValueError, match="config="):
+        app.register(NeedsClient)
+    assert app._routes == {}
+
+
+async def test_attached_handlers_honor_inheritance_shadowing_and_explicit_registration():
+    from cloudcoil.admission import mutating, validating
+    from cloudcoil.crd import custom_resource
+
+    class Base(Widget):
+        @classmethod
+        @mutating()
+        async def inherited(cls, request):
+            assert isinstance(request.resource, cls)
+            request.resource.spec.replicas = 7
+            return request.resource
+
+        @classmethod
+        @validating()
+        async def overridden(cls, request):
+            raise AssertionError("A shadowed parent policy must not run")
+
+    @custom_resource(plural="widgets", scope="Namespaced")
+    class Child(Base):
+        @classmethod
+        async def overridden(cls, request):
+            pass
+
+    first, second = AdmissionWebhook(), AdmissionWebhook()
+    first.register(Child)
+    assert not second._routes  # Class definition and registration never touch other apps.
+    assert list(first._routes) == ["/mutate/example/com/v1/widgets/inherited"]
+    response = await post(first, review(), path=next(iter(first._routes)))
+    assert patch(response)[0]["value"] == 7
+    manifest = first.configurations(
+        name="widgets.example.com",
+        service_name="webhook",
+        service_namespace="test",
+        ca_bundle=b"-----BEGIN CERTIFICATE-----\nexample\n-----END CERTIFICATE-----",
+    )[0]
+    assert manifest["webhooks"][0]["rules"][0]["scope"] == "Namespaced"
+    with pytest.raises(ValueError, match="unique"):
+        first.register(Child)
+    assert len(first._routes) == 1
+
+
+def test_resource_policy_methods_reject_ambiguous_signatures_and_instance_methods():
+    from cloudcoil.admission import validating
+    from cloudcoil.crd import custom_resource
+
+    @custom_resource(plural="widgets")
+    class InstancePolicy(Widget):
+        @validating()
+        async def policy(self, request):
+            pass
+
+    with pytest.raises(TypeError, match="classmethod or @staticmethod"):
+        AdmissionWebhook().register(InstancePolicy)
+
+    @custom_resource(plural="widgets")
+    class VariadicPolicy(Widget):
+        @classmethod
+        @validating()
+        async def policy(cls, *args):
+            pass
+
+    with pytest.raises(TypeError, match="request and optionally client"):
+        AdmissionWebhook().register(VariadicPolicy)
+
+
+async def test_injected_clients_default_to_each_concurrent_requests_namespace():
+    from unittest.mock import AsyncMock, Mock
+
+    from cloudcoil.admission import validating
+    from cloudcoil.client import AsyncAPIClient
+    from cloudcoil.crd import custom_resource
+
+    in_flight = []
+    created_clients = []
+    both_arrived = asyncio.Event()
+
+    async def transport(request):
+        namespace = request.url.path.split("/namespaces/")[1].split("/")[0]
+        in_flight.append(namespace)
+        if len(in_flight) == 2:
+            both_arrived.set()
+        await both_arrived.wait()
+        return httpx.Response(
+            200,
+            json={
+                "apiVersion": "example.com/v1",
+                "kind": "Widget",
+                "metadata": {"name": "sample", "namespace": namespace},
+                "spec": {},
+            },
+        )
+
+    async with httpx.AsyncClient(
+        base_url="https://cluster", transport=httpx.MockTransport(transport)
+    ) as http_client:
+
+        async def client_for(model, *, cached):
+            assert cached is False
+            client = AsyncAPIClient(
+                api_version="example.com/v1",
+                kind=model,
+                resource="widgets",
+                subresources=[],
+                default_namespace="configured-default",
+                namespaced=True,
+                client=http_client,
+            )
+            created_clients.append(client)
+            return client
+
+        config = Mock(
+            namespace="configured-default", async_client_for=AsyncMock(side_effect=client_for)
+        )
+
+        @custom_resource(plural="widgets")
+        class NamespacedWidget(Widget):
+            @classmethod
+            @validating(path="/validate")
+            async def check_namespace(cls, request, client):
+                assert client.default_namespace == request.namespace
+                stored = await client.get(request.name)
+                assert isinstance(stored, cls)
+                assert stored.namespace == request.namespace == client.default_namespace
+
+        app = AdmissionWebhook(config=config).register(NamespacedWidget)
+        payloads = []
+        for namespace in ("first-tenant", "second-tenant"):
+            payload = review(namespace=namespace)
+            payload["request"]["object"]["metadata"]["namespace"] = namespace
+            payloads.append(payload)
+        responses = await asyncio.wait_for(
+            asyncio.gather(*(post(app, payload, path="/validate") for payload in payloads)), 3
+        )
+        assert all(response.json()["response"]["allowed"] for response in responses)
+        assert sorted(in_flight) == ["first-tenant", "second-tenant"]
+        assert len({id(client) for client in created_clients}) == 2
+        assert config.namespace == "configured-default"
+        assert sorted(client.default_namespace for client in created_clients) == sorted(in_flight)

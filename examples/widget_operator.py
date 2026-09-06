@@ -9,13 +9,19 @@ import argparse
 import asyncio
 import signal
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal, Self
 
 import yaml
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 from pydantic import Field
 
-from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
+from cloudcoil.admission import (
+    AdmissionDenied,
+    AdmissionRequest,
+    AdmissionWebhook,
+    mutating,
+    validating,
+)
 from cloudcoil.client import Config
 from cloudcoil.controller import (
     Controller,
@@ -26,7 +32,7 @@ from cloudcoil.controller import (
     TerminalError,
     mutate,
 )
-from cloudcoil.crd import CRD, PrinterColumn
+from cloudcoil.crd import CRD, PrinterColumn, custom_resource
 from cloudcoil.errors import ResourceNotFound
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
@@ -37,11 +43,12 @@ class WidgetSpec(BaseModel):
 
 
 class WidgetStatus(BaseModel):
-    phase: Literal["Ready"] = "Ready"
+    phase: Annotated[Literal["Ready"], PrinterColumn(name="Phase")] = "Ready"
     observed_generation: int | None = Field(default=None, alias="observedGeneration")
     config_map: str = Field(alias="configMap")
 
 
+@custom_resource(plural="widgets", short_names=("wd",))
 class Widget(Resource):
     api_version: Literal["examples.cloudcoil.dev/v1alpha1"] = Field(
         default="examples.cloudcoil.dev/v1alpha1", alias="apiVersion"
@@ -50,33 +57,28 @@ class Widget(Resource):
     spec: WidgetSpec
     status: WidgetStatus | None = None
 
+    @classmethod
+    @mutating()
+    async def default_labels(cls, request: AdmissionRequest[Self]) -> Self | None:
+        obj = request.resource
+        if obj is None or obj.metadata is None:
+            return None
+        obj.metadata.labels = {
+            "app.kubernetes.io/managed-by": "cloudcoil",
+            **(obj.metadata.labels or {}),
+        }
+        return obj
 
-crd = CRD(
-    Widget,
-    plural="widgets",
-    short_names=["wd"],
-    columns=[PrinterColumn(name="Phase", type="string", json_path=".status.phase")],
-)
-admission = AdmissionWebhook()
-
-
-@admission.mutating(Widget, resource="widgets", path="/mutate-widgets", scope="Namespaced")
-async def default_labels(request: AdmissionRequest[Widget]) -> Widget | None:
-    obj = request.resource
-    if obj is None or obj.metadata is None:
-        return None
-    obj.metadata.labels = {
-        "app.kubernetes.io/managed-by": "cloudcoil",
-        **(obj.metadata.labels or {}),
-    }
-    return obj
+    @classmethod
+    @validating()
+    async def validate_message(cls, request: AdmissionRequest[Self]) -> None:
+        obj = request.resource
+        if obj is not None and not obj.spec.message.strip():
+            raise AdmissionDenied("spec.message must contain a non-whitespace character")
 
 
-@admission.validating(Widget, resource="widgets", path="/validate-widgets", scope="Namespaced")
-async def validate_message(request: AdmissionRequest[Widget]) -> None:
-    obj = request.resource
-    if obj is not None and not obj.spec.message.strip():
-        raise AdmissionDenied("spec.message must contain a non-whitespace character")
+crd = CRD(Widget)
+admission = AdmissionWebhook().register(Widget)
 
 
 async def reconcile(request: Request[Widget]) -> Widget | None:
