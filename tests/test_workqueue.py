@@ -167,3 +167,11 @@ async def test_invalid_done_and_delay():
     for delay in (-1, float("nan"), float("inf")):
         with pytest.raises(ValueError):
             queue.add_after("a", delay)
+
+
+async def test_retry_reaches_cap_across_the_full_finite_float_range():
+    queue = WorkQueue[str](base_delay=1e-300, max_delay=1e300, jitter=0)
+    queue._retries["a"] = 1994
+    assert queue.retry("a") == 1e300
+    queue.shutdown()
+    await queue.join()

@@ -2,6 +2,7 @@ import asyncio
 import json
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from typing import Literal
 
 import httpx
 import pytest
@@ -19,6 +20,7 @@ from cloudcoil.controller import (
     WorkQueue,
 )
 from cloudcoil.errors import APIError
+from cloudcoil.resources import Resource
 
 
 def cm(name="a", uid=None, namespace="ns", rv="1"):
@@ -547,3 +549,67 @@ async def test_primary_fatal_watch_error_aborts_secondary_startup(cluster):
     with pytest.raises(APIError, match="access revoked"):
         await wait(task)
     assert all(stream.closed for stream in cluster.streams)
+
+
+class Widget(Resource):
+    api_version: Literal["example.com/v1"] = "example.com/v1"
+    kind: Literal["Widget"] = "Widget"
+    spec: dict[str, str]
+
+
+async def test_custom_resource_controller_and_owner_version_mapping(cluster):
+    widget = Widget(
+        metadata={"name": "sample", "namespace": "ns", "uid": "widget", "resourceVersion": "1"},
+        spec={"message": "custom"},
+    )
+    cluster.config._rest_mapping[Widget.gvk()] = {
+        "resource": "widgets",
+        "namespaced": True,
+        "subresources": [],
+    }
+    original = cluster.handle
+
+    async def handle(request):
+        if request.url.path != "/apis/example.com/v1/namespaces/ns/widgets":
+            return await original(request)
+        if request.url.params.get("watch") == "true":
+            stream = EventStream(cluster.events["widgets"])
+            cluster.streams.append(stream)
+            return httpx.Response(200, stream=stream)
+        return httpx.Response(
+            200,
+            json={
+                "apiVersion": "example.com/v1",
+                "kind": "WidgetList",
+                "metadata": {"resourceVersion": "1"},
+                "items": [widget.model_dump(by_alias=True)],
+            },
+        )
+
+    cluster.config.async_client._transport = httpx.MockTransport(handle)
+    calls = asyncio.Queue()
+
+    async def reconcile(request: Request[Widget]):
+        assert isinstance(request.resource, Widget)
+        calls.put_nowait(request.resource.spec)
+
+    controller = Controller(Widget, reconcile, config=cluster.config).owns(Secret)
+    async with running(controller):
+        assert await wait(calls.get()) == {"message": "custom"}
+        child = Secret(
+            metadata={
+                "name": "child",
+                "namespace": "ns",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "example.com/v2",
+                        "kind": "Widget",
+                        "name": "sample",
+                        "uid": "widget",
+                        "controller": True,
+                    }
+                ],
+            }
+        )
+        cluster.emit("secrets", "ADDED", child)
+        assert await wait(calls.get()) == {"message": "custom"}

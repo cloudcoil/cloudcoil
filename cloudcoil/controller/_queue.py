@@ -89,7 +89,7 @@ class WorkQueue[K: Hashable]:
         self._retries[key] = attempt + 1
         # Clamp the exponent before computing it, even after prolonged failures.
         cap = math.ceil(math.log2(self._max_delay) - math.log2(self._base_delay))
-        delay = min(self._max_delay, self._base_delay * 2.0 ** min(attempt, cap, 1023))
+        delay = self._max_delay if attempt >= cap else math.ldexp(self._base_delay, attempt)
         delay = min(self._max_delay, delay * random.uniform(1 - self._jitter, 1 + self._jitter))
         self.add_after(key, delay)
         return delay
