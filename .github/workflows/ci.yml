@@ -39,6 +39,20 @@ jobs:
       - name: Run Checks
         run: make UV_RUN_FLAGS=--no-sync lint test
 
+      - name: Run packaged Widget operator end to end
+        timeout-minutes: 10
+        run: |
+          mkdir -p .build
+          cp -R /tmp/kubernetes-models .build/widgets-models
+          export PATH="$HOME/.cache/cloudcoil/kind/v0.33.0:$PATH"
+          bash examples/widgets/demo.sh
+
+      - name: Diagnose Widget demo failure
+        if: failure()
+        run: |
+          kubectl --context kind-cloudcoil-widgets -n widgets get pods,events
+          kubectl --context kind-cloudcoil-widgets -n widgets logs deployment/widgets --all-containers
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:

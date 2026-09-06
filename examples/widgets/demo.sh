@@ -31,5 +31,14 @@ kubectl -n widgets create secret tls widgets-tls --cert="$tls_dir/tls.crt" --key
 uv run --no-sync python examples/widget_operator.py install --image widgets:local --ca-file "$tls_dir/ca.crt"
 kubectl -n widgets apply -f examples/widgets/widget.yaml
 kubectl -n widgets wait widget/hello --for=jsonpath='{.status.phase}'=Ready --timeout=180s
+kubectl -n widgets create configmap widget-policy --from-literal=maxLength=10 \
+  --dry-run=client -o yaml | kubectl apply -f -
+if denial=$(kubectl -n widgets patch widget hello --type merge \
+  -p '{"spec":{"message":"This exceeds the namespace policy"}}' --dry-run=server 2>&1); then
+  printf 'Expected admission to reject the overlong message\n' >&2
+  exit 1
+fi
+printf '%s\n' "$denial" | rg 'Namespace policy limits messages to 10 characters'
+kubectl -n widgets delete configmap widget-policy
 kubectl -n widgets get widgets,configmaps,deployments,services
 printf '\nTry: kubectl --context kind-cloudcoil-widgets -n widgets port-forward svc/hello 8080:80\n'
