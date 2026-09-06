@@ -231,14 +231,18 @@ async def test_live_returned_crd_patches_spec_and_status_without_write_loop(test
         crd = None
         task = None
         writes = []
+        attempts = []
         observed = asyncio.Event()
         stop = asyncio.Event()
 
-        async def record(request):
+        async def record(response):
+            request = response.request
             if request.method == "PATCH" and f"/namespaces/{ns.name}/widgets/" in request.url.path:
-                writes.append(request.url.path)
+                attempts.append((request.url.path, response.status_code))
+                if response.is_success:
+                    writes.append(request.url.path)
 
-        test_config.async_client.event_hooks["request"].append(record)
+        test_config.async_client.event_hooks["response"].append(record)
         try:
             crd = await CustomResourceDefinition.model_validate(
                 {
@@ -305,19 +309,25 @@ async def test_live_returned_crd_patches_spec_and_status_without_write_loop(test
             result = await widget_type.async_get("example", ns.name)
             assert result["spec"] == {"replicas": 2}
             assert result["status"] == {"phase": "Ready"}
-            # Process another explicit pass over the persisted object: no new PATCH.
+            # The watch can briefly expose the intermediate main-write snapshot.
+            # A stale follow-up status attempt is safely rejected and may be retried.
+            assert all(200 <= code < 300 or code in (409, 422) for _, code in attempts)
+            # Process another explicit pass over the persisted object: no new PATCH,
+            # including rejected attempts, once the cache contains the final status.
+            attempt_count = len(attempts)
             observed.clear()
             controller.enqueue(ResourceKey("example", ns.name))
             await asyncio.wait_for(observed.wait(), 10)
             stop.set()
             await asyncio.wait_for(task, 20)
+            assert len(attempts) == attempt_count
             assert len(writes) == 2
             assert not writes[0].endswith("/status") and writes[1].endswith("/status")
         finally:
             if task is not None:
                 task.cancel()
                 await asyncio.gather(task, return_exceptions=True)
-            test_config.async_client.event_hooks["request"].remove(record)
+            test_config.async_client.event_hooks["response"].remove(record)
             if crd is not None:
                 await crd.async_remove()
             await ns.async_remove()
