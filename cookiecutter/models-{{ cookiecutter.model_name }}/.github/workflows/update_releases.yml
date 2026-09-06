@@ -22,7 +22,7 @@ jobs:
       - name: Install uv and set python
         uses: astral-sh/setup-uv@v4
         with:
-          python-version: '3.10'
+          python-version: '3.14'
           enable-cache: true
           cache-dependency-glob: "**/uv.lock"
 
@@ -50,7 +50,7 @@ jobs:
           # Clone repo and checkout/create branch
           git clone https://${{ secrets.CI_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git .
           git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
-          
+
           # Fetch and reset to remote branch if it exists
           if git ls-remote --exit-code origin "$BRANCH"; then
             git fetch origin "$BRANCH"
@@ -75,17 +75,17 @@ jobs:
         run: |
           BASE_VERSION="${{ matrix.model_version }}"
           EXISTING_TAGS=$(gh release list --repo ${{ github.repository }} --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]")
-          
+
           # Find highest x in v{BASE_VERSION}.x
           HIGHEST_X=$(echo "$EXISTING_TAGS" | sort -V | tail -n1 | cut -d. -f4)
-          
+
           # If no existing tags, start with 0, otherwise increment
           if [ -z "$HIGHEST_X" ]; then
             NEXT_X=0
           else
             NEXT_X=$((HIGHEST_X + 1))
           fi
-          
+
           echo "next_version=${BASE_VERSION}.${NEXT_X}" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
@@ -93,21 +93,21 @@ jobs:
       - name: Create draft release
         run: |
           RELEASE_TAG="${{ steps.next_version.outputs.next_version }}"
-          BASE_VERSION=$(echo "${{ matrix.model_version }}" | cut -d'.' -f1,2)          
+          BASE_VERSION=$(echo "${{ matrix.model_version }}" | cut -d'.' -f1,2)
           BRANCH="release-${BASE_VERSION}"
-          
+
           # Find the previous release tag with same minor version, excluding drafts
           PREV_TAG=$(gh release list --repo ${{ github.repository }} --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]" | sort -V | tail -n1)
           COMPARE_LINK=""
           if [ ! -z "$PREV_TAG" ]; then
             COMPARE_LINK="[Compare with previous release](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${RELEASE_TAG})"
           fi
-          
+
           RELEASE_NOTES="Release for version $RELEASE_TAG ${COMPARE_LINK}"
-          
+
           # Check for existing draft first
           EXISTING_DRAFT=$(gh release list --repo ${{ github.repository }} --json tagName,isDraft --jq ".[] | select(.tagName == \"${RELEASE_TAG}\" and .isDraft == true).tagName")
-          
+
           if [ ! -z "$EXISTING_DRAFT" ]; then
             gh release edit "$RELEASE_TAG" \
               --repo ${{ github.repository }} \

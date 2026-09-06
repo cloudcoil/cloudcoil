@@ -84,6 +84,21 @@ Using pip:
 pip install cloudcoil[kubernetes]
 ```
 
+Kubernetes 1.37 is covered by live CI using models generated from its upstream
+schema, alongside the published 1.29–1.32 model packages. Until the 1.37 model
+release is published, generate and install matching models from a checkout:
+
+```bash
+uv run --extra codegen --extra kubernetes python tools/generate_kubernetes.py \
+  --version 1.37.0 --output output/kubernetes-1.37
+uv pip install --no-deps output/kubernetes-1.37
+```
+
+Use `uv run --no-sync` with these locally installed models so uv does not replace
+them with the version in the lockfile. CI exercises the full controller, CRD, and
+admission suite against Kubernetes 1.37.0. Test fixtures default to kind 0.33.0 with
+Kubernetes 1.37.0, or k3d 5.9.0 with its separately released k3s 1.36.4.
+
 ## 🔌 Integrations
 
 Discover more Cloudcoil model integrations for popular Kubernetes operators and CRDs at [cloudcoil-models on GitHub](https://github.com/topics/cloudcoil-models).
@@ -871,7 +886,7 @@ from cloudcoil.models.kubernetes import core, apps
 @pytest.mark.configure_test_cluster
 def test_deployment(test_config):
     with test_config:
-        # Creates a fresh k3d cluster for testing
+        # Creates a fresh kind cluster for testing
         deployment = apps.v1.Deployment.get("app")
         assert deployment.spec.replicas == 3
 ```
@@ -881,8 +896,9 @@ def test_deployment(test_config):
 ```python
 @pytest.mark.configure_test_cluster(
     cluster_name="my-test-cluster",     # Custom cluster name
-    k3d_version="v5.7.5",              # Specific k3d version
-    k8s_version="v1.31.4",             # Specific K8s version
+    provider="k3d",                     # Use k3d rather than kind
+    k3d_version="v5.9.0",              # Specific k3d version
+    k8s_version="v1.36.4",             # Published k3s version
     k8s_image="custom/k3s:latest",     # Custom K3s image
     remove=True                         # Auto-remove cluster after tests
 )

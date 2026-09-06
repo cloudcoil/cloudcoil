@@ -19,7 +19,7 @@ def isolated_cluster_environment(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("provider", [clusters.KindCluster, clusters.K3DCluster])
-@pytest.mark.parametrize("requested_version", [None, "v1.29.0", "v1.32.1"])
+@pytest.mark.parametrize("requested_version", [None, "v1.29.0", "v1.37.0"])
 @pytest.mark.parametrize("image", [None, "example.test/custom-node@sha256:abc"])
 def test_create_command_selects_requested_image(monkeypatch, provider, requested_version, image):
     run = Mock()
@@ -31,7 +31,11 @@ def test_create_command_selects_requested_image(monkeypatch, provider, requested
     cluster = provider("version-test", k8s_version=requested_version, k8s_image=image)
     try:
         cluster.create_cluster()
-        version = requested_version or clusters.DEFAULT_K8S_VERSION
+        version = requested_version or (
+            clusters.DEFAULT_K8S_VERSION
+            if provider is clusters.KindCluster
+            else clusters.DEFAULT_K3S_VERSION
+        )
         default_image = (
             f"kindest/node:{version}"
             if provider is clusters.KindCluster

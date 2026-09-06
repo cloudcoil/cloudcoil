@@ -12,6 +12,7 @@ from cloudcoil import logs
 from cloudcoil._context import context
 from cloudcoil.client import Config
 from cloudcoil.errors import APIError, ResourceNotFound
+from cloudcoil.resources import Resource
 
 
 @pytest.fixture
@@ -473,7 +474,11 @@ async def test_deployment_discovery_selector_and_pagination(config, asynchronous
     target = {
         "object": Deployment.model_validate(data),
         "name": "deployment/workers",
-        "metadata": Deployment(metadata={"name": "workers", "namespace": "jobs"}),
+        "metadata": Resource(
+            apiVersion="apps/v1",
+            kind="Deployment",
+            metadata={"name": "workers", "namespace": "jobs"},
+        ),
     }[reference]
     requests = []
 
@@ -890,7 +895,7 @@ async def test_workload_kinds_and_short_names(
     kwargs = dict(config=config, namespace="jobs", label_selector="env=prod")
     for target in (
         workload,
-        model(metadata=workload.metadata),
+        Resource(apiVersion=api_version, kind=kind, metadata=workload.metadata),
         f"{alias}/workers",
         f"{plural}/workers",
         f"{kind.lower()}/workers",

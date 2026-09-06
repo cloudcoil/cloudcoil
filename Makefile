@@ -1,12 +1,14 @@
+UV_RUN_FLAGS ?= --frozen
+
 .PHONY: test
 test:
-	uv run --frozen pytest
+	uv run $(UV_RUN_FLAGS) pytest
 
 .PHONY: lint
 lint:
-	uv run --frozen ruff check cloudcoil tests
-	uv run --frozen ruff format --check cloudcoil tests
-	uv run --frozen mypy -p cloudcoil
+	uv run $(UV_RUN_FLAGS) ruff check cloudcoil tests
+	uv run $(UV_RUN_FLAGS) ruff format --check cloudcoil tests
+	uv run $(UV_RUN_FLAGS) mypy -p cloudcoil
 
 .PHONY: fix-lint
 fix-lint:

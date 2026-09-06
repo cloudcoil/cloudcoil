@@ -150,7 +150,7 @@ conflicts = [
 # This will be used as the name for the setuptools entrypoints
 namespace = "cloudcoil"
 # The input OpenAPI spec
-input = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.31.4/api/openapi-spec/swagger.json"
+input = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.37.0/api/openapi-spec/swagger.json"
 mode = "base"
 generate-init = false
 generate-py-typed = false
