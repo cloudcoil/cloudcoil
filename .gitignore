@@ -178,3 +178,6 @@ junit.xml
 /tmp
 .cursorrules
 design/
+
+# Locally generated example model packages
+.build/

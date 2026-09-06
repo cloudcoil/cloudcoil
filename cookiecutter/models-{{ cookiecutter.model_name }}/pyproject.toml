@@ -11,7 +11,7 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "cloudcoil>=0.4.0",
+    "cloudcoil>=0.5.0.dev0",
 {%- if cookiecutter.dependencies %}
 {%- for dependency in cookiecutter.dependencies.split(',') %}
     "{{ dependency | trim }}",

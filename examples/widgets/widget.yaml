@@ -1,0 +1,7 @@
+apiVersion: examples.cloudcoil.dev/v1alpha1
+kind: Widget
+metadata:
+  name: hello
+spec:
+  message: Hello from Cloudcoil!
+  replicas: 1

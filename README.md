@@ -55,6 +55,16 @@ ConfigMaps into owned children and repairs drift. Returned resources are patched
 UID/version guards, with automatic status-subresource routing. Use
 `Result(resource=resource, requeue_after=60)` to save and schedule another pass.
 
+Define your own resource once and use `CRD(Widget, plural="widgets").to_yaml()` to
+generate its Kubernetes definition. Typed `AdmissionWebhook` handlers use the same
+model for mutation and validation. See the [custom resource guide](https://cloudcoil.github.io/cloudcoil/custom-resources/)
+and the [complete Widget operator example](examples/widget_operator.py).
+
+Use `Operator("widgets", Controller(Widget, reconcile), ...)` and `operator.main()`
+for shared `manifests`, `install`, and `run` commands: generated CRDs/RBAC,
+webhook HTTPS and registration, deployment, leader election, and graceful shutdown.
+See the [operator guide](https://cloudcoil.github.io/cloudcoil/operators/).
+
 ## 🔧 Installation
 
 > [!NOTE]
@@ -65,12 +75,6 @@ Using [uv](https://github.com/astral-sh/uv) (recommended):
 ```bash
 # Install with Kubernetes support
 uv add cloudcoil[kubernetes]
-
-# Install with specific Kubernetes version compatibility
-uv add cloudcoil[kubernetes-1-29]
-uv add cloudcoil[kubernetes-1-30]
-uv add cloudcoil[kubernetes-1-31]
-uv add cloudcoil[kubernetes-1-32]
 ```
 
 Using pip:
@@ -78,6 +82,28 @@ Using pip:
 ```bash
 pip install cloudcoil[kubernetes]
 ```
+
+Cloudcoil deprecates Kubernetes minors when they reach [upstream end of life](https://kubernetes.io/releases/).
+As of September 6, 2026, **1.33 and older are deprecated**; CI and model generation
+cover **1.34–1.37**. Kubernetes 1.34 remains supported until October 27, 2026.
+The `kubernetes-1-29` through `kubernetes-1-32` extras remain available only for
+existing installations; they receive no new model releases or dedicated CI.
+See the [support policy and migration guide](VERSIONING.md#kubernetes-support-policy).
+
+The unversioned `kubernetes` extra currently installs the latest published models,
+which are still 1.32. Until supported model releases are published, generate and
+install matching models from a checkout:
+
+```bash
+uv run --extra codegen --extra kubernetes python tools/generate_kubernetes.py \
+  --version 1.37.0 --output output/kubernetes-1.37
+uv pip install --no-deps output/kubernetes-1.37
+```
+
+Use `uv run --no-sync` with these locally installed models so uv does not replace
+them with the version in the lockfile. CI exercises the full controller, CRD, and
+admission suite against Kubernetes 1.34–1.37 using matching generated models. Test fixtures default to kind 0.33.0 with
+Kubernetes 1.37.0, or k3d 5.9.0 with its separately released k3s 1.36.4.
 
 ## 🔌 Integrations
 
@@ -866,7 +892,7 @@ from cloudcoil.models.kubernetes import core, apps
 @pytest.mark.configure_test_cluster
 def test_deployment(test_config):
     with test_config:
-        # Creates a fresh k3d cluster for testing
+        # Creates a fresh kind cluster for testing
         deployment = apps.v1.Deployment.get("app")
         assert deployment.spec.replicas == 3
 ```
@@ -876,8 +902,9 @@ def test_deployment(test_config):
 ```python
 @pytest.mark.configure_test_cluster(
     cluster_name="my-test-cluster",     # Custom cluster name
-    k3d_version="v5.7.5",              # Specific k3d version
-    k8s_version="v1.31.4",             # Specific K8s version
+    provider="k3d",                     # Use k3d rather than kind
+    k3d_version="v5.9.0",              # Specific k3d version
+    k8s_version="v1.36.4",             # Published k3s version
     k8s_image="custom/k3s:latest",     # Custom K3s image
     remove=True                         # Auto-remove cluster after tests
 )

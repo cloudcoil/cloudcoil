@@ -20,6 +20,18 @@ Using pip:
 pip install cloudcoil.models.kubernetes
 ```
 
+## Kubernetes support
+
+Kubernetes 1.33 and older are deprecated and receive no new model releases or
+compatibility fixes. As of September 6, 2026, active generation and CI cover
+1.34–1.37; 1.34 remains supported until its upstream EOL on October 27, 2026.
+Previously published packages remain available for existing installations.
+See the [support policy and migration guide](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md#kubernetes-support-policy).
+
+Supported model releases are pending publication. The latest published package
+is currently 1.32.1.3; use the [checkout generation instructions](https://github.com/cloudcoil/cloudcoil#-installation)
+to install a model package for a supported version in the meantime.
+
 ## 💡 Examples
 
 ### Using Kubernetes Models

@@ -6,10 +6,12 @@ from importlib.metadata import entry_points
 from pathlib import Path
 from types import ModuleType
 from typing import (
+    TYPE_CHECKING,
     Annotated,
     Any,
     AsyncGenerator,
     Callable,
+    ClassVar,
     Generic,
     Iterator,
     Literal,
@@ -26,6 +28,9 @@ from cloudcoil._context import context
 from cloudcoil.apimachinery import ListMeta, ObjectMeta, Status
 from cloudcoil.errors import ResourceNotFound
 from cloudcoil.pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from cloudcoil.client import APIClient, AsyncAPIClient, Config
 
 DEFAULT_PAGE_LIMIT = 50
 WatchEvent = Literal["ADDED", "MODIFIED", "DELETED", "ERROR"]
@@ -72,7 +77,43 @@ class BaseResource(BaseModel):
 
 
 class Resource(BaseResource):
+    # Generated from API paths/CRDs, so manifest generation needs no discovery.
+    __cloudcoil_api__: ClassVar[dict[str, Any] | None] = None
     metadata: ObjectMeta | None = None
+
+    @classmethod
+    def client(
+        cls,
+        config: "Config | None" = None,
+        *,
+        namespace: str | None = None,
+        cached: bool | None = None,
+    ) -> "APIClient[Self]":
+        """Get this resource's typed client using an explicit or active Config.
+
+        The returned client shares Config's transport and lifetime. A namespace
+        override applies only to this client; it does not change Config.
+        """
+        config = config if config is not None else context.active_config
+        client = config.client_for(cls, sync=True, cached=cached)
+        if namespace is not None:
+            client.default_namespace = namespace
+        return client
+
+    @classmethod
+    async def async_client(
+        cls,
+        config: "Config | None" = None,
+        *,
+        namespace: str | None = None,
+        cached: bool | None = None,
+    ) -> "AsyncAPIClient[Self]":
+        """Get a typed client, discovering resources without blocking the loop."""
+        config = config if config is not None else context.active_config
+        client = await config.async_client_for(cls, cached=cached)
+        if namespace is not None:
+            client.default_namespace = namespace
+        return client
 
     @classmethod
     def from_file(cls, path: str | Path) -> Self:

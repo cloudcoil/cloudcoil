@@ -512,3 +512,19 @@ def test_leading_dot():
     obj = {}
     set_value_at_path(obj, ".foo.bar", 42)
     assert obj == {"foo": {"bar": 42}}
+
+
+def test_api_metadata_comes_from_exact_paths_not_english_pluralization():
+    from cloudcoil.codegen.generator import generate_extra_data
+
+    gvk = {"group": "example.com", "version": "v1", "kind": "Person"}
+    path = "/apis/example.com/v1/namespaces/{namespace}/people/{name}"
+    schema = {
+        "definitions": {"Person": {"x-kubernetes-group-version-kind": [gvk]}},
+        "paths": {path: {"get": {"x-kubernetes-group-version-kind": gvk}}, f"{path}/status": {}},
+    }
+    assert generate_extra_data(schema)["Person"]["api_metadata"] == {
+        "plural": "people",
+        "scope": "Namespaced",
+        "status": True,
+    }

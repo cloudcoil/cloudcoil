@@ -2,6 +2,7 @@ import asyncio
 import os
 import random
 import time
+from contextlib import aclosing
 from importlib.metadata import version
 from pathlib import Path
 
@@ -177,30 +178,50 @@ async def test_async_wait_operations(test_config):
 async def test_async_watch_operations(test_config):
     with test_config:
         ns = await k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).async_create()
-        events = []
+        watch_task = None
+        try:
+            cm = await k8s.core.v1.ConfigMap(
+                metadata=ObjectMeta(name="test-watch", namespace=ns.name), data={"key": "value"}
+            ).async_create()
+            events = []
 
-        async def watch_func():
-            with test_config:
-                async for event in k8s.core.v1.Namespace.async_watch(
-                    field_selector=f"metadata.name={ns.name}"
-                ):
-                    events.append(event)
+            async def watch_func():
+                # Starting at the creation version includes updates even if the HTTP
+                # watch connects after the writes complete.
+                async with aclosing(
+                    k8s.core.v1.ConfigMap.async_watch(
+                        namespace=ns.name,
+                        field_selector=f"metadata.name={cm.name}",
+                        resource_version=cm.metadata.resource_version,
+                    )
+                ) as stream:
+                    async for event in stream:
+                        events.append(event)
+                        if event[0] == "DELETED":
+                            return
 
-        asyncio.create_task(watch_func())
-        await asyncio.sleep(1)
+            watch_task = asyncio.create_task(watch_func())
+            cm.metadata.annotations = {"test": "updated"}
+            updated = await cm.async_update()
+            await updated.async_remove()
+            await asyncio.wait_for(watch_task, timeout=15)
 
-        ns.metadata.annotations = {"test": "test"}
-        await ns.async_update()
-        await asyncio.sleep(1)
-
-        assert (
-            await k8s.core.v1.Namespace.async_delete(ns.name, grace_period_seconds=0)
-        ).status.phase == "Terminating"
-
-        await asyncio.sleep(2)
-        assert any(
-            event[0] == "MODIFIED" and event[1].status.phase == "Terminating" for event in events
-        )
+            modified = [obj for event, obj in events if event == "MODIFIED"]
+            deleted = [obj for event, obj in events if event == "DELETED"]
+            assert any(
+                obj.metadata.uid == cm.metadata.uid
+                and obj.metadata.resource_version == updated.metadata.resource_version
+                and obj.metadata.annotations == {"test": "updated"}
+                for obj in modified
+            )
+            assert len(deleted) == 1
+            assert deleted[0].metadata.uid == cm.metadata.uid
+            assert deleted[0].metadata.annotations == {"test": "updated"}
+        finally:
+            if watch_task is not None:
+                watch_task.cancel()
+                await asyncio.gather(watch_task, return_exceptions=True)
+            await ns.async_remove()
 
 
 @pytest.mark.configure_test_cluster(
