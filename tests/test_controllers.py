@@ -521,3 +521,29 @@ async def test_sync_timeout_closes_watches_and_reports_failure(cluster):
         await wait(task)
     assert all(stream.closed for stream in cluster.streams)
     assert not controller.ready
+
+
+async def test_primary_fatal_watch_error_aborts_secondary_startup(cluster):
+    cluster.gates["secrets"] = asyncio.Event()
+    secondary_started = asyncio.Event()
+    original = cluster.handle
+
+    async def handle(request):
+        if request.url.path.endswith("/secrets"):
+            secondary_started.set()
+        return await original(request)
+
+    cluster.config.async_client._transport = httpx.MockTransport(handle)
+
+    async def reconcile(request):
+        pytest.fail("must not reconcile")
+
+    controller = Controller(ConfigMap, reconcile, config=cluster.config).owns(Secret)
+    task = asyncio.create_task(controller.run())
+    await wait(secondary_started.wait())
+    cluster.events["configmaps"].put_nowait(
+        {"type": "ERROR", "object": {"code": 403, "message": "access revoked"}}
+    )
+    with pytest.raises(APIError, match="access revoked"):
+        await wait(task)
+    assert all(stream.closed for stream in cluster.streams)

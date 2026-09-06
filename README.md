@@ -24,6 +24,32 @@ If you find Cloudcoil useful, please consider giving it a star on GitHub! Your s
 - 📦 **Zero Config** - Works with your existing kubeconfig
 - 🪶 **Minimal Dependencies** - Only requires httpx, pydantic, and pyyaml
 
+## Controllers
+
+Build typed async controllers with retries, dependency watches, readiness, and graceful
+shutdown. Reconcile the latest state while Cloudcoil handles watch recovery and work
+scheduling:
+
+```python
+from cloudcoil.controller import Controller, Request, Result
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
+
+async def reconcile(request: Request[ConfigMap]) -> Result | None:
+    if request.resource is None:
+        return None
+    print(request.name, request.resource.data)
+    return Result(requeue_after=60)
+
+controller = Controller(ConfigMap, reconcile, workers=4).owns(Secret)
+# In your async entry point: await controller.run()
+```
+
+See the [controller guide](https://cloudcoil.github.io/cloudcoil/controllers/) for
+optimistic mutations, finalizers, custom dependencies, lifecycle, and the incremental
+framework roadmap. A [runnable example](examples/configmap_controller.py) mirrors
+ConfigMaps into owned children and repairs drift. Leader election and shared informer
+management remain future milestones.
+
 ## 🔧 Installation
 
 > [!NOTE]

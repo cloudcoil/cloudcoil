@@ -16,6 +16,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Controllers: controllers.md
   - API Reference: api.md
 
 markdown_extensions:

@@ -6,17 +6,18 @@ handled by the runtime. Progress is tracked in [#63](https://github.com/cloudcoi
 
 ## Incremental roadmap
 
-1. **Workqueue:** deduplicated keys, one active worker per key, delayed requeues,
+1. **Implemented — Workqueue:** deduplicated keys, one active worker per key, delayed requeues,
    capped exponential retries with jitter, cancellation, and shutdown.
-2. **Informer correctness:** enqueue initial state and relist changes, recover from
+2. **Implemented — Informer correctness:** enqueue initial state and relist changes, recover from
    expired resource versions, and reliably register handlers before startup.
-3. **Controller runtime:** typed reconciliation requests, concurrent workers,
+3. **Implemented — Controller runtime:** typed reconciliation requests, concurrent workers,
    readiness, startup/shutdown, retries, child ownership watches, and custom maps.
-4. **Safe mutations:** patch calculation, conflict handling, status and finalizer
-   helpers, and declarative ownership.
-5. **Production operation:** shared informer management, leader election with
+4. **Partially implemented — Safe mutations:** guarded JSON Patch calculation,
+   live-read mutation, status and finalizer helpers. Server-side apply and reusable
+   ownership-setting helpers remain.
+5. **Next — Production operation:** shared informer management, leader election with
    Leases, metrics, health endpoints, and Kubernetes Event reporting.
-6. **Advanced framework:** admission webhooks, optional CEL validation, and
+6. **Later — Advanced framework:** admission webhooks, optional CEL validation, and
    multi-resource YAML application. These remain separate from the reconcile loop.
 
 ## Workqueue
@@ -165,3 +166,23 @@ ensure_finalizer. On deletion, run idempotent cleanup only if your finalizer is
 present, then remove it. Kubernetes can mark deletion concurrently with any request;
 finalizers coordinate cleanup, not exactly-once external operations. Never remove a
 finalizer merely to bypass a failing cleanup. See [Kubernetes finalizers](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/).
+
+
+## Runnable example and verification
+
+[configmap_controller.py](https://github.com/cloudcoil/cloudcoil/blob/main/examples/configmap_controller.py)
+mirrors ConfigMaps labelled `example.com/mirror=true` to owned `<name>-mirror`
+ConfigMaps. It reconciles pre-existing sources, propagates source edits, repairs
+child edits, and recreates deleted children. It refuses to adopt an unrelated object
+and skips unchanged writes. Its namespaced service account needs `get/list/watch`,
+`create`, and `patch` on ConfigMaps; scope the role to the example namespace.
+
+From a checkout with dependencies installed and a kubeconfig pointing to your test
+cluster, run `uv run python examples/configmap_controller.py --namespace default`.
+Create a labelled source ConfigMap to observe the mirror. SIGINT/SIGTERM drain the
+controller. This example assumes a Linux process, as used in Kubernetes containers.
+
+Tests cover the queue, snapshot/watch recovery, retry and shutdown behavior, child
+ownership, mapping changes, optimistic mutations, finalizers, and mypy/Pyright caller
+inference. The CI matrix also runs the example reconciler against real Kubernetes
+and checks UID/version preconditions and finalizer deletion behavior.

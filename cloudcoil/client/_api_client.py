@@ -405,6 +405,13 @@ class APIClient(_BaseAPIClient[T]):
                                 raise WatchExpired(
                                     "Watch history expired; relist required", status_code=410
                                 )
+                            code = event["object"].get("code")
+                            if (
+                                isinstance(code, int)
+                                and 400 <= code < 500
+                                and code not in {408, 410, 429}
+                            ):
+                                raise APIError(event["object"], status_code=code)
                             if "status" in event["object"]:
                                 status = event["object"]["status"]
                                 if status == "Failure":
@@ -835,6 +842,13 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                                 raise WatchExpired(
                                     "Watch history expired; relist required", status_code=410
                                 )
+                            code = event["object"].get("code")
+                            if (
+                                isinstance(code, int)
+                                and 400 <= code < 500
+                                and code not in {408, 410, 429}
+                            ):
+                                raise APIError(event["object"], status_code=code)
                             if "status" in event["object"]:
                                 status = event["object"]["status"]
                                 if status == "Failure":

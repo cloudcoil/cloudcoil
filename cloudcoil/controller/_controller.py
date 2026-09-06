@@ -202,11 +202,17 @@ class Controller[T: Resource]:
                 assert informer._watch._task is not None
                 waiter = asyncio.create_task(informer._sync_event.wait())
                 try:
+                    watches = [
+                        item._watch._task
+                        for item in self._informers
+                        if item._watch._task is not None
+                    ]
                     done, _ = await asyncio.wait(
-                        (waiter, informer._watch._task), return_when=asyncio.FIRST_COMPLETED
+                        (waiter, *watches), return_when=asyncio.FIRST_COMPLETED
                     )
-                    if informer._watch._task in done:
-                        raise informer._watch._error or RuntimeError("Informer stopped before sync")
+                    for item in self._informers:
+                        if item._watch._task in done:
+                            raise item._watch._error or RuntimeError("Informer stopped before sync")
                 finally:
                     waiter.cancel()
                     await asyncio.gather(waiter, return_exceptions=True)
