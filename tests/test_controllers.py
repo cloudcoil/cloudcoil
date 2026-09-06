@@ -425,11 +425,11 @@ async def test_manager_failure_cancels_siblings_and_closes_watches(cluster):
     first = Controller(ConfigMap, reconcile, config=cluster.config)
     second = Controller(Secret, fail, config=cluster.config)
 
-    async def broken_install(config):
+    async def broken_sync():
         await entered.wait()
         raise ValueError("second controller failed")
 
-    second._install = broken_install
+    second._sync = broken_sync
     with pytest.raises(ExceptionGroup, match="TaskGroup"):
         await wait(Manager(first, second).run())
     assert exited.is_set() and all(stream.closed for stream in cluster.streams)
@@ -613,3 +613,80 @@ async def test_custom_resource_controller_and_owner_version_mapping(cluster):
         )
         cluster.emit("secrets", "ADDED", child)
         assert await wait(calls.get()) == {"message": "custom"}
+
+
+async def test_manager_shares_identical_watches_and_fans_out_initial_state(cluster):
+    cluster.items["configmaps"] = [cm()]
+    calls = [asyncio.Queue(), asyncio.Queue()]
+
+    async def first(request):
+        calls[0].put_nowait(request)
+
+    async def second(request):
+        calls[1].put_nowait(request)
+
+    a = Controller(ConfigMap, first, namespace="ns").owns(Secret)
+    b = Controller(ConfigMap, second).owns(Secret)
+    manager = Manager(a, b, config=cluster.config)
+    async with running(manager):
+        assert manager.informer_count == 2
+        assert a._primary is b._primary
+        for queue in calls:
+            assert (await wait(queue.get())).name == "a"
+        cluster.emit("configmaps", "MODIFIED", cm(rv="2"))
+        for queue in calls:
+            assert (await wait(queue.get())).resource.resource_version == "2"
+        assert len(cluster.streams) == 2
+    assert all(stream.closed for stream in cluster.streams)
+
+
+async def test_manager_keeps_distinct_selectors_and_resync_settings_separate(cluster):
+    async def reconcile(request):
+        pass
+
+    manager = Manager(
+        Controller(ConfigMap, reconcile, label_selector="app=a"),
+        Controller(ConfigMap, reconcile, label_selector="app=b"),
+        Controller(ConfigMap, reconcile, label_selector="app=a", resync_period=60),
+        config=cluster.config,
+    )
+    async with running(manager):
+        assert manager.informer_count == 3
+        assert len(cluster.streams) == 3
+
+
+async def test_manager_never_shares_different_configs(cluster):
+    other = Cluster()
+    try:
+
+        async def reconcile(request):
+            pass
+
+        manager = Manager(
+            Controller(ConfigMap, reconcile, config=cluster.config),
+            Controller(ConfigMap, reconcile, config=other.config),
+        )
+        async with running(manager):
+            assert manager.informer_count == 2
+            assert len(cluster.streams) == len(other.streams) == 1
+    finally:
+        other.config.client.close()
+        await other.config.async_client.aclose()
+
+
+async def test_manager_initialization_failure_reaches_readiness_waiters(cluster):
+    async def reconcile(request):
+        pass
+
+    controller = Controller(ConfigMap, reconcile, config=cluster.config)
+
+    async def broken(config):
+        raise ValueError("discovery failed")
+
+    controller._install = broken
+    manager = Manager(controller)
+    task = asyncio.create_task(manager.run())
+    with pytest.raises(ValueError, match="discovery failed"):
+        await manager.wait_ready(2)
+    with pytest.raises(ValueError, match="discovery failed"):
+        await task

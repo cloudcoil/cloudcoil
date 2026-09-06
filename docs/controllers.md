@@ -69,7 +69,7 @@ asyncio.run(main())
 ```
 
 `Controller(ResourceType, reconcile, ...)` works with generated Kubernetes and CRD
-models. Each controller owns its own primary and secondary informers; it lists
+models. Standalone controllers own their informers; a Manager shares compatible watches. It lists
 before watching and waits for **all** initial snapshots before starting workers.
 There is no silent cache eviction in controller informers. Scope selection limits
 memory and list/watch permissions; secondary watches do not inherit the primary
@@ -118,9 +118,12 @@ startup failures. Fatal watch errors propagate rather than leaving a ready zombi
 `Manager(controller_a, controller_b)` runs controllers with a shared lifetime:
 `await manager.run(stop=stop_event)` and `await manager.wait_ready()` have matching
 semantics. A fatal failure cancels siblings and propagates as an `ExceptionGroup`.
-This is process lifecycle management; informer sharing and leader election are
-future milestones. Run one active process for each controller until leader election
-is implemented, or supply external coordination.
+Manager shares informers only for the same Config instance, model class, namespace
+scope, selectors, and timing settings. It registers all subscribers before starting
+any watch, ensuring every controller sees initial objects. Different scopes or
+Config instances stay separate. `manager.informer_count` exposes the actual watch
+count. Supply `Manager(..., config=config)` as a default; a controller-specific Config
+takes precedence. Leader election remains the next milestone.
 
 ## Optimistic changes and finalizers
 

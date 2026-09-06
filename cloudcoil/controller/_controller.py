@@ -13,6 +13,7 @@ from cloudcoil.caching._types import InformerOptions
 from cloudcoil.client import Config
 from cloudcoil.resources import Resource
 
+from ._informers import _InformerPool
 from ._queue import QueueClosed, WorkQueue
 from ._types import Request, ResourceKey, Result, TerminalError
 
@@ -80,6 +81,8 @@ class Controller[T: Resource]:
         self._informers: list[AsyncInformer[Any]] = []
         self._primary: AsyncInformer[T] | None = None
         self._primary_namespaced = True
+        self._pool: _InformerPool | None = None
+        self._prepared_config: Config | None = None
         self._used = False
         self._ready = asyncio.Event()
         self._finished = asyncio.Event()
@@ -157,7 +160,11 @@ class Controller[T: Resource]:
     async def _install(self, config: Config) -> None:
         primary_client = await config.async_client_for(self.resource, cached=False)
         self._primary_namespaced = primary_client.namespaced
-        self._primary = AsyncInformer(primary_client, self._options)
+        self._primary = (
+            self._pool.get(config, primary_client, self._options)
+            if self._pool is not None
+            else AsyncInformer(primary_client, self._options)
+        )
         self._primary.on_add(self._enqueue_primary)
         self._primary.on_update(self._update_primary)
         self._primary.on_delete(self._enqueue_primary)
@@ -169,7 +176,11 @@ class Controller[T: Resource]:
             # Cluster-scoped owners may have children in any namespace.
             if not self._primary_namespaced and client.namespaced:
                 options = options.model_copy(update={"namespace": None, "all_namespaces": True})
-            informer = AsyncInformer(client, options)
+            informer = (
+                self._pool.get(config, client, options)
+                if self._pool is not None
+                else AsyncInformer(client, options)
+            )
             mapper = watch.mapper or self._owner_keys
 
             async def changed(obj: Resource, mapper: Mapper[Any] = mapper) -> None:
@@ -268,10 +279,11 @@ class Controller[T: Resource]:
         workers: list[asyncio.Task[None]] = []
         graceful = False
         try:
-            config = self.config or context.active_config
+            config = self._prepared_config or self.config or context.active_config
             async with config:
                 try:
-                    await self._install(config)
+                    if self._prepared_config is None:
+                        await self._install(config)
                     sync = asyncio.create_task(self._sync())
                     stopped = asyncio.create_task(stop.wait())
                     mapping_failed = asyncio.create_task(self._mapping_failed.wait())
@@ -314,8 +326,9 @@ class Controller[T: Resource]:
                     await asyncio.gather(
                         *(task for task in tasks if task not in workers), return_exceptions=True
                     )
-                    for informer in reversed(self._informers):
-                        await informer._stop()
+                    if self._pool is None:
+                        for informer in reversed(self._informers):
+                            await informer._stop()
                     self._queue.shutdown(immediate=not graceful)
                     if graceful and workers:
                         try:
