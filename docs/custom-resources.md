@@ -91,6 +91,55 @@ consider stored objects and compatibility before narrowing its schema. Multiple
 served versions, conversion webhooks, and storage-version migration are later
 milestones.
 
+## Use a handwritten resource as a client
+
+Every `Resource` subclass inherits the same get, list, watch, create, update,
+patch, status, and delete methods as generated Kubernetes models. The return types
+remain your concrete resource type. No decorator or code-generation step is needed
+for these methods; the CRD must be installed and discoverable by the API server.
+
+Use the resource's typed client when you have an explicit `Config`, such as in an
+operator or admission handler:
+
+```python
+client = await Widget.async_client(config, namespace="team-a", cached=False)
+widget = await client.get("example")  # Widget
+widgets = await client.list()         # ResourceList[Widget]
+
+widget.spec.message = "Updated"
+widget = await client.update(widget)
+```
+
+`Widget.client(config)` is the synchronous equivalent. Omitting `config` uses the
+active configuration, like `Widget.get(...)` and `widget.async_update_status()`.
+The optional namespace override belongs to the returned client and does not alter
+the shared configuration. `cached=` follows `Config.client_for` semantics. The
+configuration owns the transports and their lifetime; creating a resource client
+does not create or close a separate connection pool. Status and scale operations
+still require the corresponding server-side subresources.
+
+Handwritten `cloudcoil.pydantic.BaseModel` and `Resource` subclasses also have
+runtime `.builder()`, `.new()`, and `.list_builder()` helpers. Nested model fields,
+optional models, and lists of models support callbacks and context managers,
+including generated `ObjectMeta` builders:
+
+```python
+widget = (
+    Widget.builder()
+    .metadata(lambda meta: meta.name("example"))
+    .spec(lambda spec: spec.message("Hello"))
+    .build()
+)
+```
+
+These dynamic field setters validate at `build()` time. Their field signatures
+are not available to static type checkers: use ordinary typed constructors for
+handwritten models when you need field completion and static argument checking.
+Generated models keep their existing fully typed builders. Builder chains are
+immutable outside `with Model.new()` contexts; a failed nested context does not
+commit a partial model. Ambiguous unions accept an explicit model value rather
+than guessing which model to construct.
+
 ## Schema behavior
 
 The generator translates Pydantic validation schemas into Kubernetes structural
