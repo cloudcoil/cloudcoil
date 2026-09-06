@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=Resource)
 
 
+def _uid(obj: Resource) -> str | None:
+    return obj.metadata.uid if obj.metadata else None
+
+
 class AsyncInformer(Generic[T]):
     """Async informer with minimal public API and better concurrency patterns.
 
@@ -47,7 +51,7 @@ class AsyncInformer(Generic[T]):
         self._options = options
 
         # Components
-        self._store = ConcurrentStore[T](max_items=10000)
+        self._store = ConcurrentStore[T](max_items=options.max_items)
         self._dispatcher = _AsyncEventDispatcher[T]()
         self._watch = _AsyncWatchManager(
             client=client,
@@ -126,12 +130,14 @@ class AsyncInformer(Generic[T]):
         def register(
             h: Union[EventHandler, AsyncEventHandler],
         ) -> Union[EventHandler, AsyncEventHandler]:
-            # Defer task creation to avoid RuntimeError when no loop is running
             try:
                 # Try to get the running loop
                 loop = asyncio.get_running_loop()
                 # If we have a loop, create the task
-                loop.create_task(self._dispatcher.register_add_handler(h))
+                if self._started:
+                    loop.create_task(self._dispatcher.register_add_handler(h))
+                else:
+                    self._pending_handlers.append(("add", h))
             except RuntimeError:
                 # No running loop - store for later registration
                 self._pending_handlers.append(("add", h))
@@ -177,7 +183,10 @@ class AsyncInformer(Generic[T]):
         ) -> Union[UpdateHandler, AsyncUpdateHandler]:
             try:
                 loop = asyncio.get_running_loop()
-                loop.create_task(self._dispatcher.register_update_handler(h))
+                if self._started:
+                    loop.create_task(self._dispatcher.register_update_handler(h))
+                else:
+                    self._pending_handlers.append(("update", h))
             except RuntimeError:
                 # No running loop - store for later registration
                 self._pending_handlers.append(("update", h))
@@ -221,7 +230,10 @@ class AsyncInformer(Generic[T]):
         ) -> Union[EventHandler, AsyncEventHandler]:
             try:
                 loop = asyncio.get_running_loop()
-                loop.create_task(self._dispatcher.register_delete_handler(h))
+                if self._started:
+                    loop.create_task(self._dispatcher.register_delete_handler(h))
+                else:
+                    self._pending_handlers.append(("delete", h))
             except RuntimeError:
                 # No running loop - store for later registration
                 self._pending_handlers.append(("delete", h))
@@ -267,6 +279,7 @@ class AsyncInformer(Generic[T]):
         if self._started:
             return
         self._started = True
+        self._sync_event.clear()
 
         # Register any pending handlers now that we have a loop
         for handler_type, handler in self._pending_handlers:
@@ -303,7 +316,20 @@ class AsyncInformer(Generic[T]):
 
     async def _handle_initial_items(self, items: List[T], resource_version: str) -> None:
         """Handle initial list of items."""
+        previous = {self._get_key(obj): obj for obj in self._store.list()}
+        current = {self._get_key(obj): obj for obj in items}
         await self._store.async_replace(items)
+        for key, old in previous.items():
+            new = current.get(key)
+            if new is None or _uid(old) != _uid(new):
+                await self._dispatcher.dispatch_delete(old)
+        for key, new in current.items():
+            prior = previous.get(key)
+            if prior is None or _uid(prior) != _uid(new):
+                await self._dispatcher.dispatch_add(new)
+            else:
+                # Relists also resync unchanged objects to repair external drift.
+                await self._dispatcher.dispatch_update(prior, new)
         self._sync_event.set()
         logger.info(
             "Initial sync complete for %s: %d items", self._client.kind.__name__, len(items)
@@ -343,9 +369,9 @@ class AsyncInformer(Generic[T]):
     def _get_key(self, obj: T) -> Optional[str]:
         """Get cache key for object."""
         if hasattr(obj, "metadata") and obj.metadata:
-            namespace = obj.metadata.namespace or ""
+            namespace = obj.metadata.namespace
             name = obj.metadata.name
-            return f"{namespace}/{name}" if name else None
+            return f"{namespace}/{name}" if namespace and name else name
         return None
 
     def _filter_by_labels(self, items: List[T], selector: str) -> List[T]:
@@ -413,7 +439,7 @@ class SyncInformer(Generic[T]):
         self._options = options
 
         # Components
-        self._store = ConcurrentStore[T](max_items=10000)
+        self._store = ConcurrentStore[T](max_items=options.max_items)
         self._dispatcher = _SyncEventDispatcher[T]()
         self._watch = _SyncWatchManager(
             client=client,
@@ -600,6 +626,7 @@ class SyncInformer(Generic[T]):
             if self._started:
                 return
             self._started = True
+            self._sync_event.clear()
             self._watch.start()
 
     def _stop(self) -> None:
@@ -622,7 +649,19 @@ class SyncInformer(Generic[T]):
 
     def _handle_initial_items(self, items: List[T], resource_version: str) -> None:
         """Handle initial list of items."""
-        self._store.replace(items)  # Use sync version
+        previous = {self._get_key(obj): obj for obj in self._store.list()}
+        current = {self._get_key(obj): obj for obj in items}
+        self._store.replace(items)
+        for key, old in previous.items():
+            new = current.get(key)
+            if new is None or _uid(old) != _uid(new):
+                self._dispatcher.dispatch_delete(old)
+        for key, new in current.items():
+            prior = previous.get(key)
+            if prior is None or _uid(prior) != _uid(new):
+                self._dispatcher.dispatch_add(new)
+            else:
+                self._dispatcher.dispatch_update(prior, new)
         self._sync_event.set()
         logger.info(
             "Initial sync complete for %s: %d items", self._client.kind.__name__, len(items)
@@ -661,9 +700,9 @@ class SyncInformer(Generic[T]):
     def _get_key(self, obj: T) -> Optional[str]:
         """Get cache key for object."""
         if hasattr(obj, "metadata") and obj.metadata:
-            namespace = obj.metadata.namespace or ""
+            namespace = obj.metadata.namespace
             name = obj.metadata.name
-            return f"{namespace}/{name}" if name else None
+            return f"{namespace}/{name}" if namespace and name else name
         return None
 
     def _filter_by_labels(self, items: List[T], selector: str) -> List[T]:

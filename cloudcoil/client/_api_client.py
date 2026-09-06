@@ -11,8 +11,8 @@ from typing import (
     Any,
     AsyncGenerator,
     Callable,
+    Generator,
     Generic,
-    Iterator,
     Literal,
     Type,
     TypeVar,
@@ -28,6 +28,7 @@ from cloudcoil.errors import (
     ResourceNotFound,
     WaitTimeout,
     WatchError,
+    WatchExpired,
 )
 from cloudcoil.resources import (
     DEFAULT_PAGE_LIMIT,
@@ -323,7 +324,8 @@ class APIClient(_BaseAPIClient[T]):
         resource_version: str | None = None,
         timeout_seconds: int | None = None,
         _stop_event: threading.Event | None = None,
-    ) -> Iterator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured]]:
+        _raise_on_expired: bool = False,
+    ) -> Generator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured], None, None]:
         retry_count = 0
         curr_resource_version = resource_version
         kind_name = self.kind.gvk().kind
@@ -346,6 +348,10 @@ class APIClient(_BaseAPIClient[T]):
                     timeout=(timeout_seconds or _WATCH_TIMEOUT_SECONDS) + 5,
                 ) as response:
                     if response.status_code == 410:  # Gone
+                        if _raise_on_expired:
+                            raise WatchExpired(
+                                "Watch history expired; relist required", status_code=410
+                            )
                         logger.debug(
                             "Watch resource version expired, restarting: kind=%s namespace=%s",
                             kind_name,
@@ -364,6 +370,13 @@ class APIClient(_BaseAPIClient[T]):
                         type_ = event["type"]
 
                         if type_ == "ERROR":
+                            if _raise_on_expired and (
+                                event["object"].get("code") == 410
+                                or event["object"].get("reason") in {"Expired", "Gone"}
+                            ):
+                                raise WatchExpired(
+                                    "Watch history expired; relist required", status_code=410
+                                )
                             if "status" in event["object"]:
                                 status = event["object"]["status"]
                                 if status == "Failure":
@@ -394,6 +407,8 @@ class APIClient(_BaseAPIClient[T]):
                                 curr_resource_version = obj.metadata.resource_version
                             yield type_, obj
 
+            except WatchExpired:
+                raise
             except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
                 if isinstance(e, httpx.HTTPStatusError):
                     if e.response.status_code == 410:  # Gone
@@ -721,6 +736,7 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         label_selector: str | None = None,
         resource_version: str | None = None,
         timeout_seconds: int | None = None,
+        _raise_on_expired: bool = False,
     ) -> AsyncGenerator[tuple[WatchEvent, T] | tuple[BookmarkEvent, Unstructured], None]:
         retry_count = 0
         curr_resource_version = resource_version
@@ -744,6 +760,10 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                     timeout=(timeout_seconds or _WATCH_TIMEOUT_SECONDS) + 5,
                 ) as response:
                     if response.status_code == 410:  # Gone
+                        if _raise_on_expired:
+                            raise WatchExpired(
+                                "Watch history expired; relist required", status_code=410
+                            )
                         logger.debug(
                             "Watch resource version expired, restarting: kind=%s namespace=%s",
                             kind_name,
@@ -762,6 +782,13 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                         type_ = event["type"]
 
                         if type_ == "ERROR":
+                            if _raise_on_expired and (
+                                event["object"].get("code") == 410
+                                or event["object"].get("reason") in {"Expired", "Gone"}
+                            ):
+                                raise WatchExpired(
+                                    "Watch history expired; relist required", status_code=410
+                                )
                             if "status" in event["object"]:
                                 status = event["object"]["status"]
                                 if status == "Failure":
@@ -792,6 +819,8 @@ class AsyncAPIClient(_BaseAPIClient[T]):
                                 curr_resource_version = obj.metadata.resource_version
                             yield type_, obj
 
+            except WatchExpired:
+                raise
             except (httpx.RequestError, httpx.HTTPStatusError, WatchError) as e:
                 if isinstance(e, httpx.HTTPStatusError):
                     if e.response.status_code == 410:  # Gone
