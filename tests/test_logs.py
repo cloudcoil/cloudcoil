@@ -661,7 +661,7 @@ async def test_deployment_argument_validation_before_io(config):
     for kwargs in ({"all_namespaces": True}, {"page_size": 0}, {"container": ""}):
         with pytest.raises(ValueError):
             list(logs.discover("deployment/workers", config=config, **kwargs))
-    with pytest.raises(ValueError, match="Deployment"):
+    with pytest.raises(ValueError, match="workload"):
         list(logs.discover("worker", config=config))
     with pytest.raises(ValueError, match="all_pods"):
         async with logs.async_stream("worker", config=config, all_pods=True):
@@ -837,3 +837,233 @@ async def test_all_pods_concurrency_limit_and_finite_batches(config):
         ) as records:
             assert len([record async for record in records]) == 3
     assert opened == 3 and peak == 2 and active == 0
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(
+    "api_version,kind,plural,alias",
+    [
+        ("apps/v1", "ReplicaSet", "replicasets", "rs"),
+        ("apps/v1", "StatefulSet", "statefulsets", "sts"),
+        ("apps/v1", "DaemonSet", "daemonsets", "ds"),
+        ("batch/v1", "Job", "jobs", "job"),
+        ("v1", "ReplicationController", "replicationcontrollers", "rc"),
+    ],
+)
+async def test_workload_kinds_and_short_names(
+    config, asynchronous, api_version, kind, plural, alias
+):
+    from cloudcoil.resources import get_model
+
+    data = deployment_data()
+    data.update(apiVersion=api_version, kind=kind)
+    if kind == "ReplicationController":
+        data["spec"]["selector"] = {"app": "worker"}
+    else:
+        data["spec"]["selector"] = {"matchLabels": {"app": "worker"}}
+    if kind == "StatefulSet":
+        data["spec"]["serviceName"] = "workers"
+    if kind == "Job":
+        data["spec"].pop("replicas", None)
+        data["spec"]["template"]["spec"]["restartPolicy"] = "Never"
+    model = get_model(kind, api_version=api_version)
+    workload = model.model_validate(data)
+    fetched = []
+    prefix = f"/apis/{api_version}" if "/" in api_version else f"/api/{api_version}"
+
+    def handler(request):
+        if request.url.path.endswith(f"/{plural}/workers"):
+            assert request.url.path == f"{prefix}/namespaces/jobs/{plural}/workers"
+            fetched.append(request.url.path)
+            return httpx.Response(200, json=data)
+        if request.url.path.endswith("/log"):
+            assert "labelSelector" not in request.url.params
+            assert "label_selector" not in request.url.params
+            return httpx.Response(200, text="hello\n")
+        assert request.url.path == "/api/v1/namespaces/jobs/pods"
+        assert request.url.params["labelSelector"] == "app=worker,env=prod"
+        return httpx.Response(200, json={"items": [pod_data("first"), pod_data("second")]})
+
+    transport(config, handler)
+    if asynchronous:
+        config.client._transport = httpx.MockTransport(lambda _: pytest.fail("blocking I/O"))
+    kwargs = dict(config=config, namespace="jobs", label_selector="env=prod")
+    for target in (
+        workload,
+        model(metadata=workload.metadata),
+        f"{alias}/workers",
+        f"{plural}/workers",
+        f"{kind.lower()}/workers",
+    ):
+        if asynchronous:
+            sources = [s async for s in logs.async_discover(target, **kwargs)]
+            assert await logs.async_read(target, **kwargs) == "hello\n"
+            async with logs.async_stream(target, all_pods=True, follow=False, **kwargs) as records:
+                assert {record.pod async for record in records} == {"first", "second"}
+        else:
+            sources = list(logs.discover(target, **kwargs))
+            assert logs.read(target, **kwargs) == "hello\n"
+            with logs.stream(target, follow=False, **kwargs) as records:
+                assert next(records).pod == "first"
+        assert len(sources) == 6
+    assert len(fetched) == 12  # Each operation fetches references, never full objects.
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(
+    "selector",
+    [
+        {
+            "matchLabels": {"operator.io/cluster": "database"},
+            "matchExpressions": [
+                {"key": "role", "operator": "In", "values": ["primary", "replica"]}
+            ],
+        },
+        {"operator.io/cluster": "database", "role": "primary"},
+    ],
+)
+async def test_custom_resource_selector_conventions(config, asynchronous, selector):
+    from cloudcoil.resources import Unstructured
+
+    custom = Unstructured.model_validate(
+        {
+            "apiVersion": "operator.io/v1",
+            "kind": "Database",
+            "metadata": {"name": "database", "namespace": "jobs"},
+            "spec": {"selector": selector},
+        }
+    )
+    expected = (
+        "operator.io/cluster=database,role in (primary,replica)"
+        if "matchLabels" in selector
+        else "operator.io/cluster=database,role=primary"
+    )
+
+    def handler(request):
+        if request.url.path.endswith("/log"):
+            return httpx.Response(200, text="custom log\n")
+        assert request.url.path == "/api/v1/namespaces/jobs/pods"  # No guessed CRD REST path.
+        assert request.url.params["labelSelector"] == expected
+        return httpx.Response(200, json={"items": [pod_data()]})
+
+    transport(config, handler)
+    if asynchronous:
+        assert len([s async for s in logs.async_discover(custom, config=config)]) == 3
+        assert await logs.async_read(custom, config=config) == "custom log\n"
+        async with logs.async_stream(custom, all_pods=True, follow=False, config=config) as records:
+            assert [record.message async for record in records] == ["custom log"]
+    else:
+        assert len(list(logs.discover(custom, config=config))) == 3
+        assert logs.read(custom, config=config) == "custom log\n"
+        with logs.stream(custom, follow=False, config=config) as records:
+            assert next(records).message == "custom log"
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("spec", [{}, {"selector": {"unrelated": {"database": "external"}}}])
+async def test_custom_resource_explicit_pod_selector(config, asynchronous, spec):
+    from cloudcoil.resources import Unstructured
+
+    custom = Unstructured.model_validate(
+        {
+            "apiVersion": "operator.io/v1",
+            "kind": "Database",
+            "metadata": {"name": "database", "namespace": "jobs"},
+            "spec": spec,
+        }
+    )
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if request.url.path.endswith("/log"):
+            assert "labelSelector" not in request.url.params
+            return httpx.Response(200, text="custom log\n")
+        assert request.url.path == "/api/v1/namespaces/jobs/pods"
+        assert request.url.params["labelSelector"] == "operator.io/cluster=database"
+        return httpx.Response(200, json={"items": [pod_data("first"), pod_data("second")]})
+
+    transport(config, handler)
+    kwargs = dict(config=config, label_selector="operator.io/cluster=database")
+    if asynchronous:
+        with pytest.raises(ValueError, match="selector"):
+            await logs.async_read(custom, config=config)
+        assert not requests
+        assert len([s async for s in logs.async_discover(custom, **kwargs)]) == 6
+        assert await logs.async_read(custom, **kwargs) == "custom log\n"
+        async with logs.async_stream(custom, all_pods=True, follow=False, **kwargs) as records:
+            assert {record.pod async for record in records} == {"first", "second"}
+    else:
+        with pytest.raises(ValueError, match="selector"):
+            logs.read(custom, config=config)
+        assert not requests
+        assert len(list(logs.discover(custom, **kwargs))) == 6
+        assert logs.read(custom, **kwargs) == "custom log\n"
+        with logs.stream(custom, follow=False, **kwargs) as records:
+            assert next(records).message == "custom log"
+
+
+async def test_custom_and_builtin_selector_guards(config):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    from cloudcoil.resources import Unstructured
+
+    transport(config, lambda _: pytest.fail("must reject before I/O"))
+    custom = Unstructured.model_validate(
+        {
+            "apiVersion": "operator.io/v1",
+            "kind": "Database",
+            "metadata": {"name": "db"},
+        }
+    )
+    for selector in ("", " ", ", ,"):
+        with pytest.raises(ValueError, match="empty"):
+            await logs.async_read(custom, config=config, label_selector=selector)
+    data = deployment_data()
+    data["spec"]["selector"] = {}
+    with pytest.raises(ValueError, match="empty"):
+        logs.read(Deployment.model_validate(data), config=config, label_selector="app=worker")
+    for pod in ("worker", "pod/worker"):
+        with pytest.raises(ValueError, match="workload"):
+            logs.read(pod, config=config, label_selector="app=worker")
+        with pytest.raises(ValueError, match="workload"):
+            await logs.async_read(pod, config=config, label_selector="app=worker")
+    for raw in (
+        {"matchLabels": ["bad"]},
+        {"matchExpressions": ["bad"]},
+        {"matchExpressions": [{"operator": "Exists"}]},
+        {"matchExpressions": [{"key": "app", "operator": "In", "values": "bad"}]},
+    ):
+        custom["spec"] = {"selector": raw}
+        with pytest.raises(ValueError, match="selector"):
+            logs.read(custom, config=config)
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_job_without_selector_fetches_server_generated_selector(config, asynchronous):
+    from cloudcoil.models.kubernetes.batch.v1 import Job
+
+    data = deployment_data()
+    data.update(apiVersion="batch/v1", kind="Job")
+    del data["spec"]["selector"]
+    job = Job.model_validate(data)
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if request.url.path == "/apis/batch/v1/namespaces/jobs/jobs/workers":
+            data["spec"]["selector"] = {
+                "matchLabels": {"batch.kubernetes.io/controller-uid": "job-uid"}
+            }
+            return httpx.Response(200, json=data)
+        if request.url.path.endswith("/log"):
+            return httpx.Response(200, text="done\n")
+        assert request.url.params["labelSelector"] == "batch.kubernetes.io/controller-uid=job-uid"
+        return httpx.Response(200, json={"items": [pod_data()]})
+
+    transport(config, handler)
+    result = (
+        await logs.async_read(job, config=config) if asynchronous else logs.read(job, config=config)
+    )
+    assert result == "done\n"
+    assert len(requests) == 3

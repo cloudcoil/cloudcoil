@@ -84,7 +84,7 @@ uv add cloudcoil[all-models]
 
 ### Finding and filtering logs
 
-Read or follow a Pod or Deployment with the same interface:
+Read or follow a Pod or workload with the same interface:
 
 ```python
 from cloudcoil import logs
@@ -95,12 +95,24 @@ with logs.stream("deployment/worker", namespace="jobs") as records:
         print(record.pod, record.container, record.message)
 ```
 
-Deployment objects work too, including metadata-only references. A Deployment selects
+These built-in workload objects work too, including metadata-only references:
+
+| Resource | String target (singular/plural also accepted) |
+| --- | --- |
+| Deployment | `deploy/worker` |
+| ReplicaSet | `rs/worker` |
+| StatefulSet | `sts/database` |
+| DaemonSet | `ds/agent` |
+| Job | `job/migration` |
+| ReplicationController | `rc/worker` |
+
+A workload selects
 one Pod, preferring non-terminating, running, ready Pods, then breaking ties by name.
 Container selection uses that Pod's default-container annotation or sole regular
 container; otherwise specify `container=`. Selection considers every list page.
 
-To combine discovery and streaming across **all matching Pods**, use the async helper:
+To combine discovery and streaming across **all matching Pods** of any supported workload,
+use the async helper:
 
 ```python
 from cloudcoil import logs
@@ -125,12 +137,41 @@ streams; exiting the block, a failing filter, and cancellation also close all re
 For more control, `logs.discover("deployment/worker", namespace="jobs")` (or a Deployment
 object) returns containers across its matching Pods for use with `read()` / `stream()`.
 Discovery uses the full `spec.selector`, including `matchExpressions`, and ANDs any
-additional `label_selector=`; it does not guess from Deployment metadata or template
-labels. Empty selectors are rejected. Deployment discovery requires Pod-list permission,
-and a name or metadata-only reference also requires Deployment-get permission. Log
-reads additionally require `pods/log`. An empty Deployment returns no discovered sources;
+additional `label_selector=` for built-in workloads; it does not guess from workload metadata
+or template labels. ReplicationControllers use their flat label maps. Job references fetch
+the server-generated selector when it is missing. Empty selectors are rejected. Workload
+discovery requires Pod-list permission, and a name or metadata-only reference also requires
+permission to get that workload. Log reads additionally require `pods/log`.
+An empty workload returns no discovered sources;
 read/stream raise `ResourceNotFound` if no Pods match. Selection follows Kubernetes label
 selector semantics, not an owner-reference traversal.
+
+**Custom resources:** pass a generated `Resource` instance or `Unstructured` object.
+If its `spec.selector` describes its Pods, both the standard `matchLabels`/`matchExpressions`
+shape and a flat label map work automatically. This is a convention, not a universal CRD
+guarantee: some operators use selectors for other resources. Supply `label_selector=` to
+explicitly define the Pod association when the convention does not apply. For custom
+resources this replaces the convention; for built-in workloads it narrows their selector.
+It works on `discover`, `read`, `stream`, and their async equivalents:
+
+```python
+from cloudcoil import logs
+from cloudcoil.resources import Resource
+
+async def follow_custom_resource(resource: Resource, pod_labels: str):
+    async with logs.async_stream(
+        resource, label_selector=pod_labels, all_pods=True, tail_lines=100
+    ) as records:
+        async for record in records:
+            print(record.pod, record.container, record.message)
+```
+
+Use the operator's actual Pod labels. Custom kinds do not have string shortcuts or an
+automatic resource GET; the supplied object provides its selector and namespace. Use
+`namespace=` to select the Pod namespace for cluster-scoped or cross-namespace operators.
+CRDs without a usable selector raise a helpful error instead of scanning the namespace.
+CronJobs do not directly select Pods: use a created Job, or pass a CronJob object with an
+explicit Pod selector. Traversing CronJob/Job ownership is not automatic.
 
 Discover containers by Kubernetes selectors, then filter their log records:
 

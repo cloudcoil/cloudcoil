@@ -11,7 +11,8 @@ def test_log_api_typing(tmp_path, checker):
     script = tmp_path / "log_usage.py"
     script.write_text("""from typing import assert_type
 from cloudcoil import logs
-from cloudcoil.models.kubernetes.apps.v1 import Deployment
+from cloudcoil.models.kubernetes.apps.v1 import Deployment, StatefulSet
+from cloudcoil.resources import Resource
 
 options = logs.LogOptions(tail_lines=10, since_seconds=30)
 assert_type(options.tail_lines, int | None)
@@ -30,6 +31,10 @@ def sync_usage() -> None:
                 assert_type(record.timestamp, str | None)
 
 async def async_usage() -> None:
+    stateful = StatefulSet.model_validate({"metadata": {"name": "database"}})
+    async with logs.async_stream(stateful, all_pods=True, label_selector="role=primary") as records:
+        async for record in records:
+            assert_type(record, logs.LogRecord)
     async with logs.async_stream("deployment/worker", all_pods=True, max_streams=5, tail_lines=10) as records:
         async for record in records:
             assert_type(record, logs.LogRecord)
@@ -41,6 +46,12 @@ async def async_usage() -> None:
         async with logs.async_stream(source, follow=False, match=lambda r: r.container == "app") as records:
             async for record in records:
                 assert_type(record, logs.LogRecord)
+
+async def custom_usage(resource: Resource) -> None:
+    assert_type(logs.read(resource, label_selector="operator.io/cluster=database"), str)
+    async with logs.async_stream(resource, all_pods=True, label_selector="operator.io/cluster=database") as records:
+        async for record in records:
+            assert_type(record, logs.LogRecord)
 """)
     args = (
         ["--cache-dir", str(tmp_path / "mypy-cache")]

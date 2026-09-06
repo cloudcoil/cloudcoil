@@ -285,119 +285,195 @@ def _timeout(client: httpx.Client | httpx.AsyncClient) -> httpx.Timeout:
     return timeout
 
 
+# Canonical API identity, REST plural, and familiar kubectl short name. No generated
+# model dependency is needed for either built-ins or custom Resource instances.
+_WORKLOADS = {
+    ("apps/v1", "Deployment"): ("deployments", "deploy"),
+    ("apps/v1", "ReplicaSet"): ("replicasets", "rs"),
+    ("apps/v1", "StatefulSet"): ("statefulsets", "sts"),
+    ("apps/v1", "DaemonSet"): ("daemonsets", "ds"),
+    ("batch/v1", "Job"): ("jobs", "job"),
+    ("v1", "ReplicationController"): ("replicationcontrollers", "rc"),
+}
+_WORKLOAD_NAMES = {
+    alias: (api_version, kind, plural)
+    for (api_version, kind), (plural, short) in _WORKLOADS.items()
+    for alias in (kind.lower(), plural, short)
+}
+
+
 @dataclass(frozen=True)
-class _Deployment:
+class _Workload:
     name: str
     namespace: str
     config: Config
+    kind: str
+    api_version: str
+    plural: str | None
     data: dict[str, Any] | None
 
     @property
     def url(self) -> str:
-        return f"/apis/apps/v1/namespaces/{self.namespace}/deployments/{self.name}"
+        prefix = (
+            f"/apis/{self.api_version}" if "/" in self.api_version else f"/api/{self.api_version}"
+        )
+        return f"{prefix}/namespaces/{self.namespace}/{self.plural}/{self.name}"
 
 
-def _deployment(
+def _workload(
     target: str | Resource | LogSource,
     namespace: str | None,
     config: Config | None,
-) -> _Deployment | None:
+) -> _Workload | None:
     data = None
     if isinstance(target, Resource):
         if target.kind == "Pod" and target.api_version == "v1":
             return None
-        if target.kind != "Deployment" or target.api_version != "apps/v1":
-            raise ValueError("Logs require a v1 Pod or apps/v1 Deployment resource")
-        name = _name(target.name, "deployment")
+        kind, api_version = target.kind, target.api_version
+        if (
+            not isinstance(kind, str)
+            or not kind
+            or not isinstance(api_version, str)
+            or not api_version
+        ):
+            raise ValueError("A workload resource needs kind and apiVersion")
+        name = _name(target.name, "workload")
         namespace = namespace if namespace is not None else target.namespace
         data = target.model_dump(by_alias=True, exclude_none=True)
-        if "spec" not in data:
-            data = None  # A metadata-only Deployment is a reference to fetch.
-    elif isinstance(target, str) and target.startswith(("deployment/", "deployments/", "deploy/")):
-        name = _name(target.split("/", 1)[1], "deployment")
+        entry = _WORKLOADS.get((api_version, kind))
+        plural = entry[0] if entry else None
+        if plural is not None and (
+            "spec" not in data or (kind == "Job" and not (data.get("spec") or {}).get("selector"))
+        ):
+            data = None  # A metadata-only built-in workload is a reference to fetch.
+    elif isinstance(target, str) and target.partition("/")[0] in _WORKLOAD_NAMES:
+        alias, separator, name = target.partition("/")
+        if not separator:
+            return None  # A bare name still refers to a Pod.
+        api_version, kind, plural = _WORKLOAD_NAMES[alias]
+        name = _name(name, "workload")
     else:
         return None
     config = config if config is not None else context.active_config
-    return _Deployment(name, _namespace(config, namespace), config, data)
+    return _Workload(name, _namespace(config, namespace), config, kind, api_version, plural, data)
 
 
-def _selector(data: dict[str, Any]) -> str:
+def _selector(selector: dict[str, Any]) -> str:
     """Serialize the full LabelSelector, never broadening a malformed selector."""
-    selector = (data.get("spec") or {}).get("selector") or {}
     parts = []
 
-    def label(value: str, *, key: bool = False) -> str:
+    def label(value: object, *, key: bool = False) -> str:
+        if not isinstance(value, str):
+            raise ValueError("Pod selector keys and values must be strings")
         name = value
         if key and "/" in value:
             prefix, name = value.split("/", 1)
             if len(prefix) > 253 or not re.fullmatch(_DNS_SUBDOMAIN, prefix):
-                raise ValueError(f"Invalid Deployment selector key: {value!r}")
+                raise ValueError(f"Invalid Pod selector key: {value!r}")
         if (
             len(name) > 63
             or (key and not name)
             or (name and not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9_.-]*[a-zA-Z0-9])?", name))
         ):
-            raise ValueError(f"Invalid Deployment selector label: {value!r}")
+            raise ValueError(f"Invalid Pod selector label: {value!r}")
         return value
 
-    for key, value in sorted((selector.get("matchLabels") or {}).items()):
+    labels = selector.get("matchLabels", {})
+    expressions = selector.get("matchExpressions", [])
+    labels = {} if labels is None else labels
+    expressions = [] if expressions is None else expressions
+    if not isinstance(labels, dict) or not isinstance(expressions, list):
+        raise ValueError("Invalid Pod selector: expected matchLabels map and matchExpressions list")
+    for key, value in labels.items():
         parts.append(f"{label(key, key=True)}={label(value)}")
-    for expression in selector.get("matchExpressions") or []:
-        key = label(expression["key"], key=True)
-        operator, values = expression["operator"], expression.get("values") or []
+    parts.sort()
+    for expression in expressions:
+        if not isinstance(expression, dict):
+            raise ValueError("Invalid Pod selector expression: expected a mapping")
+        key = label(expression.get("key"), key=True)
+        operator, values = expression.get("operator"), expression.get("values", [])
+        values = [] if values is None else values
+        if not isinstance(values, list):
+            raise ValueError("Pod selector expression values must be a list")
         if operator in ("In", "NotIn") and values:
             op = "in" if operator == "In" else "notin"
             parts.append(f"{key} {op} ({','.join(sorted(label(value) for value in values))})")
         elif operator in ("Exists", "DoesNotExist") and not values:
             parts.append(key if operator == "Exists" else f"!{key}")
         else:
-            raise ValueError(f"Invalid Deployment selector expression: {expression}")
+            raise ValueError(f"Invalid Pod selector expression: {expression}")
     if not parts:
-        raise ValueError("Deployment spec.selector must not be empty")
+        raise ValueError("Pod selector must not be empty")
     return ",".join(parts)
 
 
-def _deployment_params(
-    deployment: _Deployment,
+def _workload_params(
+    workload: _Workload,
     data: dict[str, Any],
     label_selector: str | None,
     field_selector: str | None,
     page_size: int,
 ) -> tuple[Config, str, dict[str, str | int]]:
-    selector = _selector(data)
+    spec = data.get("spec") or {}
+    raw = spec.get("selector") if isinstance(spec, dict) else None
+    builtin = workload.plural is not None
+    if not builtin and label_selector is not None:
+        if not label_selector.strip(" \t\r\n,"):
+            raise ValueError("label_selector must not be empty for a custom resource")
+        selector = ""
+    elif not builtin and not raw:
+        raise ValueError(
+            f"{workload.kind} has no non-empty spec.selector; provide label_selector= "
+            "with the labels of its Pods"
+        )
+    else:
+        if not isinstance(raw, dict):
+            raise ValueError("spec.selector must be a Pod label selector mapping")
+        # ReplicationController and some operators use a flat label map. Other
+        # built-ins use metav1.LabelSelector, including matchExpressions.
+        flat = workload.kind == "ReplicationController" and workload.api_version == "v1"
+        if not builtin and raw and all(isinstance(value, str) for value in raw.values()):
+            flat = True
+        if flat:
+            raw = {"matchLabels": raw}
+        elif raw.keys() - {"matchLabels", "matchExpressions"}:
+            raise ValueError(
+                "Unsupported spec.selector shape; use Pod discovery with label_selector="
+            )
+        selector = _selector(raw)
     if label_selector:
-        selector = f"{selector},{label_selector}"
+        selector = f"{selector},{label_selector}" if selector else label_selector
     return _discovery_request(
-        deployment.config, deployment.namespace, False, selector, field_selector, page_size
+        workload.config, workload.namespace, False, selector, field_selector, page_size
     )
 
 
-def _deployment_query(
-    deployment: _Deployment,
+def _workload_query(
+    workload: _Workload,
     label_selector: str | None = None,
     field_selector: str | None = None,
     page_size: int = 500,
 ) -> tuple[Config, str, dict[str, str | int]]:
-    data = deployment.data
+    data = workload.data
     if data is None:
-        response = deployment.config.client.get(deployment.url)
+        response = workload.config.client.get(workload.url)
         raise_for_status(response)
         data = response.json()
-    return _deployment_params(deployment, data, label_selector, field_selector, page_size)
+    return _workload_params(workload, data, label_selector, field_selector, page_size)
 
 
-async def _async_deployment_query(
-    deployment: _Deployment,
+async def _async_workload_query(
+    workload: _Workload,
     label_selector: str | None = None,
     field_selector: str | None = None,
     page_size: int = 500,
 ) -> tuple[Config, str, dict[str, str | int]]:
-    data = deployment.data
+    data = workload.data
     if data is None:
-        response = await deployment.config.async_client.get(deployment.url)
+        response = await workload.config.async_client.get(workload.url)
         raise_for_status(response)
         data = response.json()
-    return _deployment_params(deployment, data, label_selector, field_selector, page_size)
+    return _workload_params(workload, data, label_selector, field_selector, page_size)
 
 
 def _pod_priority(pod: dict[str, Any]) -> tuple[bool, bool, bool, str]:
@@ -414,8 +490,8 @@ def _pod_priority(pod: dict[str, Any]) -> tuple[bool, bool, bool, str]:
     )
 
 
-def _deployment_requests(
-    deployment: _Deployment,
+def _workload_requests(
+    workload: _Workload,
     pods: list[dict[str, Any]],
     settings: LogOptions,
     *,
@@ -424,7 +500,7 @@ def _deployment_requests(
     if settings.container is not None:
         pods = [pod for pod in pods if settings.container in _container_names(pod)]
     if not pods:
-        detail = f"No matching Pods for Deployment {deployment.namespace}/{deployment.name}"
+        detail = f"No matching Pods for {workload.kind} {workload.namespace}/{workload.name}"
         if settings.container is not None:
             detail += f" with container {settings.container!r}"
         raise ResourceNotFound(detail)
@@ -436,8 +512,8 @@ def _deployment_requests(
         container = _container(pod, settings.container)
         if container is None:
             raise ValueError(f"Pod {pod['metadata']['name']} has no regular containers")
-        source = next(_sources({"items": [pod]}, deployment.config, container))
-        requests.append(_request(source, None, deployment.config, settings, {}, follow=False))
+        source = next(_sources({"items": [pod]}, workload.config, container))
+        requests.append(_request(source, None, workload.config, settings, {}, follow=False))
     return requests
 
 
@@ -449,13 +525,16 @@ def _resolve_request(
     filters: LogParameters,
     *,
     follow: bool,
+    label_selector: str | None = None,
 ) -> _Request:
     settings = _options(options, filters, follow)
-    deployment = _deployment(pod, namespace, config)
-    if deployment is None:
+    workload = _workload(pod, namespace, config)
+    if workload is None:
+        if label_selector is not None:
+            raise ValueError("label_selector requires a workload target")
         return _request(pod, namespace, config, settings, {}, follow=follow)
-    pods = list(_list_pods(*_deployment_query(deployment)))
-    return _deployment_requests(deployment, pods, settings)[0]
+    pods = list(_list_pods(*_workload_query(workload, label_selector)))
+    return _workload_requests(workload, pods, settings)[0]
 
 
 async def _async_resolve_requests(
@@ -466,17 +545,22 @@ async def _async_resolve_requests(
     filters: LogParameters,
     *,
     follow: bool,
+    label_selector: str | None = None,
     all_pods: bool = False,
 ) -> list[_Request]:
     settings = _options(options, filters, follow)
-    deployment = _deployment(pod, namespace, config)
-    if deployment is None:
+    workload = _workload(pod, namespace, config)
+    if workload is None:
+        if label_selector is not None:
+            raise ValueError("label_selector requires a workload target")
         if all_pods:
-            raise ValueError("all_pods requires a Deployment target")
+            raise ValueError(
+                "all_pods requires a workload resource or a supported kind/name target"
+            )
         return [_request(pod, namespace, config, settings, {}, follow=follow)]
-    query = await _async_deployment_query(deployment)
+    query = await _async_workload_query(workload, label_selector)
     pods = [pod async for pod in _async_list_pods(*query)]
-    return _deployment_requests(deployment, pods, settings, all_pods=all_pods)
+    return _workload_requests(workload, pods, settings, all_pods=all_pods)
 
 
 def read(
@@ -484,11 +568,19 @@ def read(
     *,
     namespace: str | None = None,
     config: Config | None = None,
+    label_selector: str | None = None,
     options: LogOptions | None = None,
     **filters: Unpack[LogParameters],
 ) -> str:
-    """Read text from a Pod or one selected Deployment Pod, preserving line endings."""
-    request = _resolve_request(pod, namespace, config, options, filters, follow=False)
+    """Read text from a Pod or one selected workload Pod, preserving line endings.
+
+    Built-in workload targets accept kind/name or a Resource instance. Custom
+    resources use spec.selector by convention; label_selector explicitly supplies
+    their Pod association. For built-ins, label_selector narrows their selector.
+    """
+    request = _resolve_request(
+        pod, namespace, config, options, filters, follow=False, label_selector=label_selector
+    )
     response = request.config.client.get(
         request.url, params=request.params(False), headers=_LOG_HEADERS
     )
@@ -501,12 +593,15 @@ async def async_read(
     *,
     namespace: str | None = None,
     config: Config | None = None,
+    label_selector: str | None = None,
     options: LogOptions | None = None,
     **filters: Unpack[LogParameters],
 ) -> str:
     """Read a finite log snapshot without synchronous discovery or I/O."""
     request = (
-        await _async_resolve_requests(pod, namespace, config, options, filters, follow=False)
+        await _async_resolve_requests(
+            pod, namespace, config, options, filters, follow=False, label_selector=label_selector
+        )
     )[0]
     response = await request.config.async_client.get(
         request.url, params=request.params(False), headers=_LOG_HEADERS
@@ -521,13 +616,16 @@ def stream(
     *,
     namespace: str | None = None,
     config: Config | None = None,
+    label_selector: str | None = None,
     options: LogOptions | None = None,
     follow: bool = True,
     match: Callable[[LogRecord], bool] | None = None,
     **filters: Unpack[LogParameters],
 ) -> Iterator[Iterator[LogRecord]]:
     """Follow records inside a with block; exiting closes the response immediately."""
-    request = _resolve_request(pod, namespace, config, options, filters, follow=follow)
+    request = _resolve_request(
+        pod, namespace, config, options, filters, follow=follow, label_selector=label_selector
+    )
     client = request.config.client
     with client.stream(
         "GET",
@@ -549,6 +647,7 @@ async def async_stream(
     *,
     namespace: str | None = None,
     config: Config | None = None,
+    label_selector: str | None = None,
     options: LogOptions | None = None,
     follow: bool = True,
     match: Callable[[LogRecord], bool] | None = None,
@@ -556,9 +655,9 @@ async def async_stream(
     max_streams: int = 10,
     **filters: Unpack[LogParameters],
 ) -> AsyncIterator[AsyncIterator[LogRecord]]:
-    """Stream a Pod, or discover and stream a Deployment inside an async with block.
+    """Stream a Pod, or discover and stream a workload inside an async with block.
 
-    By default, select one Deployment Pod, preferring running, ready Pods that are
+    By default, select one workload Pod, preferring running, ready Pods that are
     not terminating. all_pods=True merges one container per matching Pod in arrival
     order. Follow fails before opening logs if the selection exceeds max_streams;
     finite snapshots use at most max_streams concurrent requests. Exiting cancels
@@ -567,7 +666,14 @@ async def async_stream(
     if max_streams < 1:
         raise ValueError("max_streams must be positive")
     requests = await _async_resolve_requests(
-        pod, namespace, config, options, filters, follow=follow, all_pods=all_pods
+        pod,
+        namespace,
+        config,
+        options,
+        filters,
+        follow=follow,
+        all_pods=all_pods,
+        label_selector=label_selector,
     )
     if follow and len(requests) > max_streams:
         raise ValueError(
@@ -710,7 +816,7 @@ def _sources(data: dict[str, Any], config: Config, container: str | None) -> Ite
 
 
 def discover(
-    deployment: str | Resource | None = None,
+    workload: str | Resource | None = None,
     *,
     namespace: str | None = None,
     all_namespaces: bool = False,
@@ -722,13 +828,16 @@ def discover(
 ) -> Iterator[LogSource]:
     """Discover regular, init, and ephemeral containers without downloading logs.
 
-    Pass a Deployment object or "deployment/name" to use its full Pod selector.
+    Pass a workload object or "deployment/name", "statefulset/name", etc. to use
+    its full Pod selector. Custom Resource instances use spec.selector by convention;
+    provide label_selector explicitly when their Pod association differs. It narrows
+    built-in workload selectors but replaces the convention for custom resources.
     Defaults to the active namespace. Set all_namespaces=True for cluster-wide discovery.
     Kubernetes applies selectors before pagination. Errors (including RBAC) propagate.
     """
-    target = _discovery_target(deployment, namespace, config, all_namespaces, page_size, container)
+    target = _discovery_target(workload, namespace, config, all_namespaces, page_size, container)
     query = (
-        _deployment_query(target, label_selector, field_selector, page_size)
+        _workload_query(target, label_selector, field_selector, page_size)
         if target is not None
         else _discovery_request(
             config, namespace, all_namespaces, label_selector, field_selector, page_size
@@ -739,23 +848,25 @@ def discover(
 
 
 def _discovery_target(
-    deployment: str | Resource | None,
+    workload: str | Resource | None,
     namespace: str | None,
     config: Config | None,
     all_namespaces: bool,
     page_size: int,
     container: str | None,
-) -> _Deployment | None:
+) -> _Workload | None:
     if page_size < 1:
         raise ValueError("page_size must be positive")
     LogOptions(container=container)
-    if deployment is None:
+    if workload is None:
         return None
     if all_namespaces:
-        raise ValueError("A Deployment cannot be combined with all_namespaces")
-    target = _deployment(deployment, namespace, config)
+        raise ValueError("A workload cannot be combined with all_namespaces")
+    target = _workload(workload, namespace, config)
     if target is None:
-        raise ValueError('Pass a Deployment resource or "deployment/name" to discover()')
+        raise ValueError(
+            'Pass a workload resource or a supported kind/name (e.g. "deployment/name") to discover()'
+        )
     return target
 
 
@@ -781,7 +892,7 @@ def _list_pods(
 
 
 async def async_discover(
-    deployment: str | Resource | None = None,
+    workload: str | Resource | None = None,
     *,
     namespace: str | None = None,
     all_namespaces: bool = False,
@@ -792,9 +903,9 @@ async def async_discover(
     page_size: int = 500,
 ) -> AsyncIterator[LogSource]:
     """Async equivalent of discover, with no blocking API discovery or requests."""
-    target = _discovery_target(deployment, namespace, config, all_namespaces, page_size, container)
+    target = _discovery_target(workload, namespace, config, all_namespaces, page_size, container)
     query = (
-        await _async_deployment_query(target, label_selector, field_selector, page_size)
+        await _async_workload_query(target, label_selector, field_selector, page_size)
         if target is not None
         else _discovery_request(
             config, namespace, all_namespaces, label_selector, field_selector, page_size
