@@ -11,11 +11,16 @@ def test_log_api_typing(tmp_path, checker):
     script = tmp_path / "log_usage.py"
     script.write_text("""from typing import assert_type
 from cloudcoil import logs
+from cloudcoil.models.kubernetes.apps.v1 import Deployment
 
 options = logs.LogOptions(tail_lines=10, since_seconds=30)
 assert_type(options.tail_lines, int | None)
 
 def sync_usage() -> None:
+    deployment = Deployment.model_validate({"metadata": {"name": "worker"}})
+    assert_type(logs.read(deployment, tail_lines=10), str)
+    for source in logs.discover(deployment, container="app"):
+        assert_type(source, logs.LogSource)
     for source in logs.discover(label_selector="app=worker"):
         assert_type(source, logs.LogSource)
         assert_type(logs.read(source, tail_lines=10, options=options), str)
@@ -25,6 +30,11 @@ def sync_usage() -> None:
                 assert_type(record.timestamp, str | None)
 
 async def async_usage() -> None:
+    async with logs.async_stream("deployment/worker", all_pods=True, max_streams=5, tail_lines=10) as records:
+        async for record in records:
+            assert_type(record, logs.LogRecord)
+    async for source in logs.async_discover("deployment/worker"):
+        assert_type(source, logs.LogSource)
     async for source in logs.async_discover(all_namespaces=True):
         assert_type(source, logs.LogSource)
         assert_type(await logs.async_read(source, previous=True), str)

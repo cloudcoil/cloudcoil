@@ -1,5 +1,6 @@
 """Read and follow pod logs using the active Config's authenticated HTTP clients."""
 
+import asyncio
 import logging
 import re
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
@@ -15,6 +16,7 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validato
 from cloudcoil._context import context
 from cloudcoil.client import Config
 from cloudcoil.client._response import raise_for_status
+from cloudcoil.errors import ResourceNotFound
 from cloudcoil.resources import Resource
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,8 @@ logger = logging.getLogger(__name__)
 # The API server negotiates a Kubernetes serializer before returning the raw log
 # stream. A text/plain-only Accept is rejected with 406, even though logs are text.
 _LOG_HEADERS = {"Accept": "*/*"}
+_DNS_LABEL = r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+_DNS_SUBDOMAIN = rf"{_DNS_LABEL}(?:\.{_DNS_LABEL})*"
 
 
 class LogParameters(TypedDict, total=False):
@@ -177,6 +181,48 @@ class _Request:
         )
 
 
+def _options(options: LogOptions | None, overrides: LogParameters, follow: bool) -> LogOptions:
+    values: dict[str, Any] = {"timestamps": follow}
+    if options is not None:
+        values.update(options.model_dump(exclude_unset=True))
+    values.update(overrides)
+    return LogOptions.model_validate(values)
+
+
+def _container_names(data: dict[str, Any]) -> list[str]:
+    spec = data.get("spec") or {}
+    return [
+        item["name"]
+        for key in ("containers", "initContainers", "ephemeralContainers")
+        for item in spec.get(key, [])
+    ]
+
+
+def _container(data: dict[str, Any], explicit: str | None) -> str | None:
+    containers = _container_names(data)
+    if explicit is not None:
+        if containers and explicit not in containers:
+            raise ValueError(f"Unknown container {explicit!r}; choose from {containers}")
+        return explicit
+    default = (data.get("metadata", {}).get("annotations") or {}).get(
+        "kubectl.kubernetes.io/default-container"
+    )
+    if default and default in containers:
+        return default
+    regular = [item["name"] for item in (data.get("spec") or {}).get("containers", [])]
+    if len(regular) == 1:
+        return regular[0]
+    if len(regular) > 1:
+        raise ValueError(f"Specify container for multi-container pod; choose from {containers}")
+    return None
+
+
+def _name(name: str | None, kind: str) -> str:
+    if not name or len(name) > 253 or not re.fullmatch(_DNS_SUBDOMAIN, name):
+        raise ValueError(f"A valid {kind} name is required")
+    return name
+
+
 def _request(
     pod: str | Resource | LogSource,
     namespace: str | None,
@@ -186,11 +232,7 @@ def _request(
     *,
     follow: bool,
 ) -> _Request:
-    values: dict[str, Any] = {"timestamps": follow}
-    if options is not None:
-        values.update(options.model_dump(exclude_unset=True))
-    values.update(overrides)
-    settings = LogOptions.model_validate(values)
+    settings = _options(options, overrides, follow)
     name: str | None
     labels: Mapping[str, str] | None = None
     source = pod if isinstance(pod, LogSource) else None
@@ -208,30 +250,18 @@ def _request(
         name = pod.name
         namespace = namespace if namespace is not None else pod.namespace
         labels = MappingProxyType(dict(pod.metadata.labels or {})) if pod.metadata else None
-        if settings.container is None:
-            data = pod.model_dump(by_alias=True, exclude_none=True)
-            spec = data.get("spec") or {}
-            regular = [item["name"] for item in spec.get("containers", [])]
-            containers = regular + [
-                item["name"]
-                for key in ("initContainers", "ephemeralContainers")
-                for item in spec.get(key, [])
-            ]
-            default = (data.get("metadata", {}).get("annotations") or {}).get(
-                "kubectl.kubernetes.io/default-container"
-            )
-            if default and default in containers:
-                settings = settings.model_copy(update={"container": default})
-            elif len(regular) == 1:
-                settings = settings.model_copy(update={"container": regular[0]})
-            elif len(regular) > 1:
-                raise ValueError(
-                    f"Specify container for multi-container pod; choose from {containers}"
+        settings = settings.model_copy(
+            update={
+                "container": _container(
+                    pod.model_dump(by_alias=True, exclude_none=True), settings.container
                 )
+            }
+        )
     else:
         name = pod
-    if not name or len(name) > 253 or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", name):
-        raise ValueError("A valid pod name is required")
+        if name.startswith(("pod/", "pods/")):
+            name = name.split("/", 1)[1]
+    name = _name(name, "pod")
     config = config if config is not None else context.active_config
     namespace = _namespace(config, namespace)
     logger.debug("%s logs for %s/%s", "Following" if follow else "Reading", namespace, name)
@@ -255,6 +285,200 @@ def _timeout(client: httpx.Client | httpx.AsyncClient) -> httpx.Timeout:
     return timeout
 
 
+@dataclass(frozen=True)
+class _Deployment:
+    name: str
+    namespace: str
+    config: Config
+    data: dict[str, Any] | None
+
+    @property
+    def url(self) -> str:
+        return f"/apis/apps/v1/namespaces/{self.namespace}/deployments/{self.name}"
+
+
+def _deployment(
+    target: str | Resource | LogSource,
+    namespace: str | None,
+    config: Config | None,
+) -> _Deployment | None:
+    data = None
+    if isinstance(target, Resource):
+        if target.kind == "Pod" and target.api_version == "v1":
+            return None
+        if target.kind != "Deployment" or target.api_version != "apps/v1":
+            raise ValueError("Logs require a v1 Pod or apps/v1 Deployment resource")
+        name = _name(target.name, "deployment")
+        namespace = namespace if namespace is not None else target.namespace
+        data = target.model_dump(by_alias=True, exclude_none=True)
+        if "spec" not in data:
+            data = None  # A metadata-only Deployment is a reference to fetch.
+    elif isinstance(target, str) and target.startswith(("deployment/", "deployments/", "deploy/")):
+        name = _name(target.split("/", 1)[1], "deployment")
+    else:
+        return None
+    config = config if config is not None else context.active_config
+    return _Deployment(name, _namespace(config, namespace), config, data)
+
+
+def _selector(data: dict[str, Any]) -> str:
+    """Serialize the full LabelSelector, never broadening a malformed selector."""
+    selector = (data.get("spec") or {}).get("selector") or {}
+    parts = []
+
+    def label(value: str, *, key: bool = False) -> str:
+        name = value
+        if key and "/" in value:
+            prefix, name = value.split("/", 1)
+            if len(prefix) > 253 or not re.fullmatch(_DNS_SUBDOMAIN, prefix):
+                raise ValueError(f"Invalid Deployment selector key: {value!r}")
+        if (
+            len(name) > 63
+            or (key and not name)
+            or (name and not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9_.-]*[a-zA-Z0-9])?", name))
+        ):
+            raise ValueError(f"Invalid Deployment selector label: {value!r}")
+        return value
+
+    for key, value in sorted((selector.get("matchLabels") or {}).items()):
+        parts.append(f"{label(key, key=True)}={label(value)}")
+    for expression in selector.get("matchExpressions") or []:
+        key = label(expression["key"], key=True)
+        operator, values = expression["operator"], expression.get("values") or []
+        if operator in ("In", "NotIn") and values:
+            op = "in" if operator == "In" else "notin"
+            parts.append(f"{key} {op} ({','.join(sorted(label(value) for value in values))})")
+        elif operator in ("Exists", "DoesNotExist") and not values:
+            parts.append(key if operator == "Exists" else f"!{key}")
+        else:
+            raise ValueError(f"Invalid Deployment selector expression: {expression}")
+    if not parts:
+        raise ValueError("Deployment spec.selector must not be empty")
+    return ",".join(parts)
+
+
+def _deployment_params(
+    deployment: _Deployment,
+    data: dict[str, Any],
+    label_selector: str | None,
+    field_selector: str | None,
+    page_size: int,
+) -> tuple[Config, str, dict[str, str | int]]:
+    selector = _selector(data)
+    if label_selector:
+        selector = f"{selector},{label_selector}"
+    return _discovery_request(
+        deployment.config, deployment.namespace, False, selector, field_selector, page_size
+    )
+
+
+def _deployment_query(
+    deployment: _Deployment,
+    label_selector: str | None = None,
+    field_selector: str | None = None,
+    page_size: int = 500,
+) -> tuple[Config, str, dict[str, str | int]]:
+    data = deployment.data
+    if data is None:
+        response = deployment.config.client.get(deployment.url)
+        raise_for_status(response)
+        data = response.json()
+    return _deployment_params(deployment, data, label_selector, field_selector, page_size)
+
+
+async def _async_deployment_query(
+    deployment: _Deployment,
+    label_selector: str | None = None,
+    field_selector: str | None = None,
+    page_size: int = 500,
+) -> tuple[Config, str, dict[str, str | int]]:
+    data = deployment.data
+    if data is None:
+        response = await deployment.config.async_client.get(deployment.url)
+        raise_for_status(response)
+        data = response.json()
+    return _deployment_params(deployment, data, label_selector, field_selector, page_size)
+
+
+def _pod_priority(pod: dict[str, Any]) -> tuple[bool, bool, bool, str]:
+    meta, status = pod["metadata"], pod.get("status") or {}
+    ready = any(
+        condition.get("type") == "Ready" and condition.get("status") == "True"
+        for condition in status.get("conditions") or []
+    )
+    return (
+        bool(meta.get("deletionTimestamp")),
+        status.get("phase") != "Running",
+        not ready,
+        meta["name"],
+    )
+
+
+def _deployment_requests(
+    deployment: _Deployment,
+    pods: list[dict[str, Any]],
+    settings: LogOptions,
+    *,
+    all_pods: bool = False,
+) -> list[_Request]:
+    if settings.container is not None:
+        pods = [pod for pod in pods if settings.container in _container_names(pod)]
+    if not pods:
+        detail = f"No matching Pods for Deployment {deployment.namespace}/{deployment.name}"
+        if settings.container is not None:
+            detail += f" with container {settings.container!r}"
+        raise ResourceNotFound(detail)
+    pods.sort(key=_pod_priority)
+    if not all_pods:
+        pods = pods[:1]
+    requests = []
+    for pod in pods:
+        container = _container(pod, settings.container)
+        if container is None:
+            raise ValueError(f"Pod {pod['metadata']['name']} has no regular containers")
+        source = next(_sources({"items": [pod]}, deployment.config, container))
+        requests.append(_request(source, None, deployment.config, settings, {}, follow=False))
+    return requests
+
+
+def _resolve_request(
+    pod: str | Resource | LogSource,
+    namespace: str | None,
+    config: Config | None,
+    options: LogOptions | None,
+    filters: LogParameters,
+    *,
+    follow: bool,
+) -> _Request:
+    settings = _options(options, filters, follow)
+    deployment = _deployment(pod, namespace, config)
+    if deployment is None:
+        return _request(pod, namespace, config, settings, {}, follow=follow)
+    pods = list(_list_pods(*_deployment_query(deployment)))
+    return _deployment_requests(deployment, pods, settings)[0]
+
+
+async def _async_resolve_requests(
+    pod: str | Resource | LogSource,
+    namespace: str | None,
+    config: Config | None,
+    options: LogOptions | None,
+    filters: LogParameters,
+    *,
+    follow: bool,
+    all_pods: bool = False,
+) -> list[_Request]:
+    settings = _options(options, filters, follow)
+    deployment = _deployment(pod, namespace, config)
+    if deployment is None:
+        if all_pods:
+            raise ValueError("all_pods requires a Deployment target")
+        return [_request(pod, namespace, config, settings, {}, follow=follow)]
+    query = await _async_deployment_query(deployment)
+    pods = [pod async for pod in _async_list_pods(*query)]
+    return _deployment_requests(deployment, pods, settings, all_pods=all_pods)
+
+
 def read(
     pod: str | Resource | LogSource,
     *,
@@ -263,8 +487,8 @@ def read(
     options: LogOptions | None = None,
     **filters: Unpack[LogParameters],
 ) -> str:
-    """Read a finite log snapshot as text, preserving line endings."""
-    request = _request(pod, namespace, config, options, filters, follow=False)
+    """Read text from a Pod or one selected Deployment Pod, preserving line endings."""
+    request = _resolve_request(pod, namespace, config, options, filters, follow=False)
     response = request.config.client.get(
         request.url, params=request.params(False), headers=_LOG_HEADERS
     )
@@ -281,7 +505,9 @@ async def async_read(
     **filters: Unpack[LogParameters],
 ) -> str:
     """Read a finite log snapshot without synchronous discovery or I/O."""
-    request = _request(pod, namespace, config, options, filters, follow=False)
+    request = (
+        await _async_resolve_requests(pod, namespace, config, options, filters, follow=False)
+    )[0]
     response = await request.config.async_client.get(
         request.url, params=request.params(False), headers=_LOG_HEADERS
     )
@@ -301,7 +527,7 @@ def stream(
     **filters: Unpack[LogParameters],
 ) -> Iterator[Iterator[LogRecord]]:
     """Follow records inside a with block; exiting closes the response immediately."""
-    request = _request(pod, namespace, config, options, filters, follow=follow)
+    request = _resolve_request(pod, namespace, config, options, filters, follow=follow)
     client = request.config.client
     with client.stream(
         "GET",
@@ -326,10 +552,41 @@ async def async_stream(
     options: LogOptions | None = None,
     follow: bool = True,
     match: Callable[[LogRecord], bool] | None = None,
+    all_pods: bool = False,
+    max_streams: int = 10,
     **filters: Unpack[LogParameters],
 ) -> AsyncIterator[AsyncIterator[LogRecord]]:
-    """Follow records inside an async with block; cancellation closes the response."""
-    request = _request(pod, namespace, config, options, filters, follow=follow)
+    """Stream a Pod, or discover and stream a Deployment inside an async with block.
+
+    By default, select one Deployment Pod, preferring running, ready Pods that are
+    not terminating. all_pods=True merges one container per matching Pod in arrival
+    order. Follow fails before opening logs if the selection exceeds max_streams;
+    finite snapshots use at most max_streams concurrent requests. Exiting cancels
+    all producers and closes their responses. Pod membership is a snapshot.
+    """
+    if max_streams < 1:
+        raise ValueError("max_streams must be positive")
+    requests = await _async_resolve_requests(
+        pod, namespace, config, options, filters, follow=follow, all_pods=all_pods
+    )
+    if follow and len(requests) > max_streams:
+        raise ValueError(
+            f"Following {len(requests)} containers exceeds max_streams={max_streams}; "
+            "increase max_streams or select fewer sources with discover()"
+        )
+    if len(requests) == 1:
+        async with _async_stream_request(requests[0], follow) as records:
+            yield (record async for record in records if match is None or match(record))
+    else:
+        async with _merge_streams(requests, follow, max_streams) as records:
+            yield (record async for record in records if match is None or match(record))
+
+
+@asynccontextmanager
+async def _async_stream_request(
+    request: _Request,
+    follow: bool,
+) -> AsyncIterator[AsyncIterator[LogRecord]]:
     client = request.config.async_client
     async with client.stream(
         "GET",
@@ -341,8 +598,52 @@ async def async_stream(
         if not response.is_success:
             await response.aread()
             raise_for_status(response)
-        records = (request.record(line) async for line in response.aiter_lines())
-        yield (record async for record in records if match is None or match(record))
+        yield (request.record(line) async for line in response.aiter_lines())
+
+
+@asynccontextmanager
+async def _merge_streams(
+    requests: list[_Request],
+    follow: bool,
+    max_streams: int,
+) -> AsyncIterator[AsyncIterator[LogRecord]]:
+    # Backpressure bounds buffered records even when callers consume slowly.
+    queue: asyncio.Queue[LogRecord | Exception | None] = asyncio.Queue(maxsize=128)
+    pending = iter(requests)
+    worker_count = min(max_streams, len(requests))
+
+    async def produce() -> None:
+        for request in pending:
+            try:
+                async with _async_stream_request(request, follow) as records:
+                    async for record in records:
+                        await queue.put(record)
+            except Exception as exc:
+                exc.add_note(
+                    f"Log source: {request.namespace}/{request.pod}/{request.options.container}"
+                )
+                await queue.put(exc)
+                break
+        await queue.put(None)
+
+    async def consume() -> AsyncIterator[LogRecord]:
+        remaining = worker_count
+        while remaining:
+            item = await queue.get()
+            if item is None:
+                remaining -= 1
+            elif isinstance(item, Exception):
+                raise item
+            else:
+                yield item
+
+    tasks = [asyncio.create_task(produce()) for _ in range(worker_count)]
+    try:
+        yield consume()
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def _discovery_request(
@@ -409,6 +710,7 @@ def _sources(data: dict[str, Any], config: Config, container: str | None) -> Ite
 
 
 def discover(
+    deployment: str | Resource | None = None,
     *,
     namespace: str | None = None,
     all_namespaces: bool = False,
@@ -420,18 +722,55 @@ def discover(
 ) -> Iterator[LogSource]:
     """Discover regular, init, and ephemeral containers without downloading logs.
 
+    Pass a Deployment object or "deployment/name" to use its full Pod selector.
     Defaults to the active namespace. Set all_namespaces=True for cluster-wide discovery.
     Kubernetes applies selectors before pagination. Errors (including RBAC) propagate.
     """
-    config, url, params = _discovery_request(
-        config, namespace, all_namespaces, label_selector, field_selector, page_size
+    target = _discovery_target(deployment, namespace, config, all_namespaces, page_size, container)
+    query = (
+        _deployment_query(target, label_selector, field_selector, page_size)
+        if target is not None
+        else _discovery_request(
+            config, namespace, all_namespaces, label_selector, field_selector, page_size
+        )
     )
+    for pod in _list_pods(*query):
+        yield from _sources({"items": [pod]}, query[0], container)
+
+
+def _discovery_target(
+    deployment: str | Resource | None,
+    namespace: str | None,
+    config: Config | None,
+    all_namespaces: bool,
+    page_size: int,
+    container: str | None,
+) -> _Deployment | None:
+    if page_size < 1:
+        raise ValueError("page_size must be positive")
+    LogOptions(container=container)
+    if deployment is None:
+        return None
+    if all_namespaces:
+        raise ValueError("A Deployment cannot be combined with all_namespaces")
+    target = _deployment(deployment, namespace, config)
+    if target is None:
+        raise ValueError('Pass a Deployment resource or "deployment/name" to discover()')
+    return target
+
+
+def _list_pods(
+    config: Config,
+    url: str,
+    params: dict[str, str | int],
+) -> Iterator[dict[str, Any]]:
+    params = dict(params)
     seen: set[str] = set()
     while True:
         response = config.client.get(url, params=params)
         raise_for_status(response)
         data = response.json()
-        yield from _sources(data, config, container)
+        yield from data["items"]
         token = data.get("metadata", {}).get("continue")
         if not token:
             return
@@ -442,6 +781,7 @@ def discover(
 
 
 async def async_discover(
+    deployment: str | Resource | None = None,
     *,
     namespace: str | None = None,
     all_namespaces: bool = False,
@@ -452,16 +792,32 @@ async def async_discover(
     page_size: int = 500,
 ) -> AsyncIterator[LogSource]:
     """Async equivalent of discover, with no blocking API discovery or requests."""
-    config, url, params = _discovery_request(
-        config, namespace, all_namespaces, label_selector, field_selector, page_size
+    target = _discovery_target(deployment, namespace, config, all_namespaces, page_size, container)
+    query = (
+        await _async_deployment_query(target, label_selector, field_selector, page_size)
+        if target is not None
+        else _discovery_request(
+            config, namespace, all_namespaces, label_selector, field_selector, page_size
+        )
     )
+    async for pod in _async_list_pods(*query):
+        for source in _sources({"items": [pod]}, query[0], container):
+            yield source
+
+
+async def _async_list_pods(
+    config: Config,
+    url: str,
+    params: dict[str, str | int],
+) -> AsyncIterator[dict[str, Any]]:
+    params = dict(params)
     seen: set[str] = set()
     while True:
         response = await config.async_client.get(url, params=params)
         raise_for_status(response)
         data = response.json()
-        for source in _sources(data, config, container):
-            yield source
+        for pod in data["items"]:
+            yield pod
         token = data.get("metadata", {}).get("continue")
         if not token:
             return

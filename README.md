@@ -82,7 +82,55 @@ uv add cloudcoil[all-models]
 
 ## 💡 Examples
 
-### Finding and filtering pod logs
+### Finding and filtering logs
+
+Read or follow a Pod or Deployment with the same interface:
+
+```python
+from cloudcoil import logs
+
+print(logs.read("deployment/worker", namespace="jobs", tail_lines=50))
+with logs.stream("deployment/worker", namespace="jobs") as records:
+    for record in records:
+        print(record.pod, record.container, record.message)
+```
+
+Deployment objects work too, including metadata-only references. A Deployment selects
+one Pod, preferring non-terminating, running, ready Pods, then breaking ties by name.
+Container selection uses that Pod's default-container annotation or sole regular
+container; otherwise specify `container=`. Selection considers every list page.
+
+To combine discovery and streaming across **all matching Pods**, use the async helper:
+
+```python
+from cloudcoil import logs
+
+async def follow_workers():
+    async with logs.async_stream(
+        "deployment/worker", namespace="jobs", all_pods=True,
+        tail_lines=100, match=logs.LogFilter(contains="error", ignore_case=True),
+    ) as records:
+        async for record in records:
+            print(record.pod, record.container, record.message)
+```
+
+`all_pods=True` selects one container per Pod, or the named `container=` on Pods that
+contain it. Records arrive as each stream produces them, preserving order within each
+source, with no global timestamp sort. `max_streams=10` bounds concurrent requests and
+tasks; buffering is bounded too. Following more sources than this limit raises before
+opening any log streams: increase the limit explicitly. With `follow=False`, larger
+selections are processed in batches. A source error propagates and closes the other
+streams; exiting the block, a failing filter, and cancellation also close all responses.
+
+For more control, `logs.discover("deployment/worker", namespace="jobs")` (or a Deployment
+object) returns containers across its matching Pods for use with `read()` / `stream()`.
+Discovery uses the full `spec.selector`, including `matchExpressions`, and ANDs any
+additional `label_selector=`; it does not guess from Deployment metadata or template
+labels. Empty selectors are rejected. Deployment discovery requires Pod-list permission,
+and a name or metadata-only reference also requires Deployment-get permission. Log
+reads additionally require `pods/log`. An empty Deployment returns no discovered sources;
+read/stream raise `ResourceNotFound` if no Pods match. Selection follows Kubernetes label
+selector semantics, not an owner-reference traversal.
 
 Discover containers by Kubernetes selectors, then filter their log records:
 
@@ -110,7 +158,7 @@ permissions do not imply permission to read them. API errors propagate to the ca
 ```python
 # Read text with original line endings, or follow structured records.
 print(logs.read("worker", namespace="jobs", tail_lines=50))
-with logs.stream(pod, match=logs.LogFilter(contains="failed")) as records:
+with logs.stream("worker", namespace="jobs", match=logs.LogFilter(contains="failed")) as records:
     for record in records:
         print(record.timestamp, record.message)
 
@@ -132,9 +180,10 @@ Use `match=lambda record: ...` for custom text or metadata filtering.
 `stream()` follows by default and requests timestamps; `follow=False` reads a finite
 snapshot and defaults timestamps off. Both accept `timestamps=` explicitly. Always use
 `with` / `async with` so breaking, errors, and cancellation close the HTTP response.
-Following disables only the response read timeout, and does not reconnect or merge
-streams. For multiple live sources, run async consumers concurrently under your own
-concurrency limit; a sequential follow loop stays on its first live source.
+Following disables only the response read timeout. Deployment membership and source
+metadata are snapshots: streams do not reconnect, switch Pods, or discover new replicas
+during a rollout. For manually discovered live sources, run async consumers concurrently
+under your own concurrency limit; a sequential follow loop stays on its first live source.
 
 All operations reuse the active configuration's authenticated HTTP client, or accept
 `config=` explicitly. Reusable `LogOptions` and typed keywords support `previous`,

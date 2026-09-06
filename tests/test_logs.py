@@ -442,3 +442,398 @@ async def test_reusable_options_preserve_operation_defaults(config, options, ove
     with logs.stream("worker", config=config, options=options, **overrides) as records:
         assert list(records) == []
     assert requests[0].url.params["timestamps"] == expected
+
+
+def deployment_data():
+    return {
+        "apiVersion": "apps/v1",
+        "kind": "Deployment",
+        "metadata": {"name": "workers", "namespace": "jobs", "labels": {"wrong": "selector"}},
+        "spec": {
+            "selector": {
+                "matchLabels": {"app": "worker"},
+                "matchExpressions": [
+                    {"key": "tier", "operator": "In", "values": ["web", "api"]},
+                    {"key": "track", "operator": "NotIn", "values": ["canary"]},
+                    {"key": "example.com/managed", "operator": "Exists"},
+                    {"key": "disabled", "operator": "DoesNotExist"},
+                ],
+            },
+            "template": {"metadata": {"labels": {"also": "wrong"}}, "spec": pod_data()["spec"]},
+        },
+    }
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("reference", ["object", "name", "metadata"])
+async def test_deployment_discovery_selector_and_pagination(config, asynchronous, reference):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    data = deployment_data()
+    target = {
+        "object": Deployment.model_validate(data),
+        "name": "deployment/workers",
+        "metadata": Deployment(metadata={"name": "workers", "namespace": "jobs"}),
+    }[reference]
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if "/deployments/" in request.url.path:
+            assert request.url.path == "/apis/apps/v1/namespaces/jobs/deployments/workers"
+            return httpx.Response(200, json=data)
+        second = "continue" in request.url.params
+        assert request.url.path == "/api/v1/namespaces/jobs/pods"
+        assert request.url.params["labelSelector"] == (
+            "app=worker,tier in (api,web),track notin (canary),example.com/managed,!disabled,env=prod"
+        )
+        assert request.url.params["fieldSelector"] == "status.phase=Running"
+        assert request.url.params["limit"] == "1"
+        return httpx.Response(
+            200,
+            json={
+                "metadata": {"continue": "" if second else "next"},
+                "items": [pod_data("second" if second else "first")],
+            },
+        )
+
+    transport(config, handler)
+    if asynchronous:
+        config.client._transport = httpx.MockTransport(lambda _: pytest.fail("blocking I/O"))
+    kwargs = dict(
+        config=config,
+        namespace="jobs",
+        label_selector="env=prod",
+        field_selector="status.phase=Running",
+        container="setup",
+        page_size=1,
+    )
+    sources = (
+        [s async for s in logs.async_discover(target, **kwargs)]
+        if asynchronous
+        else list(logs.discover(target, **kwargs))
+    )
+    assert [(s.pod, s.container) for s in sources] == [("first", "setup"), ("second", "setup")]
+    assert len(requests) == (2 if reference == "object" else 3)
+    assert all(s._config is config for s in sources)
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_deployment_selects_ready_pod_across_pages(config, asynchronous):
+    pods = [pod_data(name) for name in ("a-pending", "b-unready", "c-terminating", "z-ready")]
+    pods[0]["status"]["phase"] = "Pending"
+    pods[2]["metadata"]["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+    for pod in pods[2:]:
+        pod["status"]["conditions"] = [{"type": "Ready", "status": "True"}]
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if "/deployments/" in request.url.path:
+            return httpx.Response(200, json=deployment_data())
+        if request.url.path.endswith("/log"):
+            assert request.url.path == "/api/v1/namespaces/jobs/pods/z-ready/log"
+            assert request.url.params["container"] == "app"
+            return httpx.Response(200, text="2026-01-01T00:00:00.123456789Z hello\n")
+        second = "continue" in request.url.params
+        return httpx.Response(
+            200,
+            json={
+                "metadata": {"continue": "" if second else "next"},
+                "items": pods[2:] if second else pods[:2],
+            },
+        )
+
+    transport(config, handler)
+    if asynchronous:
+        config.client._transport = httpx.MockTransport(lambda _: pytest.fail("blocking I/O"))
+    kwargs = dict(config=config, namespace="jobs", options=logs.LogOptions(tail_lines=5))
+    if asynchronous:
+        text = await logs.async_read("deploy/workers", **kwargs)
+        async with logs.async_stream("deployment/workers", **kwargs) as records:
+            record = await anext(records)
+    else:
+        text = logs.read("deployments/workers", **kwargs)
+        with logs.stream("deployment/workers", **kwargs) as records:
+            record = next(records)
+    assert "hello" in text
+    assert record.pod == "z-ready" and record.container == "app"
+    assert record.source.pod_uid == "uid-z-ready"
+    assert record.labels == {"app": "worker"}
+    assert record.timestamp == "2026-01-01T00:00:00.123456789Z"
+    assert requests[-1].url.params["tailLines"] == "5"
+    assert requests[-1].url.params["follow"] == "true"
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        {},
+        {"matchLabels": {}},
+        {"matchExpressions": []},
+        {"matchExpressions": [{"key": "app", "operator": "In", "values": []}]},
+        {"matchExpressions": [{"key": "app", "operator": "Exists", "values": ["x"]}]},
+        {"matchExpressions": [{"key": "app", "operator": "Typo"}]},
+        {"matchLabels": {"app": "worker,other=x"}},
+        {"matchLabels": {"/app": "worker"}},
+    ],
+)
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_deployment_invalid_selector_never_lists_namespace(config, selector, asynchronous):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    data = deployment_data()
+    data["spec"]["selector"] = selector
+    deployment = Deployment.model_validate(data)
+    transport(config, lambda _: pytest.fail("must validate before HTTP"))
+    with pytest.raises(ValueError, match="selector"):
+        if asynchronous:
+            await logs.async_read(deployment, config=config)
+        else:
+            logs.read(deployment, config=config)
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_deployment_empty_results_and_rbac(config, asynchronous):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    deployment = Deployment.model_validate(deployment_data())
+    transport(config, lambda _: httpx.Response(200, json={"items": []}))
+    if asynchronous:
+        assert [s async for s in logs.async_discover(deployment, config=config)] == []
+    else:
+        assert list(logs.discover(deployment, config=config)) == []
+    with pytest.raises(ResourceNotFound, match="No matching Pods.*jobs/workers"):
+        if asynchronous:
+            await logs.async_read(deployment, config=config)
+        else:
+            logs.read(deployment, config=config)
+    transport(config, lambda _: httpx.Response(403, json={"message": "deployment forbidden"}))
+    with pytest.raises(APIError, match="deployment forbidden"):
+        if asynchronous:
+            await logs.async_read("deployment/workers", config=config)
+        else:
+            logs.read("deployment/workers", config=config)
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_deployment_container_defaults_and_filter(config, asynchronous):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    deployment = Deployment.model_validate(deployment_data())
+    pod = pod_data()
+    pod["spec"]["containers"].append({"name": "sidecar", "image": "example"})
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return (
+            httpx.Response(200, text=request.url.params["container"])
+            if request.url.path.endswith("/log")
+            else httpx.Response(200, json={"items": [pod]})
+        )
+
+    transport(config, handler)
+
+    async def read(**kwargs):
+        return (
+            await logs.async_read(deployment, config=config, **kwargs)
+            if asynchronous
+            else logs.read(deployment, config=config, **kwargs)
+        )
+
+    with pytest.raises(ValueError, match="multi-container"):
+        await read()
+    assert await read(container="setup") == "setup"
+    pod["metadata"]["annotations"] = {"kubectl.kubernetes.io/default-container": "sidecar"}
+    assert await read() == "sidecar"
+    with pytest.raises(ResourceNotFound, match="container 'missing'"):
+        await read(container="missing")
+
+
+async def test_deployment_argument_validation_before_io(config):
+    transport(config, lambda _: pytest.fail("unexpected HTTP"))
+    for target in ("deployment/", "deployment/../x", "deployment/a..b", "pod/../x", "a..b"):
+        with pytest.raises(ValueError):
+            logs.read(target, config=config)
+    with pytest.raises(ValidationError):
+        await logs.async_read("deployment/workers", config=config, tail_lines=-1)
+    for kwargs in ({"all_namespaces": True}, {"page_size": 0}, {"container": ""}):
+        with pytest.raises(ValueError):
+            list(logs.discover("deployment/workers", config=config, **kwargs))
+    with pytest.raises(ValueError, match="Deployment"):
+        list(logs.discover("worker", config=config))
+    with pytest.raises(ValueError, match="all_pods"):
+        async with logs.async_stream("worker", config=config, all_pods=True):
+            pass
+    with pytest.raises(ValueError, match="max_streams"):
+        async with logs.async_stream("deployment/workers", config=config, max_streams=0):
+            pass
+
+
+async def test_all_pods_merges_live_sources_and_preserves_options(config):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    opened = set()
+    closed = set()
+    ready = asyncio.Event()
+    requests = []
+
+    class Body(httpx.AsyncByteStream):
+        def __init__(self, name):
+            self.name = name
+
+        async def __aiter__(self):
+            opened.add(self.name)
+            if len(opened) == 2:
+                ready.set()
+            await ready.wait()  # A sequential implementation would deadlock here.
+            yield b"2026-01-01T00:00:00.123456789Z ignore\n"
+            yield b"2026-01-01T00:00:00.123456789Z ERROR example\n"
+
+        async def aclose(self):
+            closed.add(self.name)
+
+    def handler(request):
+        requests.append(request)
+        if request.url.path.endswith("/log"):
+            assert request.url.params["container"] == "setup"
+            assert request.url.params["previous"] == "true"
+            assert request.url.params["tailLines"] == "2"
+            assert request.url.params["timestamps"] == "true"
+            return httpx.Response(200, stream=Body(request.url.path.split("/")[-2]))
+        return httpx.Response(200, json={"items": [pod_data("first"), pod_data("second")]})
+
+    transport(config, handler)
+    deployment = Deployment.model_validate(deployment_data())
+    async with asyncio.timeout(2):
+        async with logs.async_stream(
+            deployment,
+            config=config,
+            all_pods=True,
+            container="setup",
+            previous=True,
+            options=logs.LogOptions(tail_lines=2),
+            match=logs.LogFilter(contains="ERROR"),
+        ) as records:
+            result = [record async for record in records]
+    assert {r.pod for r in result} == {"first", "second"}
+    assert all(r.source.container_type == "init" and r.previous for r in result)
+    assert all(r.timestamp == "2026-01-01T00:00:00.123456789Z" for r in result)
+    assert opened == closed == {"first", "second"}
+
+
+@pytest.mark.parametrize("exit_mode", ["break", "cancel", "predicate", "http_error", "read_error"])
+async def test_all_pods_closes_quiet_and_busy_producers(config, exit_mode):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    opened = set()
+    closed = set()
+    ready = asyncio.Event()
+
+    class Body(httpx.AsyncByteStream):
+        def __init__(self, name):
+            self.name = name
+
+        async def __aiter__(self):
+            opened.add(self.name)
+            if len(opened) == 2:
+                ready.set()
+            await ready.wait()
+            if self.name == "busy" and exit_mode != "cancel":
+                if exit_mode == "read_error":
+                    raise httpx.ReadError("connection lost")
+                for _ in range(1000):  # Fill the bounded queue before the consumer exits.
+                    yield b"hello\n"
+            await asyncio.Event().wait()
+
+        async def aclose(self):
+            closed.add(self.name)
+
+    async def handler(request):
+        if not request.url.path.endswith("/log"):
+            return httpx.Response(200, json={"items": [pod_data("busy"), pod_data("quiet")]})
+        name = request.url.path.split("/")[-2]
+        if exit_mode == "http_error" and name == "busy":
+            opened.add(name)
+            await ready.wait()
+            return httpx.Response(403, json={"message": "logs forbidden"})
+        return httpx.Response(200, stream=Body(name))
+
+    config.async_client._transport = httpx.MockTransport(handler)
+    config.async_client._mounts.clear()
+    deployment = Deployment.model_validate(deployment_data())
+
+    def match(record):
+        if exit_mode == "predicate":
+            raise RuntimeError("bad predicate")
+        return True
+
+    async def consume():
+        async with logs.async_stream(
+            deployment, config=config, all_pods=True, match=match
+        ) as records:
+            await anext(records)
+
+    task = asyncio.create_task(consume())
+    async with asyncio.timeout(2):
+        await ready.wait()
+        if exit_mode == "cancel":
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        elif exit_mode in ("predicate", "http_error", "read_error"):
+            error = {
+                "predicate": RuntimeError,
+                "http_error": APIError,
+                "read_error": httpx.ReadError,
+            }[exit_mode]
+            with pytest.raises(error):
+                await task
+        else:
+            await task
+    assert closed == ({"quiet"} if exit_mode == "http_error" else opened)
+
+
+async def test_all_pods_concurrency_limit_and_finite_batches(config):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    opened = active = peak = 0
+    ready = asyncio.Event()
+
+    class Body(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            nonlocal opened, active, peak
+            opened += 1
+            active += 1
+            peak = max(peak, active)
+            if active == 2:
+                ready.set()
+            await ready.wait()
+            yield b"line\n"
+
+        async def aclose(self):
+            nonlocal active
+            active -= 1
+
+    def handler(request):
+        if request.url.path.endswith("/log"):
+            return httpx.Response(200, stream=Body())
+        return httpx.Response(200, json={"items": [pod_data(f"pod-{i}") for i in range(3)]})
+
+    transport(config, handler)
+    deployment = Deployment.model_validate(deployment_data())
+    with pytest.raises(ValueError, match="3 containers exceeds max_streams=2"):
+        async with logs.async_stream(deployment, config=config, all_pods=True, max_streams=2):
+            pytest.fail("must reject before yielding")
+    assert opened == 0
+    async with asyncio.timeout(2):
+        async with logs.async_stream(
+            deployment,
+            config=config,
+            all_pods=True,
+            max_streams=2,
+            follow=False,
+        ) as records:
+            assert len([record async for record in records]) == 3
+    assert opened == 3 and peak == 2 and active == 0

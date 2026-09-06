@@ -97,3 +97,83 @@ async def test_live_logs_discovery_and_filtering(test_config, asynchronous):
             assert text == "initialized\n"
         finally:
             await ns.async_remove()
+
+
+@pytest.mark.configure_test_cluster(
+    cluster_name=f"test-cloudcoil-sync-v{k8s_version}",
+    version=f"v{k8s_version}",
+    provider=os.environ.get("CLUSTER_PROVIDER", "kind"),
+    remove=False,
+)
+async def test_live_deployment_logs(test_config):
+    from cloudcoil.models.kubernetes.apps.v1 import Deployment
+
+    async with test_config:
+        ns = await Namespace(metadata={"generateName": "test-deployment-logs-"}).async_create()
+        try:
+            deployment = await Deployment.model_validate(
+                {
+                    "metadata": {"name": "workers", "namespace": ns.name},
+                    "spec": {
+                        "replicas": 2,
+                        "selector": {
+                            "matchExpressions": [
+                                {"key": "app", "operator": "In", "values": ["log-test"]},
+                            ]
+                        },
+                        "template": {
+                            "metadata": {"labels": {"app": "log-test"}},
+                            "spec": {
+                                "containers": [
+                                    {
+                                        "name": "app",
+                                        "image": "busybox:1.36",
+                                        "command": ["sh", "-c", "echo 'ERROR hello'; sleep 600"],
+                                    }
+                                ]
+                            },
+                        },
+                    },
+                }
+            ).async_create()
+            deadline = time.monotonic() + 180
+            while True:
+                deployment = await Deployment.async_get("workers", ns.name)
+                if deployment.status and deployment.status.available_replicas == 2:
+                    break
+                assert time.monotonic() < deadline, deployment.status
+                await asyncio.sleep(0.2)
+
+            sources = list(logs.discover(deployment, page_size=1))
+            assert len(sources) == 2
+            assert len({source.pod for source in sources}) == 2
+            assert all(source.container == "app" for source in sources)
+            assert logs.read(deployment) == "ERROR hello\n"
+            assert await logs.async_read("deployment/workers", namespace=ns.name) == "ERROR hello\n"
+            with logs.stream(deployment, follow=False) as records:
+                record = next(records)
+                assert record.message == "ERROR hello"
+                assert record.source.pod_uid in {source.pod_uid for source in sources}
+            # With two live containers, only concurrent following can receive both.
+            async with asyncio.timeout(30):
+                async with logs.async_stream(
+                    "deployment/workers",
+                    namespace=ns.name,
+                    all_pods=True,
+                    match=logs.LogFilter(contains="ERROR"),
+                ) as records:
+                    seen = set()
+                    async for record in records:
+                        assert record.timestamp is not None
+                        seen.add(record.pod)
+                        if len(seen) == 2:
+                            break
+            assert seen == {source.pod for source in sources}
+            async with logs.async_stream(
+                deployment, all_pods=True, follow=False, max_streams=1
+            ) as records:
+                result = [record async for record in records]
+            assert {record.pod for record in result} == seen
+            assert all(record.message == "ERROR hello" for record in result)
+        finally:
+            await ns.async_remove()
