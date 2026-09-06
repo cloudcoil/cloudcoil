@@ -31,14 +31,15 @@ shutdown. Reconcile the latest state while Cloudcoil handles watch recovery and 
 scheduling:
 
 ```python
-from cloudcoil.controller import Controller, Request, Result
+from cloudcoil.controller import Controller, Request
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
 
-async def reconcile(request: Request[ConfigMap]) -> Result | None:
-    if request.resource is None:
+async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
+    resource = request.resource
+    if resource is None:
         return None
-    print(request.name, request.resource.data)
-    return Result(requeue_after=60)
+    resource.data = {**(resource.data or {}), "managed-by": "cloudcoil"}
+    return resource  # Cloudcoil patches changes; unchanged returns perform no write.
 
 controller = Controller(ConfigMap, reconcile, workers=4).owns(Secret)
 # In your async entry point: await controller.run()
@@ -50,8 +51,9 @@ health=HealthServer(port=8080))` for replica coordination, probes, and metrics.
 See the [controller guide](https://cloudcoil.github.io/cloudcoil/controllers/) for
 optimistic mutations, finalizers, custom dependencies, lifecycle, and the incremental
 framework roadmap. A [runnable example](examples/configmap_controller.py) mirrors
-ConfigMaps into owned children and repairs drift. Leader election and shared informer
-management remain future milestones.
+ConfigMaps into owned children and repairs drift. Returned resources are patched with
+UID/version guards, with automatic status-subresource routing. Use
+`Result(resource=resource, requeue_after=60)` to save and schedule another pass.
 
 ## 🔧 Installation
 

@@ -14,7 +14,7 @@ from cloudcoil.controller import Controller, ControllerStatus, HealthServer, Lea
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
 from cloudcoil import patches
 
-async def reconcile(request: Request[ConfigMap]) -> Result | None:
+async def reconcile(request: Request[ConfigMap]) -> ConfigMap | Result | None:
     assert_type(request.resource, ConfigMap | None)
     assert_type(request.name, str)
     if request.resource is None:
@@ -25,8 +25,12 @@ async def reconcile(request: Request[ConfigMap]) -> Result | None:
     assert_type(await ensure_finalizer(request.resource, "example.com/cleanup"), ConfigMap)
     desired = request.resource.model_copy(deep=True)
     assert_type(await request.resource.async_patch(patches.diff(request.resource, desired)), ConfigMap)
-    return Result(requeue_after=60)
+    return Result(resource=request.resource, requeue_after=60)
 
+async def return_resource(request: Request[ConfigMap]) -> ConfigMap | None:
+    return request.resource
+
+assert_type(Controller(ConfigMap, return_resource), Controller[ConfigMap])
 controller = Controller(ConfigMap, reconcile, workers=4).owns(Secret)
 assert_type(controller, Controller[ConfigMap])
 controller.watch(Secret, mapper=lambda secret: [ResourceKey("settings", secret.namespace)])

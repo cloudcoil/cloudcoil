@@ -82,7 +82,10 @@ be idempotent and use optimistic concurrency. A missing object may have left a
 label-selected scope; it is not sufficient evidence for destructive external
 cleanup. Use finalizers and a live read for external deletion workflows.
 
-Return `None`/`Result()` on success or `Result(requeue_after=seconds)` to check again.
+Return a modified primary resource to persist its changes automatically, or use
+`Result(resource=resource, requeue_after=seconds)` to save and schedule another pass.
+Return `None`/`Result()` for success without a write, or `Result(requeue_after=seconds)`
+to check again without a write. See the write contract below.
 Exceptions are logged and retried with exponential backoff (1s base, 60s cap, 10%
 jitter). `TerminalError` suppresses that retry; future events/resyncs still run.
 `reconcile_timeout=` optionally limits each attempt. A fresh event takes priority
@@ -210,9 +213,67 @@ No object names, namespaces, UIDs, or error messages become metric labels. Scrap
 instances separately, and sum/rate their counters as appropriate. Queue depth counts
 waiting keys, excluding keys currently processing and pending timers.
 
+## Returning resources and status
+
+Returning the primary resource is the simplest way to save changes:
+
+```python
+async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
+    resource = request.resource
+    if resource is None:
+        return None
+    resource.data = {**(resource.data or {}), "managed-by": "cloudcoil"}
+    return resource
+```
+
+The runtime retains an independent snapshot from dispatch, compares the returned
+resource against it, and sends only changed fields as JSON Patch. Editing
+`request.resource` and returning `None` does **not** save. Unchanged returned resources
+produce no request, avoiding a write loop when the controller sees its own updates.
+All writes test UID and resourceVersion; conflicts retry the **whole reconciliation**
+against the latest cached state. The runtime never rebases a stale desired snapshot
+onto a fresh object, which could remove another writer's changes.
+
+Status works the same way for generated built-in and CRD models:
+
+```python
+# MyResource is your generated CRD model, with the status fields defined by its schema.
+async def reconcile(request: Request[MyResource]) -> MyResource | None:
+    resource = request.resource
+    if resource is None:
+        return None
+    resource.status = MyResourceStatus(phase="Ready")
+    return resource
+```
+
+API discovery determines whether `/status` exists. When it does, status changes go
+there; ordinary fields go to the main endpoint. A status-only return sends one
+status PATCH. Changes to both use **two non-atomic writes**, main first, then status
+with the resourceVersion returned by the first write. If status changes unexpectedly
+in that response, or the second write conflicts, reconciliation retries; an already
+successful main write is not rolled back. CRDs without a status subresource persist
+inline status through the main endpoint. Grant `patch` on `<plural>/status` as well
+as `<plural>` when both are used. Stable status values are essential: timestamps
+updated on every pass will intentionally produce a write loop.
+
+The return value must be the same primary kind, name, namespace, UID, and version as
+the request snapshot. This updates existing resources; it does not create an absent
+resource, adopt a replacement UID, or save arbitrary child resources. Use resource
+creation APIs and `mutate(child, ...)` for children. Resource writes and the callback
+share `reconcile_timeout`; the runtime records success and schedules a requested
+requeue only after patches succeed. Arrays are replaced as whole fields, guarded by
+the version check; this is JSON Patch, not server-side apply or field ownership.
+
+Use `Result(resource=resource, requeue_after=60)` to combine saving with a timer.
+Use explicit helpers when you need to observe a write response, persist a finalizer
+**before** an external side effect, or make a change based on a live read. After an
+explicit write, return `None` or a scheduling-only `Result`; do not return the saved
+object against the older request snapshot. Likewise, do not mix explicit primary
+writes and automatic returned-primary writes within one attempt.
+
 ## Optimistic changes and finalizers
 
-Use `mutate` for a narrow update based on a **live, uncached** read:
+For explicit writes, use `mutate` for a narrow update based on a **live, uncached** read:
 
 ```python
 from cloudcoil.controller import mutate
@@ -278,4 +339,4 @@ Tests cover the queue, snapshot/watch recovery, retry and shutdown behavior, chi
 ownership, mapping changes, optimistic mutations, finalizers, and mypy/Pyright caller
 inference. The CI matrix also runs the example reconciler against real Kubernetes
 and checks UID/version preconditions, finalizer deletion, shared subscriptions, and
-Lease handoff between managers.
+Lease handoff between managers, and returned CRD spec/status patches without a write loop.

@@ -10,7 +10,7 @@ import pytest
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Namespace
 
 from cloudcoil import patches
-from cloudcoil.controller import Controller, ensure_finalizer, remove_finalizer
+from cloudcoil.controller import Controller, ResourceKey, ensure_finalizer, remove_finalizer
 from cloudcoil.errors import APIError, ResourceNotFound
 
 k8s_version = ".".join(version("cloudcoil.models.kubernetes").split(".")[:3])
@@ -209,4 +209,115 @@ async def test_live_manager_shared_watches_and_lease_handoff(test_config):
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            await ns.async_remove()
+
+
+@pytest.mark.configure_test_cluster(
+    cluster_name=f"test-cloudcoil-sync-v{k8s_version}",
+    version=f"v{k8s_version}",
+    provider=os.environ.get("CLUSTER_PROVIDER", "kind"),
+    remove=False,
+)
+async def test_live_returned_crd_patches_spec_and_status_without_write_loop(test_config):
+    from uuid import uuid4
+
+    from cloudcoil.models.kubernetes.apiextensions.v1 import CustomResourceDefinition
+
+    from cloudcoil.resources import get_dynamic_resource
+
+    async with test_config:
+        ns = await Namespace(metadata={"generateName": "test-return-"}).async_create()
+        group = f"test-{uuid4().hex[:12]}.cloudcoil.dev"
+        crd = None
+        task = None
+        writes = []
+        observed = asyncio.Event()
+        stop = asyncio.Event()
+
+        async def record(request):
+            if request.method == "PATCH" and f"/namespaces/{ns.name}/widgets/" in request.url.path:
+                writes.append(request.url.path)
+
+        test_config.async_client.event_hooks["request"].append(record)
+        try:
+            crd = await CustomResourceDefinition.model_validate(
+                {
+                    "metadata": {"name": f"widgets.{group}"},
+                    "spec": {
+                        "group": group,
+                        "scope": "Namespaced",
+                        "names": {"plural": "widgets", "singular": "widget", "kind": "Widget"},
+                        "versions": [
+                            {
+                                "name": "v1",
+                                "served": True,
+                                "storage": True,
+                                "subresources": {"status": {}},
+                                "schema": {
+                                    "openAPIV3Schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "spec": {
+                                                "type": "object",
+                                                "properties": {"replicas": {"type": "integer"}},
+                                            },
+                                            "status": {
+                                                "type": "object",
+                                                "additionalProperties": {"type": "string"},
+                                            },
+                                        },
+                                    }
+                                },
+                            }
+                        ],
+                    },
+                }
+            ).async_create()
+            async with asyncio.timeout(30):
+                while True:
+                    current = await CustomResourceDefinition.async_get(crd.name)
+                    if current.status and any(
+                        cond.type == "Established" and cond.status == "True"
+                        for cond in current.status.conditions or []
+                    ):
+                        break
+                    await asyncio.sleep(0.1)
+            await asyncio.to_thread(test_config.refresh_api_resources)
+            widget_type = get_dynamic_resource("Widget", f"{group}/v1")
+            await widget_type(
+                metadata={"name": "example", "namespace": ns.name}, spec={"replicas": 1}
+            ).async_create()
+
+            async def reconcile(request):
+                obj = request.resource
+                if obj is None:
+                    return None
+                if obj.raw.get("status", {}).get("phase") == "Ready":
+                    observed.set()
+                obj["spec"]["replicas"] = 2
+                obj["status"] = {"phase": "Ready"}
+                return obj
+
+            controller = Controller(widget_type, reconcile, config=test_config, namespace=ns.name)
+            task = asyncio.create_task(controller.run(stop=stop))
+            await controller.wait_ready(timeout=30)
+            await asyncio.wait_for(observed.wait(), 30)
+            result = await widget_type.async_get("example", ns.name)
+            assert result["spec"] == {"replicas": 2}
+            assert result["status"] == {"phase": "Ready"}
+            # Process another explicit pass over the persisted object: no new PATCH.
+            observed.clear()
+            controller.enqueue(ResourceKey("example", ns.name))
+            await asyncio.wait_for(observed.wait(), 10)
+            stop.set()
+            await asyncio.wait_for(task, 20)
+            assert len(writes) == 2
+            assert not writes[0].endswith("/status") and writes[1].endswith("/status")
+        finally:
+            if task is not None:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            test_config.async_client.event_hooks["request"].remove(record)
+            if crd is not None:
+                await crd.async_remove()
             await ns.async_remove()

@@ -47,9 +47,14 @@ class Request[T: Resource]:
 
 @dataclass(frozen=True)
 class Result:
-    """Successful reconciliation; optionally schedule another pass in seconds."""
+    """Successful reconciliation; optionally persist a resource and schedule another pass.
+
+    resource is a modified copy of this request's primary snapshot. The controller
+    patches its differences before scheduling requeue_after. None performs no write.
+    """
 
     requeue_after: float | None = None
+    resource: Resource | None = None
 
     def __post_init__(self) -> None:
         if self.requeue_after is not None and (

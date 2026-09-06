@@ -16,12 +16,13 @@ from cloudcoil.resources import Resource
 
 from ._informers import _InformerPool
 from ._metrics import ControllerStatus, _ReconcileMetrics
+from ._mutations import _persist
 from ._queue import QueueClosed, WorkQueue
 from ._types import Request, ResourceKey, Result, TerminalError
 
 logger = logging.getLogger(__name__)
 
-type Reconciler[T: Resource] = Callable[[Request[T]], Awaitable[Result | None]]
+type Reconciler[T: Resource] = Callable[[Request[T]], Awaitable[T | Result | None]]
 type Mapper[T: Resource] = Callable[[T], Iterable[ResourceKey]]
 
 
@@ -262,13 +263,27 @@ class Controller[T: Resource]:
             outcome = "success"
             try:
                 resource = self._primary.get(key.name, key.namespace)
+                # Keep an independent dispatch baseline even if the informer changes
+                # while reconcile awaits, or the caller edits request.resource in place.
+                original = resource.model_copy(deep=True) if resource is not None else None
                 request = Request(
-                    key, resource.model_copy(deep=True) if resource is not None else None
+                    key, original.model_copy(deep=True) if original is not None else None
                 )
                 async with asyncio.timeout(self._reconcile_timeout):
-                    result = await self.reconcile(request)
-                if result is not None and not isinstance(result, Result):
-                    raise TypeError("Reconcile must return Result or None")
+                    returned = await self.reconcile(request)
+                    result = (
+                        Result(resource=returned) if isinstance(returned, Resource) else returned
+                    )
+                    if result is not None and not isinstance(result, Result):
+                        raise TypeError("Reconcile must return its resource, Result, or None")
+                    if result is not None and result.resource is not None:
+                        if original is None:
+                            raise ValueError(
+                                "Cannot persist a returned resource for an absent snapshot"
+                            )
+                        if not isinstance(result.resource, self.resource):
+                            raise TypeError("Reconcile must return its primary resource type")
+                        await _persist(original, result.resource)
                 self._queue.forget(key)
                 if result is not None and result.requeue_after is not None:
                     self._queue.add_after(key, result.requeue_after)

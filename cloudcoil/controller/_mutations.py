@@ -84,3 +84,50 @@ async def remove_finalizer[T: Resource](
             obj.metadata.finalizers = [value for value in existing if value != finalizer]
 
     return await mutate(resource, change, config=config)
+
+
+async def _persist[T: Resource](original: T, desired: T) -> T:
+    """Commit returned snapshot differences, routing status through discovery.
+
+    Never diff a stale desired snapshot against a newer live read: that would
+    mistake another writer's updates for intentional removals. Conflicts cause a
+    full reconciliation retry. Main and status writes are individually guarded,
+    but cannot form an atomic transaction across Kubernetes endpoints.
+    """
+    operations = diff(original, desired)
+    if not operations:
+        return original
+    client = await context.active_config.async_client_for(type(original), cached=False)
+    if "status" not in client.subresources:
+        # CRDs without a status subresource store status on the main resource.
+        return await client.patch(original, operations)
+    guards, changes = operations[:2], operations[2:]
+    status_changes = [
+        op for op in changes if op["path"] == "/status" or op["path"].startswith("/status/")
+    ]
+    main_changes = [op for op in changes if op not in status_changes]
+    current = original
+    if main_changes:
+        current = await client.patch(original, [*guards, *main_changes])
+    if status_changes:
+        if main_changes:
+            if (
+                not current.metadata
+                or not original.metadata
+                or current.metadata.uid != original.metadata.uid
+                or not current.resource_version
+            ):
+                raise ResourceConflict("Resource identity changed during patch", status_code=409)
+            before_status = original.model_dump(mode="json", by_alias=True, exclude_none=True).get(
+                "status"
+            )
+            current_status = current.model_dump(mode="json", by_alias=True, exclude_none=True).get(
+                "status"
+            )
+            if before_status != current_status:
+                raise ResourceConflict(
+                    "Status changed during resource patch; reconcile again", status_code=409
+                )
+            guards = [guards[0], {**guards[1], "value": current.resource_version}]
+        current = await client.patch(current, [*guards, *status_changes], subresource="status")
+    return current
