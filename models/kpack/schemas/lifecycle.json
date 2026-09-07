@@ -1,0 +1,85 @@
+{
+  "$comment": "Missing OpenAPI definitions from kpack v0.18.0 pkg/apis/build/v1alpha2/cluster_lifecycle_types.go. Remove when upstream swagger includes these types.",
+  "definitions": {
+    "kpack.build.v1alpha2.LifecycleAPI": {
+      "type": "object",
+      "properties": {
+        "buildpack": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        }
+      }
+    },
+    "kpack.build.v1alpha2.LifecycleAPIs": {
+      "type": "object",
+      "required": [
+        "buildpack",
+        "platform"
+      ],
+      "properties": {
+        "buildpack": {
+          "type": "object",
+          "required": [
+            "deprecated",
+            "supported"
+          ],
+          "properties": {
+            "deprecated": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "default": null
+            },
+            "supported": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "default": null
+            }
+          },
+          "default": {}
+        },
+        "platform": {
+          "type": "object",
+          "required": [
+            "deprecated",
+            "supported"
+          ],
+          "properties": {
+            "deprecated": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "default": null
+            },
+            "supported": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "default": null
+            }
+          },
+          "default": {}
+        }
+      }
+    }
+  }
+}

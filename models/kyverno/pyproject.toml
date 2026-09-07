@@ -1,4 +1,4 @@
+# Kyverno uses Go durations ("10m"), not ISO 8601 durations accepted by timedelta.
 updates = [
-    { match = "^.*\\.GlobalContextEntrySpec$", jsonpath = "properties.apiCall.properties.refreshInterval.format", delete = true}
+    { match = "^.*\\.GlobalContextEntrySpec$", jsonpath = "properties.apiCall.properties.refreshInterval.format", delete = true },
 ]
-exclude-unknown = true

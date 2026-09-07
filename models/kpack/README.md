@@ -1,5 +1,5 @@
 > [!WARNING]  
-> This repository is auto-generated from the [cloudcoil repository](https://github.com/cloudcoil/cloudcoil/tree/main/models/kpack). Please do not submit pull requests here. Instead, submit them to the main repository at https://github.com/cloudcoil/cloudcoil.
+> Models are generated from upstream 0.18.0 schemas with Cloudcoil 0.7. Run `make gen-models` to regenerate them.
 
 ## 🔧 Installation
 
@@ -19,153 +19,32 @@ Using pip:
 pip install cloudcoil.models.kpack
 ```
 
-## 💡 Examples
+## Usage
 
-### Using kpack Models
-
-```python
-from cloudcoil import apimachinery
-import cloudcoil.models.kpack.v1alpha2 as kpack
-import cloudcoil.models.kpack.core as core
-import cloudcoil.models.kubernetes.core.v1 as k8score
-
-# Create an Image resource
-image = kpack.Image(
-    metadata=apimachinery.ObjectMeta(name="my-app"),
-    spec=kpack.ImageSpec(
-        tag="registry.example.com/my-app",
-        builder_=k8score.ObjectReference(
-            name="my-builder",
-            kind="ClusterBuilder"
-        ),
-        source=core.SourceConfig(
-            git=core.Git(
-                url="https://github.com/my-org/my-app.git",
-                revision="main"
-            )
-        )
-    )
-).create()
-
-# Create a Builder
-builder = kpack.BuilderResource(
-    metadata=apimachinery.ObjectMeta(name="my-builder"),
-    spec=kpack.BuilderSpec(
-        tag="registry.example.com/builder",
-        stack=k8score.ObjectReference(
-            name="base",
-            kind="ClusterStack"
-        ),
-        store=k8score.ObjectReference(
-            name="default",
-            kind="ClusterStore"
-        )
-    )
-).create()
-
-# List Images
-for img in kpack.Image.list():
-    print(f"Found image: {img.metadata.name}")
-
-# Update an Image
-image.spec.source.git.revision = "v1.0.0"
-image.save()
-
-# Delete resources
-kpack.Image.delete("my-app")
-kpack.BuilderResource.delete("my-builder")
-```
-
-### Using the Fluent Builder API
+Cloudcoil 0.7 generates a typed lookup function so callers do not need to depend on schema-derived module names:
 
 ```python
-from cloudcoil.models.kpack.v1alpha2 import Image
+from cloudcoil.models.kpack import get_model
 
-# Create an Image using the fluent builder
-image = (
-    Image.builder()
-    .metadata(lambda m: m
-        .name("my-app")
-        .namespace("default")
-    )
-    .spec(lambda s: s
-        .tag("registry.example.com/my-app")
-        .builder_(lambda b: b
-            .name("my-builder")
-            .kind("ClusterBuilder")
-        )
-        .source(lambda src: src
-            .git(lambda g: g
-                .url("https://github.com/my-org/my-app.git")
-                .revision("main")
-            )
-        )
-    )
-    .build()
-)
+Image = get_model("Image", api_version="kpack.io/v1alpha2")
+resource = Image.model_validate({
+    "metadata": {"name": "example"},
+    "spec": {'tag': 'example.com/app:latest', 'builder': {'name': 'builder', 'kind': 'ClusterBuilder'}, 'source': {'git': {'url': 'https://example.com/repo', 'revision': 'main'}}},
+})
+resource.create()
 ```
 
-### Using the Context Manager Builder API
+Generated resources support validation, fluent builders, and the Cloudcoil client API.
 
-```python
-from cloudcoil.models.kpack.v1alpha2 import Image, BuilderResource
+## Development
 
-# Create an image using context managers
-with Image.new() as app_image:
-    with app_image.metadata() as metadata:
-        metadata.name("my-app")
-        metadata.namespace("default")
-    
-    with app_image.spec() as spec:
-        spec.tag("registry.example.com/my-app")
-        
-        with spec.builder_() as builder:
-            builder.name("my-builder")
-            builder.kind("ClusterBuilder")
-        
-        with spec.source() as source:
-            with source.git() as git:
-                git.url("https://github.com/my-org/my-app.git")
-                git.revision("main")
-
-final_image = app_image.build()
-
-# Create a builder using context managers
-with BuilderResource.new() as builder:
-    with builder.metadata() as metadata:
-        metadata.name("my-builder")
-        metadata.namespace("default")
-    
-    with builder.spec() as spec:
-        spec.tag("registry.example.com/builder")
-        
-        with spec.stack() as stack:
-            stack.name("base")
-            stack.kind("ClusterStack")
-        
-        with spec.store() as store:
-            store.name("default")
-            store.kind("ClusterStore")
-        
-        # Add buildpacks to the builder
-        with spec.buildpacks() as buildpacks:
-            with buildpacks.add() as pack:
-                pack.id("paketo-buildpacks/java")
-                pack.version("3.0.0")
-
-final_builder = builder.build()
+```sh
+uv sync --dev
+make gen-models
+make lint test
+uv build
 ```
 
-The context manager builder provides:
-- 🎭 Clear visual nesting of resource structure
-- 🔒 Automatic resource cleanup
-- 🎯 Familiar Python context manager pattern
-- ✨ Same great IDE support as the fluent builder
+Generation uses the `namespace` and `input` configuration in `pyproject.toml`, with automatic resource identity and field alias inference. Generated modules are built on release branches; pull requests regenerate and test them before publishing.
 
-## 📚 Documentation
-
-For complete documentation, visit [cloudcoil.github.io/cloudcoil](https://cloudcoil.github.io/cloudcoil)
-
-## 📜 License
-
-Apache License, Version 2.0 - see [LICENSE](LICENSE)
+`schemas/lifecycle.json` supplies the lifecycle API definitions omitted from the upstream v0.18.0 OpenAPI document, matching [the upstream Go types](https://github.com/buildpacks-community/kpack/blob/v0.18.0/pkg/apis/build/v1alpha2/cluster_lifecycle_types.go). Other Kubernetes types are generated with this package, so a separate Kubernetes model dependency is unnecessary.

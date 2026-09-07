@@ -33,7 +33,7 @@
 
           - name: Bump version number
             run: |
-              sed -i "s/version = \".*\"/version = \"${{ github.event.release.tag_name }}\"/" pyproject.toml
+              sed -i "s/^version = \".*\"/version = \"${{ github.event.release.tag_name }}\"/" pyproject.toml
 
           - name: Build package
             run: uv build
