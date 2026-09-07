@@ -1,26 +1,21 @@
 """Mirror selected ConfigMaps into owned children and repair changes to either side.
 
-Run: uv run python examples/configmap_controller.py --namespace default
+Run: CLOUDCOIL_NAMESPACE=default uv run --no-sync python examples/configmap_controller.py run
 Select a source ConfigMap with the label example.com/mirror=true.
 """
 
-import argparse
-import asyncio
-import signal
-
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
-from cloudcoil.client import Config
+from cloudcoil.apimachinery import ObjectMeta
 from cloudcoil.controller import (
     Controller,
     HealthServer,
-    LeaderElection,
-    Manager,
     Request,
     TerminalError,
     mutate,
 )
 from cloudcoil.errors import ResourceNotFound
+from cloudcoil.operator import Operator
 
 
 async def reconcile(request: Request[ConfigMap]) -> None:
@@ -29,27 +24,11 @@ async def reconcile(request: Request[ConfigMap]) -> None:
         return
     source_uid = source.metadata.uid
     name = f"{request.name}-mirror"
+    client = await request.client(ConfigMap)
     try:
-        child = await ConfigMap.async_get(name, request.namespace)
+        child = await client.get(name)
     except ResourceNotFound:
-        await ConfigMap.model_validate(
-            {
-                "metadata": {
-                    "name": name,
-                    "namespace": request.namespace,
-                    "ownerReferences": [
-                        {
-                            "apiVersion": source.api_version,
-                            "kind": source.kind,
-                            "name": source.name,
-                            "uid": source_uid,
-                            "controller": True,
-                        }
-                    ],
-                },
-                "data": source.data,
-            }
-        ).async_create()
+        await request.ensure(ConfigMap(metadata=ObjectMeta(name=name), data=source.data))
         return
 
     def change(current: ConfigMap) -> None:
@@ -60,42 +39,22 @@ async def reconcile(request: Request[ConfigMap]) -> None:
 
     # Fetches live child state, guards its UID/version, and avoids a write loop
     # when the child already has the desired data. Other child fields survive.
-    await mutate(child, change)
+    await mutate(child, change, config=request.config)
 
 
-async def main(namespace: str, *, lease: str | None = None, health_port: int | None = None) -> None:
-    config = Config(namespace=namespace)
-    controller = Controller(
-        ConfigMap,
-        reconcile,
-        name="configmap-mirror",
-        namespace=namespace,
-        label_selector="example.com/mirror=true",
-        workers=2,
-    ).owns(ConfigMap)
-    manager = Manager(
-        controller,
-        config=config,
-        leader_election=LeaderElection(lease, namespace=namespace) if lease else None,
-        health=HealthServer(host="0.0.0.0", port=health_port) if health_port is not None else None,
+def build_operator() -> Operator:
+    return Operator(
+        "configmap-mirror",
+        Controller(
+            ConfigMap,
+            reconcile,
+            label_selector="example.com/mirror=true",
+            workers=2,
+        ).owns(ConfigMap),
+        leader_election=True,
+        health=HealthServer(host="0.0.0.0", port=8080),
     )
-    stop = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop.set)
-    try:
-        await manager.run(stop=stop)
-    finally:
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.remove_signal_handler(sig)
-        config.client.close()
-        await config.async_client.aclose()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--namespace", default="default")
-    parser.add_argument("--lease", help="Shared Lease name for leader election between replicas")
-    parser.add_argument("--health-port", type=int, help="Serve probes and metrics on this port")
-    args = parser.parse_args()
-    asyncio.run(main(args.namespace, lease=args.lease, health_port=args.health_port))
+    build_operator().main()

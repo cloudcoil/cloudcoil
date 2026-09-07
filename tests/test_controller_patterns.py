@@ -475,3 +475,21 @@ def test_explicit_admission_namespace_selector_is_preserved_and_copied(selector)
     assert registered() == selector
     selector["matchLabels"] = {"changed": "true"}
     assert registered() != selector
+
+
+async def test_finalizer_example_does_not_provision_when_live_read_observes_deletion(monkeypatch):
+    from examples.patterns import finalizers as pattern
+
+    obj = pattern.ExternalRecord(
+        metadata={"name": "record", "namespace": "tenant", "uid": "id"},
+        spec=pattern.RecordSpec(value="value"),
+    )
+    deleting = obj.model_copy(deep=True)
+    deleting.metadata.deletion_timestamp = "2026-09-07T00:00:00Z"
+    deleting.metadata.finalizers = [pattern.FINALIZER]
+    monkeypatch.setattr(pattern, "ensure_finalizer", AsyncMock(return_value=deleting))
+    provider = SimpleNamespace(put=AsyncMock(), delete=AsyncMock())
+    app = pattern.build_operator(provider)
+    result = await app.controllers[0].reconcile(Request(ResourceKey("record", "tenant"), obj))
+    provider.put.assert_not_awaited()
+    assert result.requeue_after == 0

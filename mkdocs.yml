@@ -1,4 +1,5 @@
 site_name: cloudcoil
+site_url: https://cloudcoil.github.io/cloudcoil/
 site_author: Sambhav Kothari
 site_description: Cloud-native made easy with Python
 
@@ -16,10 +17,23 @@ theme:
 
 nav:
   - Home: index.md
-  - Controllers: controllers.md
-  - Operators: operators.md
-  - Custom Resources and Admission: custom-resources.md
-  - API Reference: api.md
+  - Getting started: getting-started.md
+  - Guides:
+      - Resources: resources.md
+      - Logs: logs.md
+      - Model generation: models.md
+      - Model integrations: integrations.md
+      - Custom resources: custom-resources.md
+      - Controllers: controllers.md
+      - Live clients and informer reads: reads.md
+      - Admission: admission.md
+      - Operator deployment: operators.md
+      - Patterns: patterns.md
+  - Advanced:
+      - Client caching and informers: caching.md
+      - Runtime and observability: runtime.md
+      - Testing: testing.md
+  - API reference: api.md
 
 markdown_extensions:
   - pymdownx.highlight

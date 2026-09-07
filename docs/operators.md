@@ -1,4 +1,4 @@
-# Operator entry point
+# Operator deployment
 
 `Operator` brings resource definitions, controller RBAC, admission hosting, and the
 controller manager into one application definition. Use `operator.main()` instead
@@ -32,7 +32,7 @@ Handwritten resources inherit normal client operations; for explicit access use
 Install `cloudcoil[operator,kubernetes]` for the shared HTTPS runtime. Uvicorn is an
 optional dependency; manifest generation and controller-only operators do not
 start or require an HTTP server. Until supported Kubernetes model packages are
-published, follow the [model generation instructions](https://github.com/cloudcoil/cloudcoil#-installation).
+published, follow the [model generation instructions](getting-started.md#install).
 
 ## Generate, install, run
 
@@ -122,7 +122,8 @@ access. Namespaced rules default to the operator namespace. Use `namespace=` for
 another namespace or `all_namespaces=True` explicitly; `scope="Cluster"` describes
 cluster-scoped resources. Controller `namespace`/`all_namespaces` settings drive
 watch permissions, and cluster-scoped owners may watch children across namespaces.
-Namespaced admission registrations follow the primary controller namespaces;
+Namespaced admission registrations follow the primary controller namespaces unless a route supplies an explicit
+`namespace_selector`;
 webhook-only resources default to the operator namespace. Cluster resources and
 all-namespace controllers retain cluster-wide admission matching.
 Owned-child write permissions follow the controller watch scope. A mapped
@@ -161,7 +162,7 @@ The lower-level `CRD`, `AdmissionWebhook`, and `Manager` remain usable independe
 
 ## Common patterns
 
-The [pattern examples](https://github.com/cloudcoil/cloudcoil/tree/main/examples/patterns) cover informer get/list,
+The [pattern examples](patterns.md) cover informer get/list,
 shared dependencies, existing-resource aggregation, child pruning, finalizers,
 multiple controllers, and admission on built-in or externally defined resources.
 Use `request.cached(Kind)` for explicit informer snapshots and

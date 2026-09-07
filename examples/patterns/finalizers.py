@@ -56,6 +56,8 @@ def build_operator(provider: Provider | None = None) -> Operator:
         # would not be persisted until after this callback completes.
         uid = obj.metadata.uid
         obj = await ensure_finalizer(obj, FINALIZER, config=request.config)
+        if obj.metadata and obj.metadata.deletion_timestamp:
+            return Result(requeue_after=0)  # Deletion may begin during the live finalizer read.
         await external.put(uid, obj.spec.value)
         return Result(requeue_after=60)  # External changes have no Kubernetes watch.
 
