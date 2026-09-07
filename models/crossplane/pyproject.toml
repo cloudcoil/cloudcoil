@@ -1,0 +1,8 @@
+[[tool.mypy.overrides]]
+# Crossplane's runtimeConfigRef defaults are dictionaries. Pydantic's
+# validate_default converts them into typed models (covered by test_resources.py).
+module = [
+    "cloudcoil.models.crossplane.pkg_crossplane_io.v1",
+    "cloudcoil.models.crossplane.pkg_crossplane_io.v1beta1",
+]
+disable_error_code = ["assignment"]

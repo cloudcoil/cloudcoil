@@ -5,8 +5,18 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "cookiecutter/**"
+      - "models/**"
+      - "Makefile"
+      - ".github/workflows/update_repos.yml"
+  workflow_dispatch:
   repository_dispatch:
     types: [update-repos]
+concurrency:
+  group: regenerate-model-repositories
+  cancel-in-progress: false
+
 jobs:
   update-repos:
     runs-on: ubuntu-latest

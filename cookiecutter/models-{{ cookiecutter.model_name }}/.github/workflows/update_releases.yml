@@ -1,129 +1,71 @@
-{%-raw %}
+{% raw %}
 name: Update Versions
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish validated releases to trigger PyPI publishing
+        type: boolean
+        default: false
+      dry_run:
+        description: Validate and build without changing branches or releases
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: model-releases
+  cancel-in-progress: false
+
 jobs:
   update-versions:
-    permissions:
-      contents: write
-      pull-requests: write
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
+      fail-fast: false
       matrix:
-        model_version: {% endraw %}[{{cookiecutter.versions}}]{% raw %}
-
+        model_version: {% endraw %}[{{ cookiecutter.versions }}]{% raw %}
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.CI_GITHUB_TOKEN }}
-      - name: Install uv and set python
-        uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.14'
           enable-cache: true
-          cache-dependency-glob: "**/uv.lock"
-
-      - name: Install dependencies
-        run: uv sync --all-extras --dev
-
-      - name: Update version for ${{ matrix.model_version }}
+      - name: Check release source
         env:
-          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          SOURCE_REF: ${{ github.ref }}
+        run: test "$SOURCE_REF" = refs/heads/main
+      - name: Prepare upstream inputs
+        env:
+          UPSTREAM: ${{ matrix.model_version }}
         run: |
+          python tools/release_models.py prepare --upstream "$UPSTREAM"
           uv lock --upgrade-package cloudcoil
-          VERSION="${{ matrix.model_version }}.0"
-          MINOR_VERSION=$(echo "${{ matrix.model_version }}" | cut -d'.' -f1,2)
-          BRANCH="release-${MINOR_VERSION}"
-          # Update version and input URL using sed
-          sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
-          sed -i "s|{% endraw %}{{ cookiecutter.version_replacement_sed }}[0-9]\+\.[0-9]\+\.[0-9]\+/|{{ cookiecutter.version_replacement_sed }}{% raw %}${{ matrix.model_version }}/|" pyproject.toml
-{% endraw %}{% if cookiecutter.model_name == 'keda' %}{% raw %}          sed -i "s|keda-[0-9]\+\.[0-9]\+\.[0-9]\+-crds.yaml|keda-${{ matrix.model_version }}-crds.yaml|" pyproject.toml
-{% endraw %}{% endif %}{% raw %}          # Generate models
-          make gen-models
-
-          # Create temporary directory and handle repository
-          TEMP_DIR=$(mktemp -d)
-          cd "$TEMP_DIR"
-
-          # Clone repo and checkout/create branch
-          git clone https://${{ secrets.CI_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git .
-          git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
-
-          # Fetch and reset to remote branch if it exists
-          if git ls-remote --exit-code origin "$BRANCH"; then
-            git fetch origin "$BRANCH"
-            git reset --hard "origin/$BRANCH"
-          fi
-
-          # Remove all files (tracked and untracked)
-          git rm -rf .
-
-          # Copy new files and commit
-          rm -rf $GITHUB_WORKSPACE/.git
-          cp -a $GITHUB_WORKSPACE/. .
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet || git commit -m "Update to version ${{ matrix.model_version }}"
-          git push -u origin HEAD:"$BRANCH"
-
-      - name: Get next release version
-        id: next_version
-        run: |
-          BASE_VERSION="${{ matrix.model_version }}"
-          EXISTING_TAGS=$(gh release list --repo ${{ github.repository }} --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]")
-
-          # Find highest x in v{BASE_VERSION}.x
-          HIGHEST_X=$(echo "$EXISTING_TAGS" | sort -V | tail -n1 | cut -d. -f4)
-
-          # If no existing tags, start with 0, otherwise increment
-          if [ -z "$HIGHEST_X" ]; then
-            NEXT_X=0
-          else
-            NEXT_X=$((HIGHEST_X + 1))
-          fi
-
-          echo "next_version=${BASE_VERSION}.${NEXT_X}" >> $GITHUB_OUTPUT
+          uv sync --locked --all-extras --dev
+      - name: Generate and validate
+        run: make gen-models lint test
+      - name: Build and stage release
         env:
-          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
-
-      - name: Create draft release
+          GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          UPSTREAM: ${{ matrix.model_version }}
+          PUBLISH: ${{ inputs.publish || (github.event_name == 'push' && vars.AUTO_PUBLISH_MODELS == 'true') }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
-          RELEASE_TAG="${{ steps.next_version.outputs.next_version }}"
-          BASE_VERSION=$(echo "${{ matrix.model_version }}" | cut -d'.' -f1,2)
-          BRANCH="release-${BASE_VERSION}"
-
-          # Find the previous release tag with same minor version, excluding drafts
-          PREV_TAG=$(gh release list --repo ${{ github.repository }} --exclude-drafts --json tagName --jq "[.[] | select(.tagName | startswith(\"${BASE_VERSION}.\")).tagName] | .[]" | sort -V | tail -n1)
-          COMPARE_LINK=""
-          if [ ! -z "$PREV_TAG" ]; then
-            COMPARE_LINK="[Compare with previous release](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${RELEASE_TAG})"
-          fi
-
-          RELEASE_NOTES="Release for version $RELEASE_TAG ${COMPARE_LINK}"
-
-          # Check for existing draft first
-          EXISTING_DRAFT=$(gh release list --repo ${{ github.repository }} --json tagName,isDraft --jq ".[] | select(.tagName == \"${RELEASE_TAG}\" and .isDraft == true).tagName")
-
-          if [ ! -z "$EXISTING_DRAFT" ]; then
-            gh release edit "$RELEASE_TAG" \
-              --repo ${{ github.repository }} \
-              --draft \
-              --title "Release $RELEASE_TAG" \
-              --notes "$RELEASE_NOTES" \
-              --target "$BRANCH"
-          else
-            gh release create "$RELEASE_TAG" \
-              --repo ${{ github.repository }} \
-              --draft \
-              --title "Release $RELEASE_TAG" \
-              --notes "$RELEASE_NOTES" \
-              --target "$BRANCH"
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
-{%- endraw %}
+          gh auth setup-git
+          args=()
+          if [ "$PUBLISH" = true ]; then args+=(--publish); fi
+          if [ "$DRY_RUN" = true ]; then args+=(--dry-run); fi
+          uv run --no-sync python tools/release_models.py finish --upstream "$UPSTREAM" "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions-${{ matrix.model_version }}
+          path: dist/*
+          if-no-files-found: ignore
+{% endraw %}

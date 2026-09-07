@@ -29,3 +29,19 @@ uv add cloudcoil[all-models]
 ```
 
 > Missing an integration you need? [Open a model request](https://github.com/cloudcoil/cloudcoil/issues/new?template=%F0%9F%94%8C-model-request.md) to suggest a new integration!
+
+## New integration sources
+
+Generation configs and resource round-trip tests are available for the following
+projects. These packages are awaiting their initial PyPI publishing setup; generate
+from the checkout with `make gen-repo-<name>` in the meantime.
+
+| Integration | Initially validated upstream version | Generation target |
+| --- | --- | --- |
+| Argo CD | 3.5.2 | `make gen-repo-argocd` |
+| Contour | 1.33.7 | `make gen-repo-contour` |
+| Crossplane | 2.4.0 | `make gen-repo-crossplane` |
+| Tekton Pipelines | 1.15.1 | `make gen-repo-tekton` |
+
+After rendering, run `make gen-models lint test` inside `output/models-<name>`.
+For version update PRs and publishing, see [Maintaining model packages](model-releases.md).

@@ -1,0 +1,45 @@
+name: Check upstream model versions
+
+on:
+  schedule:
+    - cron: '23 6 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-model-versions
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.CI_GITHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+          enable-cache: true
+      - name: Discover upstream releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+        run: uv run --frozen python tools/update_model_versions.py | tee "$RUNNER_TEMP/model-updates.md"
+      - name: Open or update version PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.CI_GITHUB_TOKEN }}
+          branch: automation/model-versions
+          title: Update upstream model versions
+          commit-message: Update upstream model versions
+          signoff: true
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          body-path: ${{ runner.temp }}/model-updates.md
+          add-paths: |
+            models/*/cookiecutter.yaml
+            cookiecutter/models-*/pyproject.toml

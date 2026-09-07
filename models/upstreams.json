@@ -1,0 +1,67 @@
+{
+  "argocd": {
+    "repository": "argoproj/argo-cd",
+    "tag_prefix": "v"
+  },
+  "cert-manager": {
+    "repository": "cert-manager/cert-manager",
+    "tag_prefix": "v"
+  },
+  "contour": {
+    "repository": "projectcontour/contour",
+    "tag_prefix": "v"
+  },
+  "crossplane": {
+    "repository": "crossplane/crossplane",
+    "tag_prefix": "v"
+  },
+  "fluxcd": {
+    "repository": "fluxcd/flux2",
+    "tag_prefix": "v"
+  },
+  "istio": {
+    "repository": "istio/istio",
+    "tag_prefix": ""
+  },
+  "keda": {
+    "repository": "kedacore/keda",
+    "tag_prefix": "v"
+  },
+  "knative-eventing": {
+    "repository": "knative/eventing",
+    "tag_prefix": "knative-v"
+  },
+  "knative-serving": {
+    "repository": "knative/serving",
+    "tag_prefix": "knative-v"
+  },
+  "kpack": {
+    "repository": "buildpacks-community/kpack",
+    "tag_prefix": "v"
+  },
+  "kubernetes": {
+    "repository": "kubernetes/kubernetes",
+    "tag_prefix": "v",
+    "policy": "maintained-minors"
+  },
+  "kyverno": {
+    "repository": "kyverno/kyverno",
+    "tag_prefix": "v"
+  },
+  "prometheus-operator": {
+    "repository": "prometheus-operator/prometheus-operator",
+    "tag_prefix": "v"
+  },
+  "sealed-secrets": {
+    "repository": "bitnami/sealed-secrets",
+    "tag_prefix": "v"
+  },
+  "tekton": {
+    "repository": "tektoncd/pipeline",
+    "tag_prefix": "v"
+  },
+  "velero": {
+    "repository": "velero-io/velero",
+    "tag_prefix": "v"
+  }
+}
