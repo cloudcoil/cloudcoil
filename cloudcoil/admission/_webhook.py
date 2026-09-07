@@ -78,6 +78,7 @@ class _Route:
     timeout_seconds: int
     failure_policy: Literal["Fail", "Ignore"]
     target: type[Resource] | None = None
+    namespace_selector: dict[str, Any] | None = None
 
 
 def _dns(value: str, *, label: bool = False) -> None:
@@ -192,6 +193,7 @@ class AdmissionWebhook:
         operations: Sequence[Operation] = ("CREATE", "UPDATE"),
         subresource: str = "",
         scope: Literal["Namespaced", "Cluster", "*"] | None = None,
+        namespace_selector: dict[str, Any] | None = None,
         timeout_seconds: int = 5,
         failure_policy: Literal["Fail", "Ignore"] = "Fail",
     ) -> Callable[[Mutator[T]], Mutator[T]]:
@@ -210,6 +212,7 @@ class AdmissionWebhook:
                 timeout_seconds,
                 failure_policy,
                 target=target,
+                namespace_selector=namespace_selector,
             )
             return handler
 
@@ -225,6 +228,7 @@ class AdmissionWebhook:
         operations: Sequence[Operation] = ("CREATE", "UPDATE"),
         subresource: str = "",
         scope: Literal["Namespaced", "Cluster", "*"] | None = None,
+        namespace_selector: dict[str, Any] | None = None,
         timeout_seconds: int = 5,
         failure_policy: Literal["Fail", "Ignore"] = "Fail",
     ) -> Callable[[Validator[T]], Validator[T]]:
@@ -243,6 +247,7 @@ class AdmissionWebhook:
                 timeout_seconds,
                 failure_policy,
                 target=target,
+                namespace_selector=namespace_selector,
             )
             return handler
 
@@ -262,6 +267,7 @@ class AdmissionWebhook:
         failure_policy: Literal["Fail", "Ignore"],
         *,
         target: type[Resource] | None = None,
+        namespace_selector: dict[str, Any] | None = None,
     ) -> None:
         from cloudcoil.crd import _resource_options
 
@@ -320,6 +326,7 @@ class AdmissionWebhook:
             timeout_seconds,
             failure_policy,
             target,
+            deepcopy(namespace_selector),
         )
 
     def configurations(
@@ -392,6 +399,8 @@ class AdmissionWebhook:
                         }
                     ],
                 }
+                if route.namespace_selector is not None:
+                    webhook["namespaceSelector"] = deepcopy(route.namespace_selector)
                 if mutation:
                     webhook["reinvocationPolicy"] = "Never"
                 webhooks.append(webhook)

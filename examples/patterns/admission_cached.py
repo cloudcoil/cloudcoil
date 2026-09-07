@@ -10,7 +10,11 @@ from cloudcoil.operator import Operator, RBACRule, WebhookServer
 def build_operator() -> Operator:
     policies = AdmissionWebhook()
 
-    @policies.validating(Pod, path="/namespace-policy")
+    @policies.validating(
+        Pod,
+        path="/namespace-policy",
+        namespace_selector={"matchLabels": {"patterns.cloudcoil.dev/enforce": "true"}},
+    )
     async def namespace_policy(request: AdmissionRequest[Pod]) -> None:
         namespace = request.cached(Namespace).get(request.namespace)
         if namespace is None:

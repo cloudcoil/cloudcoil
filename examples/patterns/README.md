@@ -118,10 +118,12 @@ cached UID and resourceVersion, preventing deletion of a replacement object.
 ```python
 policies = AdmissionWebhook()
 
+
 @policies.validating(Deployment, path="/validate-deployment")
 async def validate(request: AdmissionRequest[Deployment]) -> None:
     policy = await (await request.client(ConfigMap)).get("deployment-policy")
     # Compare request.resource and request.old_resource; raise AdmissionDenied.
+
 
 operator = Operator(
     "deployment-policy",
@@ -148,7 +150,10 @@ requests. Registrations use exact API versions and subresources, not wildcards.
 
 Namespaced routes default to the operator namespace, or the matching controller's
 watch namespaces when present. Cluster-scoped routes are not namespace-filtered.
-Review generated `namespaceSelector` and rules for your deployment scope. The
+Set `namespace_selector={"matchLabels": {"policy": "enabled"}}` on a route to
+select namespaces explicitly, or `namespace_selector={}` for all namespaces.
+The runtime preserves explicit selectors. Review generated selectors and RBAC
+for your deployment scope. The
 Deployment policy requires `deployment-policy` with `data.maxReplicas` in each
 selected namespace; a missing/invalid policy fails closed.
 
@@ -157,7 +162,8 @@ For cache-backed admission, `request.cached(Kind)` requires an explicitly config
 replica starts its own cache before serving; leader-only controller informers cannot
 serve this purpose. Use one cache namespace or `None` for all namespaces, and
 `max_items_per_resource=0` for an unbounded policy cache. A cache miss is not evidence
-of absence. The Pod example falls back to a live read on misses; cached hits can
+of absence. The Pod example selects namespaces labeled `patterns.cloudcoil.dev/enforce=true`
+and requires `patterns.cloudcoil.dev/allow-pods=true` there. It falls back to a live read on misses; cached hits can
 still be stale. Use live reads when decisions must reflect current policy. Reads
 across objects are not an atomic admission transaction either way.
 

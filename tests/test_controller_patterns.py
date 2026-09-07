@@ -446,3 +446,32 @@ def test_cache_configuration_honors_scope_and_unbounded_capacity():
         cache._create_options(ConfigMap, "other")
     with pytest.raises(ValueError, match="one namespace"):
         Cache(namespaces=["one", "two"])
+
+
+@pytest.mark.parametrize("selector", [{}, {"matchLabels": {"policy": "enabled"}}])
+def test_explicit_admission_namespace_selector_is_preserved_and_copied(selector):
+    from cloudcoil.admission import AdmissionWebhook
+    from cloudcoil.operator import Operator, WebhookServer
+
+    policies = AdmissionWebhook()
+
+    @policies.validating(Pod, path="/pods", namespace_selector=selector)
+    async def validate(request):
+        pass
+
+    operator = Operator(
+        "policy",
+        admission=policies,
+        webhook=WebhookServer(tls_secret="policy-tls", ca_bundle=b"-----BEGIN CERTIFICATE-----"),
+    )
+
+    def registered():
+        return next(
+            doc for doc in operator.manifests() if doc["kind"] == "ValidatingWebhookConfiguration"
+        )["webhooks"][0]["namespaceSelector"]
+
+    assert registered() == selector
+    registered()["matchLabels"] = {"changed": "true"}
+    assert registered() == selector
+    selector["matchLabels"] = {"changed": "true"}
+    assert registered() != selector

@@ -389,7 +389,7 @@ def build_manifests(
         for configuration in configurations:
             for policy in configuration["webhooks"]:
                 route = admission._routes[policy["clientConfig"]["service"]["path"]]
-                if route.scope != "Namespaced":
+                if route.scope != "Namespaced" or "namespaceSelector" in policy:
                     continue
                 targets = {
                     None

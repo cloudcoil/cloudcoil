@@ -161,7 +161,7 @@ The lower-level `CRD`, `AdmissionWebhook`, and `Manager` remain usable independe
 
 ## Common patterns
 
-The [pattern examples](../examples/patterns/README.md) cover informer get/list,
+The [pattern examples](https://github.com/cloudcoil/cloudcoil/tree/main/examples/patterns) cover informer get/list,
 shared dependencies, existing-resource aggregation, child pruning, finalizers,
 multiple controllers, and admission on built-in or externally defined resources.
 Use `request.cached(Kind)` for explicit informer snapshots and
