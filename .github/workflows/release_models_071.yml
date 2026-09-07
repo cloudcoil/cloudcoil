@@ -1,0 +1,37 @@
+name: Release models with Cloudcoil 0.7.1
+
+on:
+  push:
+    branches: [release/cloudcoil-0.7.1-models]
+    paths:
+      - .github/workflows/release_models_071.yml
+      - tools/release_models_071.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-models-071
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/release/cloudcoil-0.7.1-models'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [kubernetes, cert-manager, fluxcd, kyverno, istio, keda, prometheus-operator, knative-eventing, knative-serving, kpack, sealed-secrets, velero]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.14'
+      - name: Validate and publish only the selected integration drafts
+        env:
+          GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+        run: |
+          gh auth setup-git
+          python tools/release_models_071.py '${{ matrix.model }}'
