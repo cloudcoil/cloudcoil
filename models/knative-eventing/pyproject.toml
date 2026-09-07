@@ -1,0 +1,2 @@
+# Inline titled scalar schemas must remain fields, not top-level root models.
+additional-datamodel-codegen-args = ["--collapse-root-models"]

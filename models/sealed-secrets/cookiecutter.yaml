@@ -2,7 +2,7 @@ default_context:
   model_name: sealed-secrets
   author_name: Sambhav Kothari
   author_email: sambhavs.email@gmail.com
-  crd_namespace: com.bitnami
-  crd_urls: https://raw.githubusercontent.com/bitnami-labs/sealed-secrets/refs/tags/v0.28.0/helm/sealed-secrets/crds/bitnami.com_sealedsecrets.yaml
-  versions: "'0.28.0'"
+  crd_namespace: ''
+  crd_urls: https://raw.githubusercontent.com/bitnami/sealed-secrets/refs/tags/v0.39.1/helm/sealed-secrets/crds/bitnami.com_sealedsecrets.yaml
+  versions: "'0.39.1'"
   version_replacement_sed: refs/tags/v

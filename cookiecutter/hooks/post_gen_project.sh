@@ -1,10 +1,12 @@
 #!/bin/bash
 set -ex
-uv sync
-uv add cloudcoil -U
 {% if cookiecutter._config_dir %}
 [[ -f {{cookiecutter._config_dir}}/Makefile ]] && cat {{cookiecutter._config_dir}}/Makefile >> Makefile
 [[ -f {{cookiecutter._config_dir}}/pyproject.toml ]] && cat {{cookiecutter._config_dir}}/pyproject.toml >> pyproject.toml
 [[ -f {{cookiecutter._config_dir}}/README.md ]] && cat {{cookiecutter._config_dir}}/README.md >> README.md
+[[ -d {{cookiecutter._config_dir}}/schemas ]] && cp -a {{cookiecutter._config_dir}}/schemas .
+[[ -d {{cookiecutter._config_dir}}/tests ]] && cp -a {{cookiecutter._config_dir}}/tests/. tests/
 {% endif %}
+uv lock --upgrade-package cloudcoil
+uv sync --locked
 make fix-lint

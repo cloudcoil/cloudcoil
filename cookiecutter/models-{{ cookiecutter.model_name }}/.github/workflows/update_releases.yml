@@ -33,14 +33,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
         run: |
-          uv add cloudcoil -U
+          uv lock --upgrade-package cloudcoil
           VERSION="${{ matrix.model_version }}.0"
           MINOR_VERSION=$(echo "${{ matrix.model_version }}" | cut -d'.' -f1,2)
           BRANCH="release-${MINOR_VERSION}"
           # Update version and input URL using sed
           sed -i "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
           sed -i "s|{% endraw %}{{ cookiecutter.version_replacement_sed }}[0-9]\+\.[0-9]\+\.[0-9]\+/|{{ cookiecutter.version_replacement_sed }}{% raw %}${{ matrix.model_version }}/|" pyproject.toml
-          # Generate models
+{% endraw %}{% if cookiecutter.model_name == 'keda' %}{% raw %}          sed -i "s|keda-[0-9]\+\.[0-9]\+\.[0-9]\+-crds.yaml|keda-${{ matrix.model_version }}-crds.yaml|" pyproject.toml
+{% endraw %}{% endif %}{% raw %}          # Generate models
           make gen-models
 
           # Create temporary directory and handle repository

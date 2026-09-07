@@ -1,3 +1,0 @@
-additional-datamodel-codegen-args = [
-    "--collapse-root-models",
-]

@@ -1,4 +1,4 @@
 [[tool.mypy.overrides]]
-# Ignore specific third-party packages
-module = "cloudcoil.models.fluxcd.image.*"
+# Upstream object defaults are dictionaries, converted by Pydantic validate_default.
+module = "cloudcoil.models.fluxcd.image.v1"
 disable_error_code = ["assignment"]

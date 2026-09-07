@@ -11,7 +11,7 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "cloudcoil>=0.5.0.dev0",
+    "cloudcoil>=0.7.1,<0.8",
 {%- if cookiecutter.dependencies %}
 {%- for dependency in cookiecutter.dependencies.split(',') %}
     "{{ dependency | trim }}",
@@ -62,13 +62,11 @@ dev = [
     "pytest>=8.3.4",
     "pytest-cov>=4.1.0",
     "ruff>=0.14",
-    "mkdocs-autorefs",
-    "datamodel-code-generator[http]",
     "types-pyyaml>=6.0.12.20241221",
     "ipython>=8.12.3",
     "pytest-sugar>=1.0.0",
     "pytest-asyncio>=0.25.0",
-    "cloudcoil[codegen,test]"
+    "cloudcoil[codegen,test]>=0.7.1,<0.8"
 ]
 
 [tool.mypy]
@@ -81,10 +79,8 @@ omit = ["cloudcoil/models/**"]
 only-include = ["cloudcoil"]
 
 [[tool.cloudcoil.codegen.models]]
-# Unique name for the models
-# This will be used as the name for the setuptools entrypoints
+# Python package for generated models
 namespace = "cloudcoil.models.{{cookiecutter.module_name}}"
-# Split the crl urls by comma
 input = [
 {%- for crd in cookiecutter.crd_urls.split(',') %}
     "{{ crd | trim }}",

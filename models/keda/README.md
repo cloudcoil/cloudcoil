@@ -31,13 +31,13 @@ import cloudcoil.models.keda.v1alpha1 as keda
 scaled_object = keda.ScaledObject(
     metadata=apimachinery.ObjectMeta(name="rabbitmq-scaler"),
     spec=keda.ScaledObjectSpec(
-        scale_target_ref=keda.ScaleTargetRef(
+        scale_target_ref=keda.ScaledObjectSpecScaleTargetRef(
             name="my-deployment",
             kind="Deployment",
             api_version="apps/v1"
         ),
         triggers=[
-            keda.TriggerModel(
+            keda.ScaledObjectSpecTriggersItem(
                 type="rabbitmq",
                 metadata={
                     "queue_name": "hello",
