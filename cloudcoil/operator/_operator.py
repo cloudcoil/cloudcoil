@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import math
 import os
+import shlex
 import signal
 from collections.abc import Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -381,7 +382,9 @@ class Operator:
         for name in ("manifests", "install"):
             command = commands.add_parser(name)
             command.add_argument("--image")
-            command.add_argument("--command", nargs="+", help="Container entry point before run")
+            command.add_argument(
+                "--command", type=shlex.split, help="Quoted container command before run (no shell)"
+            )
             command.add_argument("--replicas", type=int, default=1)
             command.add_argument("--without-webhooks", action="store_true")
             command.add_argument(

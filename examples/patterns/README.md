@@ -29,7 +29,7 @@ uv run --no-sync python -m examples.patterns.workload_summary run
 
 `install` applies CRDs and RBAC using your current credentials. `run` stays in the
 foreground and uses those credentials. For deployment, put the module and cloudcoil
-in an image, and add `--image IMAGE --command python -m examples.patterns.workload_summary`
+in an image, and add `--image IMAGE --command "python -m examples.patterns.workload_summary"`
 to `manifests` or `install`. The runtime appends `run`. Use the generated ServiceAccount
 and RBAC when deploying; a local administrator's kubeconfig does not test runtime permissions.
 

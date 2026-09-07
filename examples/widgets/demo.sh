@@ -57,7 +57,7 @@ kubectl -n widgets create secret tls deployment-policy-tls \
   --cert="$tls_dir/policy.crt" --key="$tls_dir/policy.key" --dry-run=client -o yaml | kubectl apply -f -
 uv run --no-sync python -m examples.patterns.admission_existing install \
   --image widgets:local --ca-file "$tls_dir/ca.crt" \
-  --command python -m examples.patterns.admission_existing
+  --command "python -m examples.patterns.admission_existing"
 kubectl -n widgets annotate deployment policy-example patterns.cloudcoil.dev/protect=true --overwrite
 team=$(kubectl -n widgets get deployment policy-example -o jsonpath='{.metadata.labels.team}')
 test "$team" = unassigned

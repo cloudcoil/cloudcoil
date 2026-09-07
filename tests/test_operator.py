@@ -107,7 +107,7 @@ def test_manifests_and_cli_need_no_config_or_tls_files(monkeypatch, capsys):
         namespace="operators",
         webhook=WebhookServer(ca_bundle=b"-----BEGIN CERTIFICATE-----\npublic"),
     )
-    app.main(["manifests", "--image", "example/operator:v1", "--command", "python", "app.py"])
+    app.main(["manifests", "--image", "example/operator:v1", "--command", "python app.py"])
     documents = list(yaml.safe_load_all(capsys.readouterr().out))
     assert documents[0]["kind"] == "CustomResourceDefinition"
     assert documents[-1]["kind"] == "ValidatingWebhookConfiguration"
@@ -337,3 +337,23 @@ async def test_server_system_exit_becomes_startup_error(tls, monkeypatch):
             await server.start()
     finally:
         await server.close()
+
+
+@pytest.mark.parametrize(
+    "command,expected",
+    [
+        (
+            "python -m examples.patterns.workload_summary",
+            ["python", "-m", "examples.patterns.workload_summary"],
+        ),
+        ("python 'app with spaces.py'", ["python", "app with spaces.py"]),
+    ],
+)
+def test_cli_container_command_preserves_options_and_quoted_arguments(capsys, command, expected):
+    app = Operator("widgets", Controller(Widget, reconcile))
+    app.main(["manifests", "--command", command, "--image", "example/operator:v1"])
+    deployment = next(
+        doc for doc in yaml.safe_load_all(capsys.readouterr().out) if doc["kind"] == "Deployment"
+    )
+    container = deployment["spec"]["template"]["spec"]["containers"][0]
+    assert container["command"] == expected and container["args"] == ["run"]

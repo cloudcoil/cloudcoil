@@ -52,7 +52,7 @@ python app.py run
 The container image must contain your application and dependencies, with its
 entry point set to execute the module (for example `ENTRYPOINT ["python", "app.py"]`).
 The generated Deployment adds `run` as its arguments. Alternatively pass
-`--command python app.py` alongside `--image`. Cloudcoil does not build or publish
+`--command "python app.py"` alongside `--image`. Cloudcoil does not build or publish
 the image. `--replicas 2` generates two replicas; configure leader election when
 only one reconciliation manager should be active.
 
