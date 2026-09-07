@@ -109,7 +109,9 @@ only-include = ["cloudcoil"]
     nested = tmp_path / "cloudcoil/models/sample/build"
     nested.mkdir(parents=True)
     (nested / "v1.py").write_text("VALUE = 1\n")
-    (nested.parent / "_lookup.py").write_text("LOOKUP = {}\n")
+    (nested.parent / "_lookup.py").write_text(
+        '_MODELS = {("Sample", "sample/v1"): ("cloudcoil.models.sample.build.v1", "Sample")}\n'
+    )
     (nested.parent / "py.typed").touch()
     return tmp_path
 
@@ -148,6 +150,54 @@ def make_artifacts(package, omit=None, version="1.2.3.0"):
 def test_artifact_checks_accept_matching_wheel_and_sdist(package):
     make_artifacts(package)
     releases.verify_artifacts(package, "1.2.3.0")
+
+
+@pytest.mark.parametrize(
+    "check", [releases.fingerprint, lambda root: releases.verify_artifacts(root, "1.2.3.0")]
+)
+@pytest.mark.parametrize(
+    "damage", ["placeholder", "empty_lookup", "empty_module", "missing_module"]
+)
+def test_empty_generated_packages_are_rejected(package, check, damage):
+    namespace = package / "cloudcoil/models/sample"
+    if damage == "placeholder":
+        for path in namespace.rglob("*.py"):
+            path.unlink()
+        (namespace / "__init__.py").touch()
+    elif damage == "empty_lookup":
+        (namespace / "_lookup.py").write_text("_MODELS = {}\n")
+    elif damage == "empty_module":
+        (namespace / "build/v1.py").write_text("")
+    else:
+        (namespace / "build/v1.py").unlink()
+    make_artifacts(package)
+    with pytest.raises(ValueError, match="[Mm]issing|[Ee]mpty"):
+        check(package)
+
+
+@pytest.mark.parametrize("artifact", ["wheel", "sdist"])
+def test_artifact_checks_reject_empty_files_with_correct_names(package, artifact):
+    make_artifacts(package)
+    if artifact == "wheel":
+        path = package / "dist/sample.whl"
+        with zipfile.ZipFile(path) as archive:
+            entries = {name: archive.read(name) for name in archive.namelist()}
+        with zipfile.ZipFile(path, "w") as archive:
+            for name, content in entries.items():
+                archive.writestr(name, b"" if name.endswith("v1.py") else content)
+    else:
+        path = package / "dist/sample.tar.gz"
+        with tarfile.open(path) as archive:
+            entries = [
+                (member, archive.extractfile(member).read()) for member in archive.getmembers()
+            ]
+        with tarfile.open(path, "w:gz") as archive:
+            for member, content in entries:
+                if member.name.endswith("v1.py"):
+                    member.size, content = 0, b""
+                archive.addfile(member, BytesIO(content))
+    with pytest.raises(ValueError, match="contents differ"):
+        releases.verify_artifacts(package, "1.2.3.0")
 
 
 def test_artifact_checks_catch_kpack_nested_build_regression(package):

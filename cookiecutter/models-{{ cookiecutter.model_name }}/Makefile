@@ -36,3 +36,8 @@ prepare-for-pr: fix-lint lint test
 gen-models:
 	uv run cloudcoil-model-codegen
 	$(MAKE) fix-lint
+
+.PHONY: check-artifacts
+check-artifacts:
+	uv build --no-sources
+	uv run --no-sync python tools/release_models.py verify

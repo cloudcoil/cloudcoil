@@ -55,16 +55,9 @@ jobs:
         env:
           MODEL: ${{ matrix.model }}
         run: make "gen-repo-$MODEL"
-      - name: Generate, check, and build the integration
+      - name: Check the generated repository exactly as it will be published
         env:
           MODEL: ${{ matrix.model }}
         run: |
           cd "output/models-$MODEL"
-          make gen-models lint test
-          uv build
-          uv run --no-sync python - <<'PY'
-          import runpy, tomllib
-          from pathlib import Path
-          module = runpy.run_path('tools/release_models.py')
-          module['verify_artifacts'](Path.cwd(), tomllib.loads(Path('pyproject.toml').read_text())['project']['version'])
-          PY
+          make lint test check-artifacts

@@ -7,6 +7,7 @@ on:
   pull_request:
   push:
     branches:
+      - main
       - release-*
 jobs:
   test:
@@ -29,16 +30,13 @@ jobs:
           cache-dependency-glob: "**/uv.lock"
 
       - name: Install dependencies
-        run: uv sync --all-extras --dev
-
-      - name: Generate models
-        run: make gen-models
+        run: uv sync --locked --all-extras --dev
 
       - name: Run Checks
         run: make -j8 lint test
 
-      - name: Build package
-        run: uv build --no-sources
+      - name: Verify committed model artifacts
+        run: make check-artifacts
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
