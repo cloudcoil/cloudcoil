@@ -77,6 +77,7 @@ class _Route:
     scope: Literal["Namespaced", "Cluster", "*"]
     timeout_seconds: int
     failure_policy: Literal["Fail", "Ignore"]
+    target: type[Resource] | None = None
 
 
 def _dns(value: str, *, label: bool = False) -> None:
@@ -159,11 +160,12 @@ class AdmissionWebhook:
                     return invoke
 
                 prefix = "mutate" if policy.mutation else "validate"
-                # Dots in DNS groups are harmless path characters but our public route
-                # validator deliberately uses a narrower alphabet, so encode as slashes.
+                # Stable DNS-label paths also work as Kubernetes Service paths.
                 group_path = gvk.group.replace(".", "/")
+                method_path = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "handler"
                 path = (
-                    policy.path or f"/{prefix}/{group_path}/{gvk.version}/{options.plural}/{name}"
+                    policy.path
+                    or f"/{prefix}/{group_path}/{gvk.version}/{options.plural}/{method_path}"
                 )
                 staged._register(
                     model,
@@ -184,11 +186,12 @@ class AdmissionWebhook:
         self,
         model: type[T],
         *,
-        resource: str,
+        target: type[Resource] | None = None,
+        resource: str | None = None,
         path: str,
         operations: Sequence[Operation] = ("CREATE", "UPDATE"),
         subresource: str = "",
-        scope: Literal["Namespaced", "Cluster", "*"] = "*",
+        scope: Literal["Namespaced", "Cluster", "*"] | None = None,
         timeout_seconds: int = 5,
         failure_policy: Literal["Fail", "Ignore"] = "Fail",
     ) -> Callable[[Mutator[T]], Mutator[T]]:
@@ -206,6 +209,7 @@ class AdmissionWebhook:
                 scope,
                 timeout_seconds,
                 failure_policy,
+                target=target,
             )
             return handler
 
@@ -215,11 +219,12 @@ class AdmissionWebhook:
         self,
         model: type[T],
         *,
-        resource: str,
+        target: type[Resource] | None = None,
+        resource: str | None = None,
         path: str,
         operations: Sequence[Operation] = ("CREATE", "UPDATE"),
         subresource: str = "",
-        scope: Literal["Namespaced", "Cluster", "*"] = "*",
+        scope: Literal["Namespaced", "Cluster", "*"] | None = None,
         timeout_seconds: int = 5,
         failure_policy: Literal["Fail", "Ignore"] = "Fail",
     ) -> Callable[[Validator[T]], Validator[T]]:
@@ -237,6 +242,7 @@ class AdmissionWebhook:
                 scope,
                 timeout_seconds,
                 failure_policy,
+                target=target,
             )
             return handler
 
@@ -248,25 +254,42 @@ class AdmissionWebhook:
         handler: Callable[..., Awaitable[Any]],
         mutation: bool,
         path: str,
-        resource: str,
+        resource: str | None,
         operations: Sequence[Operation],
         subresource: str,
-        scope: Literal["Namespaced", "Cluster", "*"],
+        scope: Literal["Namespaced", "Cluster", "*"] | None,
         timeout_seconds: int,
         failure_policy: Literal["Fail", "Ignore"],
+        *,
+        target: type[Resource] | None = None,
     ) -> None:
+        from cloudcoil.crd import _resource_options
+
         model.gvk()  # Fail early for models without a concrete GVK.
+        if target is not None and not subresource:
+            raise ValueError("A different admission target requires subresource=...")
+        target_model = target if target is not None else model
+        target_model.gvk()
+        options = _resource_options(target_model)
+        api = target_model.__dict__.get("__cloudcoil_api__") or {}
+        resource = (
+            resource if resource is not None else (options.plural if options else api.get("plural"))
+        )
+        scope = (
+            scope if scope is not None else (options.scope if options else api.get("scope", "*"))
+        )
+        if resource is None:
+            raise ValueError("Supply resource=... or use a model with generated API metadata")
         field = model.model_fields["api_version"]
         if (field.serialization_alias or field.alias) != "apiVersion":
             raise ValueError("The resource api_version field needs Field(alias='apiVersion')")
-        if (
-            not re.fullmatch(r"/[a-zA-Z0-9/_-]+", path)
-            or path in self._routes
-            or path == "/healthz"
-        ):
+        if not re.fullmatch(r"/[a-z0-9/.-]+", path) or path in self._routes or path == "/healthz":
             raise ValueError(
                 "Webhook paths must be unique absolute paths without query or escape characters"
             )
+        # Kubernetes validates each Service path segment as a DNS subdomain.
+        for segment in path[1:].split("/"):
+            _dns(segment)
         if len(resource) > 63 or not re.fullmatch(r"[a-z](?:[-a-z0-9]*[a-z0-9])?", resource):
             raise ValueError("resource must be the exact lowercase Kubernetes resource plural")
         if subresource and not re.fullmatch(r"[a-z][a-z0-9]*", subresource):
@@ -296,6 +319,7 @@ class AdmissionWebhook:
             scope,
             timeout_seconds,
             failure_policy,
+            target,
         )
 
     def configurations(
@@ -334,7 +358,7 @@ class AdmissionWebhook:
             for index, route in enumerate(self._routes.values()):
                 if route.mutation != mutation:
                     continue
-                gvk = route.model.gvk()
+                gvk = (route.target or route.model).gvk()
                 webhook_name = f"{'mutate' if mutation else 'validate'}-{index}.{name}"
                 _dns(webhook_name)
                 if webhook_name.count(".") < 2:
@@ -565,13 +589,14 @@ class AdmissionWebhook:
     @staticmethod
     def _check_request(route: _Route, raw: _Request) -> None:
         gvk = route.model.gvk()
+        target = (route.target or route.model).gvk()
         if (raw.kind.group, raw.kind.version, raw.kind.kind) != (
             gvk.group,
             gvk.version,
             gvk.kind,
         ) or (raw.resource.group, raw.resource.version, raw.resource.resource) != (
-            gvk.group,
-            gvk.version,
+            target.group,
+            target.version,
             route.resource,
         ):
             raise ValueError("Admission kind or resource does not match this route")

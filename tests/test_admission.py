@@ -10,7 +10,7 @@ import httpx
 import pytest
 from pydantic import Field, field_validator
 
-from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
+from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook, validating
 from cloudcoil.admission._mutation import mutation_patch
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
@@ -931,3 +931,26 @@ async def test_injected_clients_default_to_each_concurrent_requests_namespace():
         assert len({id(client) for client in created_clients}) == 2
         assert config.namespace == "configured-default"
         assert sorted(client.default_namespace for client in created_clients) == sorted(in_flight)
+
+
+def test_generated_method_paths_are_valid_kubernetes_service_segments():
+    from cloudcoil.crd import custom_resource
+
+    @custom_resource(api_version="paths.example.com/v1", plural="policies")
+    class PathPolicy(Resource):
+        @classmethod
+        @validating()
+        async def check_policy(cls, request):
+            pass
+
+    admission = AdmissionWebhook().register(PathPolicy)
+    assert list(admission._routes) == ["/validate/paths/example/com/v1/policies/check-policy"]
+
+
+@pytest.mark.parametrize("path", ["/check_policy", "/Uppercase", "/bad//path", "/bad/", "/-bad"])
+def test_explicit_paths_reject_invalid_kubernetes_service_segments(path):
+    async def handler(request):
+        pass
+
+    with pytest.raises(ValueError):
+        AdmissionWebhook().validating(Widget, path=path, resource="widgets")(handler)

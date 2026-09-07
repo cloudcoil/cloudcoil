@@ -379,13 +379,36 @@ def build_manifests(
             }
         )
     if webhook is not None and admission is not None:
-        manifests.extend(
-            admission.configurations(
-                name=f"{name}.{namespace}.cloudcoil.io",
-                service_name=name,
-                service_namespace=namespace,
-                ca_bundle=webhook.ca_bundle,
-                service_port=webhook.service_port,
-            )
+        configurations = admission.configurations(
+            name=f"{name}.{namespace}.cloudcoil.io",
+            service_name=name,
+            service_namespace=namespace,
+            ca_bundle=webhook.ca_bundle,
+            service_port=webhook.service_port,
         )
+        for configuration in configurations:
+            for policy in configuration["webhooks"]:
+                route = admission._routes[policy["clientConfig"]["service"]["path"]]
+                if route.scope != "Namespaced":
+                    continue
+                targets = {
+                    None
+                    if controller._options.all_namespaces
+                    else controller._options.namespace or namespace
+                    for controller in controllers
+                    if controller.resource.gvk() == (route.target or route.model).gvk()
+                } or {namespace}
+                if None not in targets:
+                    policy["namespaceSelector"] = {
+                        "matchExpressions": [
+                            {
+                                "key": "kubernetes.io/metadata.name",
+                                "operator": "In",
+                                "values": sorted(
+                                    target for target in targets if target is not None
+                                ),
+                            }
+                        ]
+                    }
+        manifests.extend(configurations)
     return manifests

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import ConfigDict, Field, PrivateAttr
 
+from cloudcoil.caching._reader import CachedResources
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
@@ -50,6 +51,26 @@ class AdmissionRequest[T: Resource](BaseModel):
         return await resource.async_client(
             self._config, namespace=self.namespace or None, cached=False
         )
+
+    def cached[U: Resource](self, resource: type[U]) -> CachedResources[U]:
+        """Read an explicitly preconfigured Config cache, never a leader's cache.
+
+        Admission serves on every replica. Declare Cache(resources=[...]) on
+        Config, with wait_for_sync=True and mode='strict'. Staleness remains;
+        use client() for checks requiring a live read.
+        """
+        if (
+            self._config is None
+            or not self._config.cache.enabled
+            or resource not in (self._config.cache.resources or [])
+        ):
+            raise ValueError("Admission cached reads require a preconfigured Config cache resource")
+        from cloudcoil.caching import AsyncInformer
+
+        informer = self._config.cache.get_informer(resource, sync=False)
+        if not isinstance(informer, AsyncInformer):
+            raise RuntimeError("Admission requires an async informer")
+        return CachedResources(informer, self.namespace or None)
 
     uid: str
     operation: Operation

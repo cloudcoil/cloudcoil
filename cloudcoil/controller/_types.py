@@ -1,12 +1,14 @@
 """Typed reconciliation inputs and outcomes."""
 
 import math
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, cast
 
+from cloudcoil.caching._reader import CachedResources
 from cloudcoil.resources import Resource
 
 if TYPE_CHECKING:
+    from cloudcoil.caching._informer import AsyncInformer
     from cloudcoil.client import AsyncAPIClient, Config
 
 
@@ -40,6 +42,15 @@ class Request[T: Resource]:
     key: ResourceKey
     resource: T | None
     config: "Config | None" = None
+    _informers: "dict[type[Resource], AsyncInformer[Any]]" = field(
+        default_factory=dict, repr=False, compare=False
+    )
+
+    def cached[U: Resource](self, resource: type[U]) -> CachedResources[U]:
+        """Read the primary or a declared .owns/.watch informer, without I/O."""
+        if resource not in self._informers:
+            raise ValueError(f"{resource.__name__} is not watched by this controller")
+        return CachedResources(cast("AsyncInformer[U]", self._informers[resource]), self.namespace)
 
     async def client[U: Resource](self, resource: type[U]) -> "AsyncAPIClient[U]":
         """A live client for any kind, sharing this operator's connection.

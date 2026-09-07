@@ -18,6 +18,8 @@ from cloudcoil.client import AsyncAPIClient
 async def reconcile(request: Request[ConfigMap]) -> ConfigMap | Result | None:
     assert_type(request.resource, ConfigMap | None)
     assert_type(await request.client(Secret), AsyncAPIClient[Secret])
+    assert_type(request.cached(Secret).get("settings"), Secret | None)
+    assert_type(request.cached(Secret).list(labels={"app": "demo"}), list[Secret])
     assert_type(await request.ensure(Secret()), Secret)
     assert_type(request.name, str)
     if request.resource is None:
@@ -36,6 +38,7 @@ async def return_resource(request: Request[ConfigMap]) -> ConfigMap | None:
 assert_type(Controller(ConfigMap, return_resource), Controller[ConfigMap])
 controller = Controller(ConfigMap, reconcile, workers=4).owns(Secret)
 assert_type(controller, Controller[ConfigMap])
+assert_type(controller.cached(ConfigMap).list(), list[ConfigMap])
 controller.watch(Secret, mapper=lambda secret: [ResourceKey("settings", secret.namespace)])
 manager = Manager(controller, health=HealthServer(port=0), leader_election=LeaderElection("example"))
 assert_type(controller.status, ControllerStatus)

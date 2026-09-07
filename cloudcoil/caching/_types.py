@@ -71,9 +71,9 @@ class ResourceCache(BaseModel):
     )
     max_items: int = Field(
         default=10000,
-        ge=1,
+        ge=0,
         le=1_000_000,
-        description="Maximum items to cache for this resource type",
+        description="Maximum items to cache for this resource type (0 = unlimited)",
     )
     label_selector: Optional[str] = Field(
         default=None, description="Label selector for this resource type"
@@ -129,7 +129,10 @@ class Cache(BaseModel):
 
     # Memory management
     max_items_per_resource: int = Field(
-        default=10000, ge=100, le=1_000_000, description="Maximum items to cache per resource type"
+        default=10000,
+        ge=0,
+        le=1_000_000,
+        description="Maximum items to cache per resource type (0 = unlimited)",
     )
 
     # Advanced
@@ -161,6 +164,8 @@ class Cache(BaseModel):
 
         # Validate namespace format if provided
         if self.namespaces:
+            if len(self.namespaces) != 1:
+                raise ValueError("Use one namespace per Cache, or None for all namespaces")
             for namespace in self.namespaces:
                 if not namespace or not isinstance(namespace, str):
                     raise ValueError(f"Invalid namespace: {namespace!r}")

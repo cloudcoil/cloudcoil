@@ -18,6 +18,8 @@ app = AdmissionWebhook()
 
 @app.mutating(ConfigMap, resource="configmaps", path="/mutate")
 async def defaults(request: AdmissionRequest[ConfigMap]) -> ConfigMap | None:
+    assert_type(request.cached(ConfigMap).get("settings"), ConfigMap | None)
+    assert_type(request.cached(ConfigMap).list(), list[ConfigMap])
     assert_type(request.resource, ConfigMap | None)
     assert_type(request.old_resource, ConfigMap | None)
     assert_type(request.user_info, UserInfo)

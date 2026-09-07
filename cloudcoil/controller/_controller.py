@@ -6,10 +6,11 @@ import math
 import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Any, Self, cast
 
 from cloudcoil._context import context
 from cloudcoil.caching._informer import AsyncInformer
+from cloudcoil.caching._reader import CachedResources
 from cloudcoil.caching._types import InformerOptions
 from cloudcoil.client import Config
 from cloudcoil.resources import Resource
@@ -87,6 +88,7 @@ class Controller[T: Resource]:
         self._queue = WorkQueue[ResourceKey]()
         self._watches: list[_Watch] = []
         self._informers: list[AsyncInformer[Any]] = []
+        self._readers: dict[type[Resource], AsyncInformer[Any]] = {}
         self._primary: AsyncInformer[T] | None = None
         self._primary_namespaced = True
         self._pool: _InformerPool | None = None
@@ -127,6 +129,20 @@ class Controller[T: Resource]:
         if not isinstance(key, ResourceKey):
             raise TypeError("enqueue expects a ResourceKey")
         self._queue.add(key)
+
+    def cached[U: Resource](self, resource: type[U]) -> CachedResources[U]:
+        """Read a declared informer, including from a secondary-event mapper.
+
+        The primary informer syncs before secondary mappers run. Use explicit
+        namespaces when mapping all-namespace dependencies. No new watch starts.
+        """
+        if resource not in self._readers:
+            raise ValueError(f"{resource.__name__} is not initialized; declare a watch first")
+        namespace = (
+            self._options.namespace
+            or (self._prepared_config or self.config or context.active_config).namespace
+        )
+        return CachedResources(cast(AsyncInformer[U], self._readers[resource]), namespace)
 
     @property
     def ready(self) -> bool:
@@ -197,6 +213,7 @@ class Controller[T: Resource]:
         self._primary.on_update(self._update_primary)
         self._primary.on_delete(self._enqueue_primary)
         self._informers.append(self._primary)
+        self._readers[self.resource] = self._primary
         for watch in self._watches:
             client = await config.async_client_for(watch.resource, cached=False)
             # A primary selector is not generally a selector for its dependencies.
@@ -232,6 +249,9 @@ class Controller[T: Resource]:
             informer.on_delete(changed)
             informer.on_update(updated)
             self._informers.append(informer)
+            # Primary selectors may differ from secondary watches of the same kind.
+            # cached(Primary) consistently refers to the primary snapshot.
+            self._readers.setdefault(watch.resource, informer)
 
     async def _sync(self) -> None:
         async with asyncio.timeout(self._sync_timeout):
@@ -274,6 +294,7 @@ class Controller[T: Resource]:
                     key,
                     original.model_copy(deep=True) if original is not None else None,
                     config=context.active_config,
+                    _informers=self._readers,
                 )
                 async with asyncio.timeout(self._reconcile_timeout):
                     returned = await self.reconcile(request)

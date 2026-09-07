@@ -336,12 +336,24 @@ class Cache(CacheConfig):
         namespace: Optional[str],
     ) -> InformerOptions:
         """Create informer options for resource type."""
+        if self.namespaces:
+            if namespace is not None and namespace not in self.namespaces:
+                raise ValueError("Requested namespace is outside this cache's configured scope")
+            namespace = namespace or self.namespaces[0]
+        overrides = (self.per_resource or {}).get(resource_type)
         return InformerOptions(
-            resync_period=self.resync_period,
+            resync_period=overrides.resync_period
+            if overrides and overrides.resync_period is not None
+            else self.resync_period,
             namespace=namespace,
             all_namespaces=namespace is None,
-            label_selector=self.label_selector,
-            field_selector=self.field_selector,
+            max_items=overrides.max_items if overrides else self.max_items_per_resource,
+            label_selector=overrides.label_selector
+            if overrides and overrides.label_selector is not None
+            else self.label_selector,
+            field_selector=overrides.field_selector
+            if overrides and overrides.field_selector is not None
+            else self.field_selector,
         )
 
     # Context managers

@@ -201,7 +201,7 @@ async def test_live_widget_example_manages_three_children_and_reads_admission_po
             ConfigMap(metadata={"name": "widget-policy"}, data={"maxLength": "3"})
         )
         admission = AdmissionWebhook(config=config).register(example.Widget)
-        endpoint = next(path for path in admission._routes if path.endswith("/validate_message"))
+        endpoint = next(path for path in admission._routes if path.endswith("/validate-message"))
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=admission), base_url="https://webhook"
         ) as web:

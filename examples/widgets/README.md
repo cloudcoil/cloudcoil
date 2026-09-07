@@ -10,7 +10,7 @@ one resource declaration, one reconciler and one `Operator(...).main()` entry po
 
 ## Run the whole demo
 
-From a checkout of this PR, with Python 3.14, uv, Docker, kind, kubectl, rg and
+From a checkout of this PR, with Python 3.14, uv, Docker, kind, kubectl and
 openssl available:
 
 ```bash

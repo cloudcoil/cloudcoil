@@ -168,7 +168,7 @@ def test_deployment_wires_service_account_https_and_existing_secret_only():
     assert configuration["service"] == {
         "name": "widgets",
         "namespace": "operators",
-        "path": "/validate/example/com/v1/widgets/validate_admission",
+        "path": "/validate/example/com/v1/widgets/validate-admission",
         "port": 443,
     }
     service = next(doc for doc in documents if doc["kind"] == "Service")
@@ -311,3 +311,32 @@ def test_generated_metadata_and_multiple_owned_resources_need_no_extra_rules():
     for endpoint in ("configmaps", "deployments", "services"):
         assert rules[(endpoint,)] == {"get", "list", "watch", "create", "patch"}
     assert ("deployments/status",) not in rules
+
+
+@pytest.mark.parametrize("namespaces", [(None,), ("tenant",), ("tenant-a", "tenant-b"), ("*",)])
+def test_admission_scope_follows_controller_namespaces(namespaces):
+    controllers = [
+        Controller(Widget, reconcile, namespace=ns if ns != "*" else None, all_namespaces=ns == "*")
+        for ns in namespaces
+    ]
+    documents = manifests(
+        *controllers,
+        admission=AdmissionWebhook().register(Widget),
+        webhook=WebhookServer(ca_bundle=b"-----BEGIN CERTIFICATE-----\npublic-ca"),
+    )
+    configuration = next(
+        doc for doc in documents if doc["kind"] == "ValidatingWebhookConfiguration"
+    )
+    for policy in configuration["webhooks"]:
+        if "*" in namespaces:
+            assert "namespaceSelector" not in policy
+        else:
+            assert policy["namespaceSelector"] == {
+                "matchExpressions": [
+                    {
+                        "key": "kubernetes.io/metadata.name",
+                        "operator": "In",
+                        "values": sorted(ns or "operators" for ns in namespaces),
+                    }
+                ]
+            }

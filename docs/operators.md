@@ -122,6 +122,9 @@ access. Namespaced rules default to the operator namespace. Use `namespace=` for
 another namespace or `all_namespaces=True` explicitly; `scope="Cluster"` describes
 cluster-scoped resources. Controller `namespace`/`all_namespaces` settings drive
 watch permissions, and cluster-scoped owners may watch children across namespaces.
+Namespaced admission registrations follow the primary controller namespaces;
+webhook-only resources default to the operator namespace. Cluster resources and
+all-namespace controllers retain cluster-wide admission matching.
 Owned-child write permissions follow the controller watch scope. A mapped
 `watch` only grants read access and does not expand separate write permissions. `subresources=("status",)` targets only those endpoints;
 `resource_names=("settings",)` restricts named operations where Kubernetes permits it.
@@ -155,3 +158,12 @@ connection. Callbacks do not manage connections or their lifetime.
 All managed controllers share the operator Config. For controllers targeting
 different clusters, use separate operators or the lower-level `Manager` API.
 The lower-level `CRD`, `AdmissionWebhook`, and `Manager` remain usable independently.
+
+## Common patterns
+
+The [pattern examples](../examples/patterns/README.md) cover informer get/list,
+shared dependencies, existing-resource aggregation, child pruning, finalizers,
+multiple controllers, and admission on built-in or externally defined resources.
+Use `request.cached(Kind)` for explicit informer snapshots and
+`await request.client(Kind)` for live API access. Standalone webhook routes can be
+passed as `Operator(..., admission=policies)` without registering a CRD or controller.

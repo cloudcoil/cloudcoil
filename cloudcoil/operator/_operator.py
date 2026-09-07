@@ -15,6 +15,7 @@ import yaml
 
 from cloudcoil.admission import AdmissionWebhook
 from cloudcoil.admission._decorators import _methods
+from cloudcoil.caching import Cache
 from cloudcoil.client import Config
 from cloudcoil.controller import Controller, HealthServer, LeaderElection, Manager
 from cloudcoil.crd import CRD, _resource_options
@@ -26,7 +27,7 @@ from ._server import _HTTPS, WebhookServer
 
 
 class Operator:
-    """Describe, install, and run controllers and resource-local admission policies.
+    """Describe, install, and run controllers and admission policies.
 
     Construction and manifest generation are offline. Config is created lazily;
     an explicitly passed Config remains owned by its caller. Installation uses
@@ -41,7 +42,9 @@ class Operator:
         resources: Sequence[type[Resource] | CRD] = (),
         namespace: str | None = None,
         config: Config | None = None,
+        cache: Cache | None = None,
         rules: Sequence[RBACRule] = (),
+        admission: AdmissionWebhook | None = None,
         webhook: WebhookServer | None = None,
         leader_election: LeaderElection | bool | None = None,
         health: HealthServer | None = None,
@@ -60,6 +63,12 @@ class Operator:
         self.leader_election = leader_election
         self.health = health
         self.config = config
+        self.cache = cache
+        if config is not None and cache is not None:
+            raise ValueError("Configure caching on Config or Operator, not both")
+        self.admission = admission
+        if admission is not None and admission._config not in (None, config):
+            raise ValueError("AdmissionWebhook must share the operator Config")
         if config is not None and config.namespace != namespace:
             raise ValueError("Config.namespace must match Operator.namespace")
         self.crds: tuple[CRD, ...]
@@ -78,10 +87,13 @@ class Operator:
             raise ValueError("Operator leader election must share the operator Config")
         self.crds = tuple(definitions.values())
         self._models = tuple(crd.resource for crd in self.crds if _methods(crd.resource))
-        if self._models and webhook is None:
-            raise ValueError("Resources with admission methods require webhook=WebhookServer(...)")
-        if webhook is not None and not self._models:
-            raise ValueError("A webhook server needs resource-local admission methods")
+        self._has_admission = bool(self._models or admission and admission._routes)
+        if self._has_admission and webhook is None:
+            raise ValueError("Admission routes require webhook=WebhookServer(...)")
+        if webhook is not None and not self._has_admission:
+            raise ValueError(
+                "A webhook server needs resource-local admission methods or admission routes"
+            )
         if not controllers and webhook is None:
             raise ValueError("An operator needs controllers or webhooks")
         self.manager: Manager | None = None
@@ -95,9 +107,13 @@ class Operator:
         self.manifests(include_webhooks=False)
 
     def _admission(self, config: Config | None = None) -> AdmissionWebhook:
-        admission = AdmissionWebhook(config=config)._register_models(
-            self._models, require_config=config is not None
+        admission = AdmissionWebhook(
+            config=config,
+            **({"max_body_bytes": self.admission._max_body_bytes} if self.admission else {}),
         )
+        if self.admission is not None:
+            admission._routes = dict(self.admission._routes)
+        admission._register_models(self._models, require_config=config is not None)
         if set(admission._routes) & {"/readyz", "/controllers/readyz", "/metrics"}:
             raise ValueError("Admission paths conflict with operator health/metrics endpoints")
         return admission
@@ -127,7 +143,7 @@ class Operator:
             crds=self.crds,
             rules=self.rules,
             leader_election=self.leader_election,
-            admission=self._admission() if include_webhooks and self._models else None,
+            admission=self._admission() if include_webhooks and self._has_admission else None,
             webhook=self.webhook if include_webhooks else None,
             image=image,
             command=command,
@@ -141,7 +157,13 @@ class Operator:
     @asynccontextmanager
     async def _configuration(self):
         owned = self.config is None
-        config = self.config if self.config is not None else Config(namespace=self.namespace)
+        config = (
+            self.config
+            if self.config is not None
+            else Config(
+                namespace=self.namespace, cache=self.cache if self.cache is not None else False
+            )
+        )
         try:
             yield config
         finally:
