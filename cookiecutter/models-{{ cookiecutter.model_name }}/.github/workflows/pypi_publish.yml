@@ -1,43 +1,54 @@
-{%- raw %}
----
-    name: PyPI publish
+{% raw %}
+name: PyPI publish
 
-    on:
-      release:
-        types: [released]
+on:
+  release:
+    types: [released]
 
-    jobs:
-      build:
-        runs-on: ubuntu-latest
-        permissions:
-            # IMPORTANT: this permission is mandatory for Trusted Publishing
-            id-token: write
-        steps:
-          - name: Checkout code
-            uses: actions/checkout@v3
+permissions:
+  contents: read
 
-          - name: Setup Python
-            uses: actions/setup-python@v4
-            with:
-              python-version: "3.14"
+concurrency:
+  group: pypi-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
 
-          - name: Install uv
-            uses: astral-sh/setup-uv@v4
-            with:
-              python-version: "3.14"
-              enable-cache: true
-              cache-dependency-glob: "**/uv.lock"
-
-          - name: Install dependencies
-            run: uv sync --all-extras --dev
-
-          - name: Bump version number
-            run: |
-              sed -i "s/^version = \".*\"/version = \"${{ github.event.release.tag_name }}\"/" pyproject.toml
-
-          - name: Build package
-            run: uv build
-
-          - name: Publish package distributions to PyPI
-            uses: pypa/gh-action-pypi-publish@release/v1
-{%- endraw %}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+          enable-cache: true
+      - name: Verify release identity
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os, re, tomllib
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          assert re.fullmatch(r'\d+\.\d+\.\d+\.\d+', tag), 'Invalid model release tag'
+          assert tomllib.loads(Path('pyproject.toml').read_text())['project']['version'] == tag
+          PY
+      - name: Install locked dependencies
+        run: uv sync --locked --all-extras --dev
+      - name: Build and verify distributions
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          uv build
+          uv run --no-sync python - <<'PY'
+          import os, runpy
+          from pathlib import Path
+          release = runpy.run_path('tools/release_models.py')
+          release['verify_artifacts'](Path.cwd(), os.environ['RELEASE_TAG'])
+          PY
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+{% endraw %}

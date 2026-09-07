@@ -1,0 +1,7 @@
+# Contour 1.33 cookie-name patterns contain an unescaped character class.
+# Preserve HTTP token validation using the equivalent ASCII token character set.
+updates = [
+    { match = "^.*\\.HTTPProxySpec$", jsonpath = "properties.routes.items.properties.cookieRewritePolicies.items.properties.name.pattern", value = "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" },
+    { match = "^.*\\.HTTPProxySpec$", jsonpath = "properties.routes.items.properties.services.items.properties.cookieRewritePolicies.items.properties.name.pattern", value = "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" },
+    { match = "^.*\\.HTTPProxySpec$", jsonpath = "properties.tcpproxy.properties.services.items.properties.cookieRewritePolicies.items.properties.name.pattern", value = "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" },
+]

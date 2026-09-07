@@ -23,6 +23,7 @@ nav:
       - Logs: logs.md
       - Model generation: models.md
       - Model integrations: integrations.md
+      - Maintaining model packages: model-releases.md
       - Custom resources: custom-resources.md
       - Controllers: controllers.md
       - Live clients and informer reads: reads.md

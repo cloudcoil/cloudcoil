@@ -1,0 +1,70 @@
+name: Validate model templates
+
+on:
+  pull_request:
+    paths:
+      - 'models/**'
+      - 'cookiecutter/**'
+      - 'tools/update_model_versions.py'
+      - 'tests/test_model_releases.py'
+      - '.github/workflows/*model*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      models: ${{ steps.select.outputs.models }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: select
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess
+          models = sorted(p.parent.name for p in pathlib.Path('models').glob('*/cookiecutter.yaml'))
+          base = os.environ.get('BASE_SHA')
+          changed = subprocess.check_output(['git', 'diff', '--name-only', base, 'HEAD'], text=True).splitlines() if base else []
+          shared = not base or any(not p.startswith('models/') or p == 'models/upstreams.json' for p in changed)
+          selected = models if shared else [m for m in models if any(p.startswith(f'models/{m}/') for p in changed)]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              print('models=' + json.dumps(selected), file=f)
+          PY
+  generate:
+    needs: select
+    if: needs.select.outputs.models != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJSON(needs.select.outputs.models) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+          enable-cache: true
+      - name: Render shared template and project overlays
+        env:
+          MODEL: ${{ matrix.model }}
+        run: make "gen-repo-$MODEL"
+      - name: Generate, check, and build the integration
+        env:
+          MODEL: ${{ matrix.model }}
+        run: |
+          cd "output/models-$MODEL"
+          make gen-models lint test
+          uv build
+          uv run --no-sync python - <<'PY'
+          import runpy, tomllib
+          from pathlib import Path
+          module = runpy.run_path('tools/release_models.py')
+          module['verify_artifacts'](Path.cwd(), tomllib.loads(Path('pyproject.toml').read_text())['project']['version'])
+          PY

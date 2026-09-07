@@ -26,7 +26,7 @@ For example, if using a model from the FluxCD integration:
 
 1. Always specify both cloudcoil and its integration constraints:
 ```
-cloudcoil[fluxcd]~=0.5.0
+cloudcoil[fluxcd]~=0.7.0
 ```
 
 2. Avoid constraining only the model integration version, as breaking changes in cloudcoil core may affect functionality.
@@ -35,7 +35,7 @@ cloudcoil[fluxcd]~=0.5.0
 
 Good:
 ```
-cloudcoil[fluxcd]~=0.5.0  # Installs cloudcoil with FluxCD integration
+cloudcoil[fluxcd]~=0.7.0  # Installs cloudcoil with FluxCD integration
 ```
 
 Not Recommended:
@@ -82,15 +82,18 @@ extras are deprecated compatibility aliases. They remain installable during the
 transition; remove these extras and any old model pins when upgrading. Their
 continued availability does not imply support for EOL Kubernetes versions.
 
-The unversioned `cloudcoil[kubernetes]` extra selects the latest published model
-package, which is currently 1.32.1.3. The development lockfile also uses that package
-as a bootstrap dependency; CI replaces it with supported generated models before
-running checks. We do not require unpublished packages or silently substitute a
-new minor for an explicitly pinned old minor.
+The unversioned `cloudcoil[kubernetes]` extra selects a published compatible model
+package. Cloudcoil 0.7.1 model releases are available for Kubernetes 1.34.11, 1.35.8,
+1.36.4, and 1.37.0. Pin the model minor to match the cluster you intend to target:
 
-Until the compatible Cloudcoil core and supported model packages are published,
-use the [checkout generation instructions](README.md#-installation) with a matching
-supported schema (1.34.11, 1.35.8, 1.36.4, or 1.37.0). Upgrade the cluster following
-the upstream/provider upgrade procedure, update the model dependency, and check
-your code against APIs available in that Kubernetes version. Generating Python
-models does not upgrade a running cluster.
+```sh
+uv add 'cloudcoil~=0.7.1' 'cloudcoil.models.kubernetes~=1.37.0.0'
+```
+
+The development lockfile still contains a bootstrap model dependency; CI replaces
+it with supported generated models before running checks. Upgrade clusters using
+the upstream/provider procedure. Generating Python models does not upgrade a
+running cluster.
+
+See [Maintaining model packages](docs/model-releases.md) for automated upstream
+version PRs, packaging revision allocation, validation, and PyPI publication.

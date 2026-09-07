@@ -52,6 +52,7 @@ asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
+    "packaging>=24.2",
     "mypy>=1.19",
     "pyright>=1.1.407",
     "mkdocs>=1.6.1",

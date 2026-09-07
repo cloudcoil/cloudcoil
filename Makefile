@@ -39,7 +39,7 @@ gen-models:
 	$(MAKE) fix-lint
 
 
-REPOS := $(shell ls models | sed 's/\/$$//')
+REPOS := $(notdir $(patsubst %/,%,$(dir $(wildcard models/*/cookiecutter.yaml))))
 
 gen-all-repos: $(addprefix gen-repo-,$(REPOS))
 
