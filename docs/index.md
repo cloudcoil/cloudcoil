@@ -19,7 +19,7 @@ controller. Or choose the guide for your task:
 | Generate manifests and deploy an operator | [Deployment](operators.md) |
 | Find an executable controller/operator pattern | [Patterns](patterns.md) |
 
-`Operator.main()` handles configuration, signals, queues, informers and cleanup.
+`Application.main()` handles configuration, signals, queues, informers and cleanup.
 Start from the [complete Widget example](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets)
 for a CRD with three child kinds, readiness and admission.
 

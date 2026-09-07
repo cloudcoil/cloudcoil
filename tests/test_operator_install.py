@@ -6,9 +6,9 @@ from copy import deepcopy
 import httpx
 import pytest
 
+from cloudcoil.application._install import install
 from cloudcoil.client import Config
 from cloudcoil.errors import ResourceConflict
-from cloudcoil.operator._install import install
 
 
 def objects():

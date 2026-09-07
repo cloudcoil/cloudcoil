@@ -68,9 +68,10 @@ on the leader's controller informers. Configure a separate cache on the operator
 ```python
 from cloudcoil.caching import Cache
 from cloudcoil.models.kubernetes.core.v1 import Namespace
-from cloudcoil.operator import Operator, RBACRule, WebhookServer
+from cloudcoil.application import Application
+from cloudcoil.application import RBACRule, WebhookServer
 
-operator = Operator(
+app = Application(
     "namespace-policy",
     admission=policies,
     cache=Cache(
@@ -87,7 +88,7 @@ operator = Operator(
 Each replica syncs this cache before serving. `request.cached(Kind)` requires the
 kind in `Cache.resources`. Use one configured namespace or `namespaces=None` for
 all namespaces. `max_items_per_resource=0` disables eviction. If you pass an explicit
-`Config`, configure its cache there instead of also passing `Operator(cache=...)`.
+`Config`, configure its cache there instead of also passing `Application(cache=...)`.
 
 A cache miss is not proof of absence. The
 [cached admission example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_cached.py)

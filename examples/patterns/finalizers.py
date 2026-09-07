@@ -6,9 +6,9 @@ Replace it with a durable API adapter for actual external resources.
 
 from typing import Protocol
 
+from cloudcoil.application import Application
 from cloudcoil.controller import Controller, Request, Result, ensure_finalizer, remove_finalizer
 from cloudcoil.crd import custom_resource
-from cloudcoil.operator import Operator
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
@@ -40,7 +40,7 @@ class MemoryProvider:
         self.records.pop(key, None)
 
 
-def build_operator(provider: Provider | None = None) -> Operator:
+def build_app(provider: Provider | None = None) -> Application:
     external = provider if provider is not None else MemoryProvider()
 
     async def reconcile(request: Request[ExternalRecord]) -> Result | None:
@@ -61,8 +61,8 @@ def build_operator(provider: Provider | None = None) -> Operator:
         await external.put(uid, obj.spec.value)
         return Result(requeue_after=60)  # External changes have no Kubernetes watch.
 
-    return Operator("external-records", Controller(ExternalRecord, reconcile))
+    return Application("external-records", Controller(ExternalRecord, reconcile))
 
 
 if __name__ == "__main__":
-    build_operator().main()
+    build_app().main()

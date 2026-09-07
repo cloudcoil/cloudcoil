@@ -15,10 +15,10 @@ from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Service
 from pydantic import Field
 
 from cloudcoil.admission import AdmissionDenied, AdmissionRequest, mutating, validating
+from cloudcoil.application import Application, RBACRule, WebhookServer
 from cloudcoil.controller import Controller, Request
 from cloudcoil.crd import PrinterColumn, custom_resource
 from cloudcoil.errors import ResourceNotFound
-from cloudcoil.operator import Operator, RBACRule, WebhookServer
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
@@ -129,7 +129,7 @@ async def reconcile(request: Request[Widget]) -> Widget | None:
     return obj  # The runtime patches /status; child events trigger the next pass.
 
 
-operator = Operator(
+app = Application(
     "widgets",
     Controller(Widget, reconcile).owns(ConfigMap, Deployment, Service),
     # owns supplies child read/create/patch grants. This named read documents the
@@ -140,4 +140,4 @@ operator = Operator(
 )
 
 if __name__ == "__main__":
-    operator.main()
+    app.main()

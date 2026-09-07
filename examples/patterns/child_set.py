@@ -5,10 +5,10 @@ from hashlib import sha256
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 from pydantic import Field
 
+from cloudcoil.application import Application, RBACRule
 from cloudcoil.controller import Controller, Request
 from cloudcoil.crd import custom_resource
 from cloudcoil.errors import ResourceNotFound
-from cloudcoil.operator import Operator, RBACRule
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
@@ -63,8 +63,8 @@ async def reconcile(request: Request[Bundle]) -> None:
             pass
 
 
-def build_operator() -> Operator:
-    return Operator(
+def build_app() -> Application:
+    return Application(
         "bundles",
         Controller(Bundle, reconcile).owns(ConfigMap),
         rules=(RBACRule(ConfigMap, ("delete",)),),
@@ -72,4 +72,4 @@ def build_operator() -> Operator:
 
 
 if __name__ == "__main__":
-    build_operator().main()
+    build_app().main()

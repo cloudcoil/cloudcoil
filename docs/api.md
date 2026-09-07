@@ -19,11 +19,11 @@ public import paths used by applications.
     options:
       members: [Controller, Request, ResourceKey, Result, TerminalError, mutate, ensure_finalizer, remove_finalizer]
 
-## Operators
+## Applications
 
-::: cloudcoil.operator
+::: cloudcoil.application
     options:
-      members: [Operator, RBACRule, WebhookServer]
+      members: [Application, RBACRule, WebhookServer]
 
 ## Custom resources
 

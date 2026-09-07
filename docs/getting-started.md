@@ -49,7 +49,7 @@ Save this as `app.py`:
 ```python
 from cloudcoil.controller import Controller, Request
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
-from cloudcoil.operator import Operator
+from cloudcoil.application import Application
 
 async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
     obj = request.resource
@@ -58,13 +58,13 @@ async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
     obj.data = {**(obj.data or {}), "managed-by": "cloudcoil"}
     return obj
 
-operator = Operator(
+app = Application(
     "configmap-labeler",
     Controller(ConfigMap, reconcile, label_selector="example.com/manage=true"),
 )
 
 if __name__ == "__main__":
-    operator.main()
+    app.main()
 ```
 
 Return the changed resource; Cloudcoil patches only differences and skips unchanged

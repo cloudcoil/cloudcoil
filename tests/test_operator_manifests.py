@@ -8,10 +8,10 @@ import pytest
 from pydantic import BaseModel, Field
 
 from cloudcoil.admission import AdmissionRequest, AdmissionWebhook, validating
+from cloudcoil.application._manifests import RBACRule, build_manifests
+from cloudcoil.application._server import WebhookServer
 from cloudcoil.controller import Controller, LeaderElection, Request
 from cloudcoil.crd import CRD, custom_resource
-from cloudcoil.operator._manifests import RBACRule, build_manifests
-from cloudcoil.operator._server import WebhookServer
 from cloudcoil.resources import Resource
 
 

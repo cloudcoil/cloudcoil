@@ -3,11 +3,11 @@
 from cloudcoil.models.kubernetes.core.v1 import Namespace, Pod
 
 from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
+from cloudcoil.application import Application, RBACRule, WebhookServer
 from cloudcoil.caching import Cache
-from cloudcoil.operator import Operator, RBACRule, WebhookServer
 
 
-def build_operator() -> Operator:
+def build_app() -> Application:
     policies = AdmissionWebhook()
 
     @policies.validating(
@@ -27,7 +27,7 @@ def build_operator() -> Operator:
                 "Namespace must opt in with patterns.cloudcoil.dev/allow-pods=true"
             )
 
-    return Operator(
+    return Application(
         "namespace-policy",
         admission=policies,
         cache=Cache(
@@ -39,4 +39,4 @@ def build_operator() -> Operator:
 
 
 if __name__ == "__main__":
-    build_operator().main()
+    build_app().main()

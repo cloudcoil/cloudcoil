@@ -103,7 +103,7 @@ class Controller[T: Resource]:
 
         Owner matching uses group/kind and UID, including across served versions.
         For indirect or non-owning relationships use watch(..., mapper=...).
-        Operator manifests grant get/list/watch/create/patch for owned children.
+        Application manifests grant get/list/watch/create/patch for owned children.
         Deletion is left to Kubernetes garbage collection or explicit RBAC.
         """
         for resource in resources:

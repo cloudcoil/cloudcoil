@@ -10,10 +10,10 @@ import pytest
 from cloudcoil.models.kubernetes.core.v1 import Namespace
 from pydantic import BaseModel, Field, create_model
 
+from cloudcoil.application import Application
+from cloudcoil.application._install import _url
 from cloudcoil.controller import Controller
 from cloudcoil.crd import custom_resource
-from cloudcoil.operator import Operator
-from cloudcoil.operator._install import _url
 from cloudcoil.resources import Resource
 
 k8s_version = ".".join(version("cloudcoil.models.kubernetes").split(".")[:3])
@@ -51,7 +51,7 @@ async def test_live_operator_install_rbac_and_returned_status(test_config):
         return request.resource
 
     config = test_config.clone(namespace=namespace.name)
-    app = Operator("widgets", Controller(widget, reconcile), config=config)
+    app = Application("widgets", Controller(widget, reconcile), config=config)
     stop = asyncio.Event()
     task = None
     try:
@@ -128,8 +128,8 @@ async def test_live_widget_example_manages_three_children_and_reads_admission_po
     from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Service
 
     from cloudcoil.admission import AdmissionWebhook
+    from cloudcoil.application import WebhookServer
     from cloudcoil.errors import ResourceNotFound
-    from cloudcoil.operator import WebhookServer
 
     path = Path(__file__).resolve().parents[1] / "examples/widget_operator.py"
     spec = importlib.util.spec_from_file_location("widget_example_e2e", path)
@@ -143,7 +143,7 @@ async def test_live_widget_example_manages_three_children_and_reads_admission_po
     controller = Controller(example.Widget, example.reconcile, config=config).owns(
         ConfigMap, Deployment, Service
     )
-    app = Operator("widgets", controller, config=config, webhook=WebhookServer())
+    app = Application("widgets", controller, config=config, webhook=WebhookServer())
     stop = asyncio.Event()
     task = None
     try:

@@ -27,7 +27,7 @@ nav:
       - Controllers: controllers.md
       - Live clients and informer reads: reads.md
       - Admission: admission.md
-      - Operator deployment: operators.md
+      - Application deployment: operators.md
       - Patterns: patterns.md
   - Advanced:
       - Client caching and informers: caching.md

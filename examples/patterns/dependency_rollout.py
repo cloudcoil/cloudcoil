@@ -6,8 +6,8 @@ import json
 from cloudcoil.models.kubernetes.apps.v1 import Deployment
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
+from cloudcoil.application import Application
 from cloudcoil.controller import Controller, Request, ResourceKey
-from cloudcoil.operator import Operator
 
 LABEL = "patterns.cloudcoil.dev/reloader"
 DIGEST = "patterns.cloudcoil.dev/config-digest"
@@ -81,9 +81,9 @@ def controller() -> Controller[Deployment]:
     return workload.watch(ConfigMap, mapper=dependents)
 
 
-def build_operator() -> Operator:
-    return Operator("config-reloader", controller())
+def build_app() -> Application:
+    return Application("config-reloader", controller())
 
 
 if __name__ == "__main__":
-    build_operator().main()
+    build_app().main()

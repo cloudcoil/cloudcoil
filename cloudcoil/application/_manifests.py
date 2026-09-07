@@ -12,8 +12,8 @@ from cloudcoil.resources import Resource
 
 if TYPE_CHECKING:
     from cloudcoil.admission import AdmissionWebhook
+    from cloudcoil.application._server import WebhookServer
     from cloudcoil.controller import Controller, LeaderElection
-    from cloudcoil.operator._server import WebhookServer
 
 
 Scope = Literal["Namespaced", "Cluster"]
@@ -104,8 +104,8 @@ def build_manifests(
     deliberately absent from the operator ServiceAccount: installation is done
     with the caller's credentials before starting the runtime.
     """
-    _label(name, "Operator name")
-    _label(namespace, "Operator namespace")
+    _label(name, "Application name")
+    _label(namespace, "Application namespace")
     crd_documents = {crd.resource: crd.manifest() for crd in crds}
     crd_names = [crd_documents[crd.resource]["metadata"]["name"] for crd in crds]
     if len(set(crd_names)) != len(crd_names):

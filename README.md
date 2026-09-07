@@ -40,7 +40,7 @@ locally and ServiceAccount credentials in a Pod.
 ```python
 from cloudcoil.controller import Controller, Request
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
-from cloudcoil.operator import Operator
+from cloudcoil.application import Application
 
 async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
     obj = request.resource
@@ -49,13 +49,13 @@ async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
     obj.data = {**(obj.data or {}), "managed-by": "cloudcoil"}
     return obj
 
-operator = Operator(
+app = Application(
     "configmap-labeler",
     Controller(ConfigMap, reconcile, label_selector="example.com/manage=true"),
 )
 
 if __name__ == "__main__":
-    operator.main()
+    app.main()
 ```
 
 Save as `app.py`. Run `python app.py manifests` to review generated permissions,
@@ -78,7 +78,7 @@ The same pages are available in this checkout:
 | Reconcile, manage children and write status | [Controllers](docs/controllers.md) |
 | Live clients and informer reads | [Reads](docs/reads.md) |
 | Admission on built-in and custom resources | [Admission](docs/admission.md) |
-| Manifests, RBAC, TLS and deployment | [Operators](docs/operators.md) |
+| Manifests, RBAC, TLS and deployment | [Applications](docs/operators.md) |
 | Executable controller/operator examples | [Patterns](docs/patterns.md) |
 | Caching, leadership and observability | [Caching](docs/caching.md), [runtime](docs/runtime.md) |
 | Kubernetes integration tests | [Testing](docs/testing.md) |

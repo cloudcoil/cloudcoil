@@ -103,5 +103,5 @@ CLOUDCOIL_NAMESPACE=default uv run --no-sync python examples/configmap_controlle
 Label a source `example.com/mirror=true`; its child is named `<source>-mirror`.
 Unlike `ensure` map merging, this example intentionally replaces the entire child
 data map to remove keys deleted from the source. It uses `mutate` for that guarded
-replacement. Leader election and probes on port 8080 are configured on the Operator;
+replacement. Leader election and probes on port 8080 are configured on the Application;
 the example no longer needs its own signal handling or separate CLI flags.

@@ -1,14 +1,15 @@
-# Operator deployment
+# Application deployment
 
-`Operator` brings resource definitions, controller RBAC, admission hosting, and the
-controller manager into one application definition. Use `operator.main()` instead
+`Application` brings resource definitions, controller RBAC, admission hosting, and the
+controller manager into one application definition. Use `app.main()` instead
 of writing argument parsing, signal handling, or client cleanup for each operator.
 
 ```python
 from cloudcoil.controller import Controller
-from cloudcoil.operator import Operator, RBACRule, WebhookServer
+from cloudcoil.application import Application
+from cloudcoil.application import RBACRule, WebhookServer
 
-operator = Operator(
+app = Application(
     "widgets",
     Controller(Widget, reconcile).owns(ConfigMap, Deployment, Service),
     rules=(RBACRule(ConfigMap, ("get",), resource_names=("widget-policy",)),),
@@ -17,7 +18,7 @@ operator = Operator(
 )
 
 if __name__ == "__main__":
-    operator.main()
+    app.main()
 ```
 
 The [complete Widget example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py)
@@ -138,8 +139,8 @@ does not inspect Python function bodies to infer arbitrary API access.
 
 ## Lifecycle and embedding
 
-`await operator.run(stop=event)` embeds the runtime without replacing signal
-handlers. `operator.main()` supplies SIGINT/SIGTERM handling. Owned clients close
+`await app.run(stop=event)` embeds the runtime without replacing signal
+handlers. `app.main()` supplies SIGINT/SIGTERM handling. Owned clients close
 after workers and webhook requests have stopped; a supplied Config stays open.
 Fatal component errors stop sibling components and propagate. Each operator and
 controller runs once; use a new instance for a restart.
@@ -149,7 +150,7 @@ HTTPS `/readyz` measures admission availability, and `/controllers/readyz`
 measures controller readiness; standby replicas continue receiving admission
 traffic. `/healthz` and `/metrics` are available on the same listener. For an
 operator without webhooks, pass `health=HealthServer(...)` to expose the manager's
-health server. `operator.manager` becomes available during startup for direct
+health server. `app.manager` becomes available during startup for direct
 manager readiness and metrics access.
 
 Controllers and webhooks both use `await request.client(ResourceType)` for a live
@@ -167,4 +168,4 @@ shared dependencies, existing-resource aggregation, child pruning, finalizers,
 multiple controllers, and admission on built-in or externally defined resources.
 Use `request.cached(Kind)` for explicit informer snapshots and
 `await request.client(Kind)` for live API access. Standalone webhook routes can be
-passed as `Operator(..., admission=policies)` without registering a CRD or controller.
+passed as `Application(..., admission=policies)` without registering a CRD or controller.

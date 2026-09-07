@@ -1,4 +1,4 @@
-"""Operator startup, admission availability, and cleanup ownership."""
+"""Application startup, admission availability, and cleanup ownership."""
 
 import asyncio
 import socket
@@ -12,11 +12,11 @@ import yaml
 from pydantic import Field
 
 from cloudcoil.admission import AdmissionRequest, validating
+from cloudcoil.application import Application, WebhookServer
+from cloudcoil.application._server import _HTTPS
 from cloudcoil.client import AsyncAPIClient, Config
 from cloudcoil.controller import Controller, LeaderElection
 from cloudcoil.crd import custom_resource
-from cloudcoil.operator import Operator, WebhookServer
-from cloudcoil.operator._server import _HTTPS
 from cloudcoil.resources import Resource
 
 
@@ -91,8 +91,8 @@ def components(monkeypatch):
                 self.task.cancel()
                 await asyncio.gather(self.task, return_exceptions=True)
 
-    monkeypatch.setattr("cloudcoil.operator._operator.Manager", Manager)
-    monkeypatch.setattr("cloudcoil.operator._operator._HTTPS", HTTPS)
+    monkeypatch.setattr("cloudcoil.application._application.Manager", Manager)
+    monkeypatch.setattr("cloudcoil.application._application._HTTPS", HTTPS)
     return events, Manager, HTTPS
 
 
@@ -100,8 +100,8 @@ def test_manifests_and_cli_need_no_config_or_tls_files(monkeypatch, capsys):
     def forbidden(*args, **kwargs):
         raise AssertionError("Offline generation must not load credentials")
 
-    monkeypatch.setattr("cloudcoil.operator._operator.Config", forbidden)
-    app = Operator(
+    monkeypatch.setattr("cloudcoil.application._application.Config", forbidden)
+    app = Application(
         "widgets",
         Controller(Policy, reconcile),
         namespace="operators",
@@ -118,18 +118,18 @@ def test_manifests_and_cli_need_no_config_or_tls_files(monkeypatch, capsys):
 
 def test_shared_config_and_policy_configuration_are_explicit(config):
     with pytest.raises(ValueError, match="Config.namespace"):
-        Operator("widgets", Controller(Widget, reconcile), config=config, namespace="other")
+        Application("widgets", Controller(Widget, reconcile), config=config, namespace="other")
     with pytest.raises(ValueError, match="share the operator Config"):
-        Operator("widgets", Controller(Widget, reconcile, config=config))
+        Application("widgets", Controller(Widget, reconcile, config=config))
     with pytest.raises(ValueError, match="require webhook"):
-        Operator("widgets", Controller(Policy, reconcile))
+        Application("widgets", Controller(Policy, reconcile))
 
 
 async def test_lifecycle_stops_components_before_closing_owned_config(
     config, components, monkeypatch
 ):
     events, _, _ = components
-    monkeypatch.setattr("cloudcoil.operator._operator.Config", lambda **kwargs: config)
+    monkeypatch.setattr("cloudcoil.application._application.Config", lambda **kwargs: config)
     original_exit = Config.__aexit__
 
     async def exit_scope(self, *args):
@@ -137,7 +137,7 @@ async def test_lifecycle_stops_components_before_closing_owned_config(
         await original_exit(self, *args)
 
     monkeypatch.setattr(Config, "__aexit__", exit_scope)
-    app = Operator(
+    app = Application(
         "widgets", Controller(Policy, reconcile), namespace="operators", webhook=WebhookServer()
     )
     stop = asyncio.Event()
@@ -159,7 +159,9 @@ async def test_borrowed_config_stays_open_and_embedded_run_keeps_signals(
     monkeypatch.setattr(
         asyncio.get_running_loop(), "add_signal_handler", lambda *args: pytest.fail("signals")
     )
-    app = Operator("widgets", Controller(Widget, reconcile), namespace="operators", config=config)
+    app = Application(
+        "widgets", Controller(Widget, reconcile), namespace="operators", config=config
+    )
     task = asyncio.create_task(app.run())
     await app.wait_ready()
     task.cancel()
@@ -172,7 +174,7 @@ async def test_borrowed_config_stays_open_and_embedded_run_keeps_signals(
 async def test_standby_replica_serves_webhooks(config, components):
     _, manager, _ = components
     manager.ready = False
-    app = Operator(
+    app = Application(
         "widgets",
         Controller(Policy, reconcile),
         namespace="operators",
@@ -201,7 +203,9 @@ async def test_stop_during_discovery_cancels_startup(config, components):
         await asyncio.Event().wait()
 
     config.async_initialize = discover
-    app = Operator("widgets", Controller(Widget, reconcile), namespace="operators", config=config)
+    app = Application(
+        "widgets", Controller(Widget, reconcile), namespace="operators", config=config
+    )
     stop = asyncio.Event()
     task = asyncio.create_task(app.run(stop=stop))
     await started.wait()
@@ -219,7 +223,7 @@ async def test_component_failure_stops_siblings(config, components, monkeypatch)
         raise ValueError("controller failed")
 
     monkeypatch.setattr(manager, "run", fail)
-    app = Operator(
+    app = Application(
         "widgets",
         Controller(Policy, reconcile),
         namespace="operators",
@@ -234,7 +238,7 @@ async def test_component_failure_stops_siblings(config, components, monkeypatch)
 
 
 async def test_webhook_install_requires_rollout_before_registration(config):
-    app = Operator(
+    app = Application(
         "widgets",
         resources=(Policy,),
         namespace="operators",
@@ -254,7 +258,7 @@ async def test_shutdown_failure_is_reported_on_explicit_stop(config, components,
         raise OSError("close failed")
 
     monkeypatch.setattr(server, "close", fail_close)
-    app = Operator("widgets", resources=(Policy,), config=config, webhook=WebhookServer())
+    app = Application("widgets", resources=(Policy,), config=config, webhook=WebhookServer())
     stop = asyncio.Event()
     task = asyncio.create_task(app.run(stop=stop))
     await app.wait_ready()
@@ -276,7 +280,9 @@ async def test_primary_and_cleanup_failures_both_survive(config, components, mon
 
     monkeypatch.setattr(manager, "run", fail_run)
     monkeypatch.setattr(server, "close", fail_close)
-    app = Operator("widgets", Controller(Policy, reconcile), config=config, webhook=WebhookServer())
+    app = Application(
+        "widgets", Controller(Policy, reconcile), config=config, webhook=WebhookServer()
+    )
     with pytest.raises(ExceptionGroup) as error:
         await app.run()
     assert {str(item) for item in error.value.exceptions} == {"primary failed", "close failed"}
@@ -350,7 +356,7 @@ async def test_server_system_exit_becomes_startup_error(tls, monkeypatch):
     ],
 )
 def test_cli_container_command_preserves_options_and_quoted_arguments(capsys, command, expected):
-    app = Operator("widgets", Controller(Widget, reconcile))
+    app = Application("widgets", Controller(Widget, reconcile))
     app.main(["manifests", "--command", command, "--image", "example/operator:v1"])
     deployment = next(
         doc for doc in yaml.safe_load_all(capsys.readouterr().out) if doc["kind"] == "Deployment"

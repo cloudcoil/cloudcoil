@@ -6,7 +6,7 @@ collection removes children when their Widget is deleted. A webhook adds a label
 and checks an optional namespace policy using the same client API as reconciliation.
 
 The implementation is in [`../widget_operator.py`](../widget_operator.py). It has
-one resource declaration, one reconciler and one `Operator(...).main()` entry point.
+one resource declaration, one reconciler and one `Application(...).main()` entry point.
 
 ## Run the whole demo
 

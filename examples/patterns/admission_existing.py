@@ -5,10 +5,10 @@ from cloudcoil.models.kubernetes.autoscaling.v1 import Scale
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
 from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
-from cloudcoil.operator import Operator, RBACRule, WebhookServer
+from cloudcoil.application import Application, RBACRule, WebhookServer
 
 
-def build_operator() -> Operator:
+def build_app() -> Application:
     policies = AdmissionWebhook()
 
     @policies.mutating(Deployment, path="/default-deployment")
@@ -62,7 +62,7 @@ def build_operator() -> Operator:
         ):
             raise AdmissionDenied("Remove the protection annotation before deleting")
 
-    return Operator(
+    return Application(
         "deployment-policy",
         admission=policies,
         rules=(RBACRule(ConfigMap, ("get",), resource_names=("deployment-policy",)),),
@@ -71,4 +71,4 @@ def build_operator() -> Operator:
 
 
 if __name__ == "__main__":
-    build_operator().main()
+    build_app().main()

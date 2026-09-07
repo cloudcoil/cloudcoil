@@ -1,6 +1,6 @@
 # Controllers
 
-A reconciler reads the latest state and returns changes. `Operator.main()` handles
+A reconciler reads the latest state and returns changes. `Application.main()` handles
 configuration, watches, retries, signals and cleanup. Start with the
 [quickstart](getting-started.md#write-a-controller) or browse the [patterns](patterns.md).
 
@@ -8,7 +8,7 @@ configuration, watches, retries, signals and cleanup. Start with the
 
 ```python
 from cloudcoil.controller import Controller, Request, Result
-from cloudcoil.operator import Operator
+from cloudcoil.application import Application
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
 
 async def reconcile(request: Request[ConfigMap]) -> Result | None:
@@ -17,10 +17,10 @@ async def reconcile(request: Request[ConfigMap]) -> Result | None:
     print(request.namespace, request.name, request.resource.data)
     return Result(requeue_after=60)
 
-operator = Operator("configmaps", Controller(ConfigMap, reconcile, workers=4))
+app = Application("configmaps", Controller(ConfigMap, reconcile, workers=4))
 
 if __name__ == "__main__":
-    operator.main()
+    app.main()
 
 ```
 

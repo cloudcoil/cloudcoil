@@ -7,6 +7,7 @@ Select a source ConfigMap with the label example.com/mirror=true.
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
 from cloudcoil.apimachinery import ObjectMeta
+from cloudcoil.application import Application
 from cloudcoil.controller import (
     Controller,
     HealthServer,
@@ -15,7 +16,6 @@ from cloudcoil.controller import (
     mutate,
 )
 from cloudcoil.errors import ResourceNotFound
-from cloudcoil.operator import Operator
 
 
 async def reconcile(request: Request[ConfigMap]) -> None:
@@ -42,8 +42,8 @@ async def reconcile(request: Request[ConfigMap]) -> None:
     await mutate(child, change, config=request.config)
 
 
-def build_operator() -> Operator:
-    return Operator(
+def build_app() -> Application:
+    return Application(
         "configmap-mirror",
         Controller(
             ConfigMap,
@@ -57,4 +57,4 @@ def build_operator() -> Operator:
 
 
 if __name__ == "__main__":
-    build_operator().main()
+    build_app().main()

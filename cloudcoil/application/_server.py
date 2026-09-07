@@ -47,7 +47,7 @@ class _HTTPS:
 
         class Server(uvicorn.Server):
             def capture_signals(self) -> Any:
-                # Operator.main owns signals; embedded async use leaves them alone.
+                # Application.main owns signals; embedded async use leaves them alone.
                 return nullcontext()
 
         self.server = Server(

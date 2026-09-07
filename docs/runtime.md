@@ -1,6 +1,6 @@
 # Runtime and observability
 
-`Operator` configures this runtime for ordinary applications. Use the lower-level
+`Application` configures this runtime for ordinary applications. Use the lower-level
 APIs here when embedding controllers or tuning their lifecycle.
 
 ## Controller and manager lifecycle

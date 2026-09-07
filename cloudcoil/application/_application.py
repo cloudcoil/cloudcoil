@@ -27,7 +27,7 @@ from ._manifests import RBACRule, build_manifests
 from ._server import _HTTPS, WebhookServer
 
 
-class Operator:
+class Application:
     """Describe, install, and run controllers and admission policies.
 
     Construction and manifest generation are offline. Config is created lazily;
@@ -66,12 +66,12 @@ class Operator:
         self.config = config
         self.cache = cache
         if config is not None and cache is not None:
-            raise ValueError("Configure caching on Config or Operator, not both")
+            raise ValueError("Configure caching on Config or Application, not both")
         self.admission = admission
         if admission is not None and admission._config not in (None, config):
             raise ValueError("AdmissionWebhook must share the operator Config")
         if config is not None and config.namespace != namespace:
-            raise ValueError("Config.namespace must match Operator.namespace")
+            raise ValueError("Config.namespace must match Application.namespace")
         self.crds: tuple[CRD, ...]
         definitions: dict[type[Resource], CRD] = {}
         for item in resources:
@@ -83,9 +83,9 @@ class Operator:
             if controller.resource not in definitions and _resource_options(controller.resource):
                 definitions[controller.resource] = CRD(controller.resource)
             if controller.config is not None and controller.config is not config:
-                raise ValueError("Operator controllers must share the operator Config")
+                raise ValueError("Application controllers must share the operator Config")
         if leader_election and leader_election.config not in (None, config):
-            raise ValueError("Operator leader election must share the operator Config")
+            raise ValueError("Application leader election must share the operator Config")
         self.crds = tuple(definitions.values())
         self._models = tuple(crd.resource for crd in self.crds if _methods(crd.resource))
         self._has_admission = bool(self._models or admission and admission._routes)
@@ -234,7 +234,7 @@ class Operator:
                 if self._failure is not None:
                     raise self._failure
                 if self._finished.is_set():
-                    raise RuntimeError("Operator stopped before becoming ready")
+                    raise RuntimeError("Application stopped before becoming ready")
                 await asyncio.sleep(0.01)
 
     def _application(self, admission: AdmissionWebhook):
@@ -274,7 +274,7 @@ class Operator:
         not replace signal handlers; main() supplies SIGINT/SIGTERM shutdown.
         """
         if self._used:
-            raise RuntimeError("Operator instances can only run once")
+            raise RuntimeError("Application instances can only run once")
         self._used = True
         stop = stop if stop is not None else asyncio.Event()
         component_stop = asyncio.Event()
@@ -310,7 +310,7 @@ class Operator:
                     errors.insert(0, exception)
                 if len(errors) == 1:
                     raise errors[0]
-                raise BaseExceptionGroup("Operator failed while stopping components", errors)
+                raise BaseExceptionGroup("Application failed while stopping components", errors)
             return False
 
         async def run_components(config: Config) -> None:
@@ -350,7 +350,7 @@ class Operator:
                 return
             async with self._configuration() as config:
                 if config.namespace != self.namespace:
-                    raise ValueError("Config.namespace must match Operator.namespace")
+                    raise ValueError("Config.namespace must match Application.namespace")
                 runtime = asyncio.create_task(run_components(config))
                 stopped = asyncio.create_task(stop.wait())
                 try:

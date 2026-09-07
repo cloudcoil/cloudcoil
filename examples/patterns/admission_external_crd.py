@@ -3,8 +3,8 @@
 from pydantic import Field
 
 from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
+from cloudcoil.application import Application, WebhookServer
 from cloudcoil.crd import custom_resource
-from cloudcoil.operator import Operator, WebhookServer
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
@@ -20,7 +20,7 @@ class Database(Resource):
     spec: DatabaseSpec
 
 
-def build_operator() -> Operator:
+def build_app() -> Application:
     policies = AdmissionWebhook()
 
     @policies.validating(Database, path="/database-storage", operations=("UPDATE",))
@@ -30,7 +30,7 @@ def build_operator() -> Operator:
             raise AdmissionDenied("Database storage cannot shrink")
 
     # Database is deliberately not in resources= or a Controller: no CRD or CRUD grant.
-    return Operator(
+    return Application(
         "database-policy",
         admission=policies,
         webhook=WebhookServer(tls_secret="database-policy-tls"),
@@ -38,4 +38,4 @@ def build_operator() -> Operator:
 
 
 if __name__ == "__main__":
-    build_operator().main()
+    build_app().main()

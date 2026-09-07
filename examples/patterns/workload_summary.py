@@ -3,9 +3,9 @@
 from cloudcoil.models.kubernetes.core.v1 import Pod
 from pydantic import Field
 
+from cloudcoil.application import Application
 from cloudcoil.controller import Controller, Request, ResourceKey
 from cloudcoil.crd import custom_resource
-from cloudcoil.operator import Operator
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
 
@@ -56,9 +56,9 @@ def controller() -> Controller[Workload]:
     return workload.watch(Pod, mapper=dependents)
 
 
-def build_operator() -> Operator:
-    return Operator("workload-summary", controller())
+def build_app() -> Application:
+    return Application("workload-summary", controller())
 
 
 if __name__ == "__main__":
-    build_operator().main()
+    build_app().main()

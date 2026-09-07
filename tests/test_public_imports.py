@@ -9,6 +9,8 @@ import pytest
 @pytest.mark.parametrize(
     "first",
     [
+        "cloudcoil",
+        "cloudcoil.application",
         "cloudcoil.controller",
         "cloudcoil.caching",
         "cloudcoil.crd",
@@ -19,6 +21,11 @@ import pytest
 )
 def test_fresh_public_import_order(first):
     code = f"""import {first}
+from cloudcoil.application import Application
+from cloudcoil.application._application import Application as DirectApplication
+from cloudcoil.models.kubernetes.core.v1 import Pod
+assert Application is DirectApplication
+assert Pod.gvk().kind == "Pod"
 from cloudcoil.client import Config, APIClient, AsyncAPIClient
 from cloudcoil.client._config import Config as DirectConfig
 from cloudcoil.caching import Cache, AsyncInformer

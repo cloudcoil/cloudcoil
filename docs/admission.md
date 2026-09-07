@@ -8,7 +8,8 @@ to built-in resources and external CRDs without a controller or ownership.
 ```python
 from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
 from cloudcoil.models.kubernetes.apps.v1 import Deployment
-from cloudcoil.operator import Operator, WebhookServer
+from cloudcoil.application import Application
+from cloudcoil.application import WebhookServer
 
 policies = AdmissionWebhook()
 
@@ -20,14 +21,14 @@ async def replica_limit(request: AdmissionRequest[Deployment]) -> None:
         if replicas > 10:
             raise AdmissionDenied("At most ten replicas are allowed")
 
-operator = Operator(
+app = Application(
     "deployment-policy",
     admission=policies,
     webhook=WebhookServer(tls_secret="deployment-policy-tls"),
 )
 
 if __name__ == "__main__":
-    operator.main()
+    app.main()
 ```
 
 Follow [deployment and TLS setup](operators.md#generate-install-run) to install it.
@@ -50,7 +51,7 @@ async def validate_message(cls, request: AdmissionRequest[Self]) -> None:
         raise AdmissionDenied("Message must contain a non-whitespace character")
 ```
 
-An `Operator` discovers policies on its CRDs. For standalone ASGI hosting use
+An `Application` discovers policies on its CRDs. For standalone ASGI hosting use
 `AdmissionWebhook(config=config).register(Widget)`.
 
 ## Callback contract
@@ -169,7 +170,7 @@ async def check_policy(cls, request: AdmissionRequest[Self]) -> None:
         raise AdmissionDenied(f"Namespace policy limits messages to {limit} characters")
 ```
 
-`Operator` supplies the Config and manages its lifetime. For standalone hosting,
+`Application` supplies the Config and manages its lifetime. For standalone hosting,
 use `AdmissionWebhook(config=config).register(Widget)` and keep that Config alive
 until requests have drained. Pure handlers need no Config; requesting a client
 without one raises a clear error. `request.config` is available for advanced use.

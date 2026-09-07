@@ -127,7 +127,7 @@ class AdmissionWebhook:
         return self._register_models(models, require_config=True)
 
     def _register_models(self, models: Sequence[type[Resource]], *, require_config: bool) -> Self:
-        # Operator manifest generation can collect routes before loading credentials.
+        # Application manifest generation can collect routes before loading credentials.
         from cloudcoil.crd import _resource_options
 
         staged = AdmissionWebhook(config=self._config, max_body_bytes=self._max_body_bytes)

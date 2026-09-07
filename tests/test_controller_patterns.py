@@ -205,7 +205,7 @@ async def test_finalizer_is_persisted_before_external_work_and_removed_after_cle
 
     monkeypatch.setattr(pattern, "ensure_finalizer", add)
     monkeypatch.setattr(pattern, "remove_finalizer", remove)
-    app = pattern.build_operator(SimpleNamespace(put=put, delete=delete))
+    app = pattern.build_app(SimpleNamespace(put=put, delete=delete))
     request = Request(ResourceKey("record", "tenant"), obj)
     result = await app.controllers[0].reconcile(request)
     assert events == ["finalizer", "put"] and result.requeue_after == 60
@@ -254,13 +254,13 @@ async def review(
 
 
 async def test_existing_resource_admission_shares_config_and_handles_create_update_delete():
-    from examples.patterns.admission_existing import build_operator
+    from examples.patterns.admission_existing import build_app
 
-    operator = build_operator()
+    app = build_app()
     api = AsyncMock(namespaced=True)
     api.get.return_value = ConfigMap(data={"maxReplicas": "2"})
     config = SimpleNamespace(async_client_for=AsyncMock(return_value=api))
-    admission = operator._admission(config)
+    admission = app._admission(config)
     result = await review(admission, "/validate-deployment", deployment(replicas=3))
     assert not result["allowed"] and "2 replicas" in result["status"]["message"]
     assert api.default_namespace == "tenant"
@@ -288,27 +288,25 @@ async def test_existing_resource_admission_shares_config_and_handles_create_upda
         await review(admission, "/protect-delete", None, old=protected, operation="DELETE")
     )["allowed"]
     api.create.assert_not_called()
-    assert operator.admission._config is None  # Runtime binding did not mutate the definition.
+    assert app.admission._config is None  # Runtime binding did not mutate the definition.
 
 
 async def test_external_crd_admission_uses_old_object_without_installing_or_owning_crd():
-    from examples.patterns.admission_external_crd import Database, DatabaseSpec, build_operator
+    from examples.patterns.admission_external_crd import Database, DatabaseSpec, build_app
 
-    operator = build_operator()
+    app = build_app()
     old = Database(metadata={"name": "db", "namespace": "tenant"}, spec=DatabaseSpec(storageGiB=20))
     new = old.model_copy(deep=True)
     new.spec.storage_gib = 10
-    result = await review(
-        operator._admission(), "/database-storage", new, old=old, operation="UPDATE"
-    )
+    result = await review(app._admission(), "/database-storage", new, old=old, operation="UPDATE")
     assert not result["allowed"]
-    assert not operator.crds and not operator.controllers
+    assert not app.crds and not app.controllers
 
 
 async def test_admission_cache_requires_explicit_synced_replica_local_informer():
-    from examples.patterns.admission_cached import build_operator
+    from examples.patterns.admission_cached import build_app
 
-    operator = build_operator()
+    app = build_app()
     ns = Namespace(
         metadata={"name": "tenant", "labels": {"patterns.cloudcoil.dev/allow-pods": "true"}}
     )
@@ -318,7 +316,7 @@ async def test_admission_cache_requires_explicit_synced_replica_local_informer()
             enabled=True, resources=[Namespace], get_informer=Mock(return_value=source)
         )
     )
-    admission = operator._admission(config)
+    admission = app._admission(config)
     pod = Pod(metadata={"name": "pod", "namespace": "tenant"})
     assert (await review(admission, "/namespace-policy", pod))["allowed"]
     ns.metadata.labels.clear()
@@ -347,12 +345,10 @@ async def test_admission_cache_requires_explicit_synced_replica_local_informer()
 def test_every_example_builds_offline_manifests(module):
     from dataclasses import replace
 
-    operator = importlib.import_module(f"examples.patterns.{module}").build_operator()
-    if operator.webhook:
-        operator.webhook = replace(
-            operator.webhook, ca_bundle=b"-----BEGIN CERTIFICATE-----\npublic"
-        )
-    documents = operator.manifests(image="example/operator:v1")
+    app = importlib.import_module(f"examples.patterns.{module}").build_app()
+    if app.webhook:
+        app.webhook = replace(app.webhook, ca_bundle=b"-----BEGIN CERTIFICATE-----\npublic")
+    documents = app.manifests(image="example/operator:v1")
     assert any(doc["kind"] == "Deployment" for doc in documents)
     if module.startswith("admission_"):
         assert not any(doc["kind"] == "CustomResourceDefinition" for doc in documents)
@@ -393,12 +389,12 @@ async def test_guarded_delete_sends_preconditions_and_surfaces_conflicts(sync):
 async def test_scale_admission_targets_deployment_endpoint_with_scale_payload():
     from cloudcoil.models.kubernetes.autoscaling.v1 import Scale
 
-    from examples.patterns.admission_existing import build_operator
+    from examples.patterns.admission_existing import build_app
 
-    operator = build_operator()
+    app = build_app()
     api = AsyncMock(namespaced=True)
     api.get.return_value = ConfigMap(data={"maxReplicas": "2"})
-    admission = operator._admission(SimpleNamespace(async_client_for=AsyncMock(return_value=api)))
+    admission = app._admission(SimpleNamespace(async_client_for=AsyncMock(return_value=api)))
     old = Scale.model_validate(
         {"metadata": {"name": "app", "namespace": "tenant"}, "spec": {"replicas": 1}}
     )
@@ -451,7 +447,7 @@ def test_cache_configuration_honors_scope_and_unbounded_capacity():
 @pytest.mark.parametrize("selector", [{}, {"matchLabels": {"policy": "enabled"}}])
 def test_explicit_admission_namespace_selector_is_preserved_and_copied(selector):
     from cloudcoil.admission import AdmissionWebhook
-    from cloudcoil.operator import Operator, WebhookServer
+    from cloudcoil.application import Application, WebhookServer
 
     policies = AdmissionWebhook()
 
@@ -459,7 +455,7 @@ def test_explicit_admission_namespace_selector_is_preserved_and_copied(selector)
     async def validate(request):
         pass
 
-    operator = Operator(
+    app = Application(
         "policy",
         admission=policies,
         webhook=WebhookServer(tls_secret="policy-tls", ca_bundle=b"-----BEGIN CERTIFICATE-----"),
@@ -467,7 +463,7 @@ def test_explicit_admission_namespace_selector_is_preserved_and_copied(selector)
 
     def registered():
         return next(
-            doc for doc in operator.manifests() if doc["kind"] == "ValidatingWebhookConfiguration"
+            doc for doc in app.manifests() if doc["kind"] == "ValidatingWebhookConfiguration"
         )["webhooks"][0]["namespaceSelector"]
 
     assert registered() == selector
@@ -489,7 +485,7 @@ async def test_finalizer_example_does_not_provision_when_live_read_observes_dele
     deleting.metadata.finalizers = [pattern.FINALIZER]
     monkeypatch.setattr(pattern, "ensure_finalizer", AsyncMock(return_value=deleting))
     provider = SimpleNamespace(put=AsyncMock(), delete=AsyncMock())
-    app = pattern.build_operator(provider)
+    app = pattern.build_app(provider)
     result = await app.controllers[0].reconcile(Request(ResourceKey("record", "tenant"), obj))
     provider.put.assert_not_awaited()
     assert result.requeue_after == 0

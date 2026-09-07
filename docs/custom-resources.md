@@ -1,7 +1,7 @@
 # Custom resources
 
 Define a typed resource, generate its CRD, then use it in a [controller](controllers.md)
-or attach [admission policies](admission.md). An `Operator` installs decorated primary
+or attach [admission policies](admission.md). An `Application` installs decorated primary
 resource definitions automatically.
 
 ## Define and generate

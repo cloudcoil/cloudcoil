@@ -14,6 +14,7 @@ from cloudcoil.controller import Controller, ControllerStatus, HealthServer, Lea
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
 from cloudcoil import patches
 from cloudcoil.client import AsyncAPIClient
+from cloudcoil.application import Application
 
 async def reconcile(request: Request[ConfigMap]) -> ConfigMap | Result | None:
     assert_type(request.resource, ConfigMap | None)
@@ -38,6 +39,7 @@ async def return_resource(request: Request[ConfigMap]) -> ConfigMap | None:
 assert_type(Controller(ConfigMap, return_resource), Controller[ConfigMap])
 controller = Controller(ConfigMap, reconcile, workers=4).owns(Secret)
 assert_type(controller, Controller[ConfigMap])
+assert_type(Application("example", controller), Application)
 assert_type(controller.cached(ConfigMap).list(), list[ConfigMap])
 controller.watch(Secret, mapper=lambda secret: [ResourceKey("settings", secret.namespace)])
 manager = Manager(controller, health=HealthServer(port=0), leader_election=LeaderElection("example"))
