@@ -56,6 +56,7 @@ gen-repo-%:
 # If it does exist, change all the existing files in the repo to match the generated code
 # Push the generated code to the repo
 publish-repo-%: gen-repo-%
+	$(MAKE) -C output/models-$* check-artifacts
 	@echo "Publishing to cloudcoil/models-$*"
 	@if ! gh repo view cloudcoil/models-$* >/dev/null 2>&1; then \
 		gh repo create cloudcoil/models-$* --add-readme --public --description "Generated model repository for $*" && gh repo edit --add-topic cloudcoil --add-topic cloudcoil-models cloudcoil/models-$*; \

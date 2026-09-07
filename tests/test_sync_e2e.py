@@ -282,32 +282,30 @@ def test_scale_operations(test_config):
     provider=cluster_provider,
     remove=False,
 )
-def test_crd_scale_operations(test_config):
+def test_crd_scale_operations(test_config, wait_for_crd_discovery):
     with test_config:
         ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
 
-        # First delete the CRD if it exists
-        try:
-            k8s.apiextensions.v1.CustomResourceDefinition.delete("webservices.cloudcoil.io")
-        except Exception:
-            pass
-
         crd_path = Path(__file__).parent / "data" / "scale_crd.yaml"
         crd = parse_file(crd_path)
+        # A unique API group prevents stale CRDs from a failed run affecting this test.
+        crd.spec.group = f"{ns.name}.cloudcoil.io"
+        crd.metadata.name = f"webservices.{crd.spec.group}"
         crd = crd.create()
 
         def check_established(event_type, obj):
-            if event_type != "MODIFIED":
-                return None
-            return any(
-                cond.type == "Established" and cond.status == "True"
-                for cond in obj.status.conditions or []
+            return (
+                event_type in {"ADDED", "MODIFIED"}
+                and obj.status is not None
+                and any(
+                    cond.type == "Established" and cond.status == "True"
+                    for cond in obj.status.conditions or []
+                )
             )
 
-        crd.wait_for(check_established, timeout=10)
-        test_config.refresh_api_resources()
-        # Create a custom resource
-        DynamicWebService = get_dynamic_resource("WebService", "cloudcoil.io/v1alpha1")
+        crd.wait_for(check_established, timeout=30)
+        DynamicWebService = get_dynamic_resource("WebService", f"{crd.spec.group}/v1alpha1")
+        wait_for_crd_discovery(DynamicWebService)
         webservice = DynamicWebService(
             metadata={"name": "test-scale", "namespace": ns.name},
             spec={"image": "nginx:latest", "size": 3},

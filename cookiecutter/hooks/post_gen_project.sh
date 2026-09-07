@@ -9,4 +9,5 @@ set -ex
 {% endif %}
 uv lock --upgrade-package cloudcoil
 uv sync --locked
-make fix-lint
+# Publish usable models on the default branch, not the empty template package.
+make gen-models

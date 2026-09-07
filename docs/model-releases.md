@@ -42,7 +42,7 @@ artifacts, and checks for missing generated modules. No release credentials are
 provided to this PR workflow.
 
 After merging a source update, the existing **Update Versions** workflow pushes
-the rendered templates to each model repository. That repository's **Update
+the generated models and templates to each model repository. That repository's **Update
 Versions** workflow then:
 
 1. Selects the configured upstream schema version and refreshes the compatible
@@ -79,8 +79,8 @@ A published version is immutable, including a yanked version.
 ## Adding an integration
 
 Add its source config, upstream entry, and resource round-trip tests. Run
-`make gen-repo-<name>`, then `make gen-models lint test` and `uv build` inside the
-rendered repository. The generator infers Kubernetes resource identities from the
+`make gen-repo-<name>`, then `make lint test check-artifacts` inside the
+generated repository. The generator infers Kubernetes resource identities from the
 upstream schemas; add configuration overrides only for demonstrated schema issues.
 
 Before publishing a new package, configure a PyPI trusted publisher for owner
@@ -89,3 +89,14 @@ existing `CI_GITHUB_TOKEN` is available to the new repository. Keep automatic
 publication disabled until this setup is complete. Add a core installation extra
 only after the model distribution exists on PyPI, so the core lockfile never
 requires an unpublished dependency.
+
+## Generated repository contents
+
+Each model repository's `main` branch contains generated Python models for the
+latest configured upstream version. Cookiecutter generates these models before
+the repository is published; release branches retain their selected upstream
+versions. Template CI and repository CI test and build the generated checkout
+without regenerating it. Artifact verification rejects empty resource lookups,
+missing or empty model modules, and wheel or sdist contents that differ from the
+checkout. Repository updates run independently in a matrix so generation of a
+large integration does not compete for memory with other integrations.

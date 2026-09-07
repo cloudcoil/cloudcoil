@@ -73,6 +73,32 @@ def prepare(root, upstream):
     path.write_text(set_project_version(text, upstream + ".0"))
 
 
+def generated_files(root):
+    files = sorted(
+        p for p in (root / "cloudcoil").rglob("*") if p.is_file() and p.suffix in {".py", ".typed"}
+    )
+    lookups = [p for p in files if p.name == "_lookup.py"]
+    if not lookups:
+        raise ValueError("Missing generated resource lookup; generate models first")
+    for lookup in lookups:
+        tree = ast.parse(lookup.read_text())
+        registries = [
+            ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "_MODELS" for target in node.targets
+            )
+        ]
+        if len(registries) != 1 or not isinstance(registries[0], dict) or not registries[0]:
+            raise ValueError(f"Empty generated resource lookup: {lookup.relative_to(root)}")
+        for module, _ in registries[0].values():
+            path = root.joinpath(*module.split(".")).with_suffix(".py")
+            if path not in files or not path.read_text().strip():
+                raise ValueError(f"Missing or empty generated model module: {module}")
+    return files
+
+
 def fingerprint(root):
     config = tomllib.loads((root / "pyproject.toml").read_text())
     project = dict(config["project"])
@@ -84,11 +110,7 @@ def fingerprint(root):
         "hatch": config["tool"]["hatch"],
     }
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode())
-    files = sorted(
-        p for p in (root / "cloudcoil").rglob("*") if p.is_file() and p.suffix in {".py", ".typed"}
-    )
-    if not any(p.name == "_lookup.py" for p in files):
-        raise ValueError("Missing generated resource lookup; generate models first")
+    files = generated_files(root)
     for path in files:
         digest.update(str(path.relative_to(root)).encode() + b"\0" + path.read_bytes())
     return digest.hexdigest()
@@ -111,22 +133,25 @@ def verify_artifacts(root, version):
     sdists = list((root / "dist").glob("*.tar.gz"))
     if len(wheels) != 1 or len(sdists) != 1:
         raise ValueError("Expected exactly one wheel and one source distribution")
-    expected = {
-        str(p.relative_to(root))
-        for p in (root / "cloudcoil").rglob("*")
-        if p.is_file() and p.suffix in {".py", ".typed"}
-    }
+    expected = {str(p.relative_to(root)): p.read_bytes() for p in generated_files(root)}
     with zipfile.ZipFile(wheels[0]) as archive:
-        if not expected <= set(archive.namelist()):
+        if not expected.keys() <= set(archive.namelist()):
             raise ValueError("Wheel omits generated model files")
+        if any(archive.read(name) != content for name, content in expected.items()):
+            raise ValueError("Wheel model contents differ from generated source")
         metadata = [n for n in archive.namelist() if n.endswith(".dist-info/METADATA")]
         if len(metadata) != 1:
             raise ValueError("Expected one wheel metadata file")
         info = BytesParser().parsebytes(archive.read(metadata[0]))
     with tarfile.open(sdists[0]) as archive:
-        paths = {name.split("/", 1)[-1] for name in archive.getnames()}
-        if not expected <= paths:
+        members = {m.name.split("/", 1)[-1]: m for m in archive.getmembers() if m.isfile()}
+        paths = set(members)
+        if not expected.keys() <= paths:
             raise ValueError("Source distribution omits generated model files")
+        for name, content in expected.items():
+            extracted = archive.extractfile(members[name])
+            if extracted is None or extracted.read() != content:
+                raise ValueError("Source distribution model contents differ from generated source")
 
     def normalize(value):
         return re.sub(r"[-_.]+", "-", value).lower()
@@ -337,12 +362,18 @@ def finish(root, upstream, publish=False, dry_run=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["prepare", "finish"])
-    parser.add_argument("--upstream", required=True)
+    parser.add_argument("command", choices=["prepare", "finish", "verify"])
+    parser.add_argument("--upstream")
     parser.add_argument("--publish", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     root = Path.cwd()
+    if args.command == "verify":
+        version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+        verify_artifacts(root, version)
+        return
+    if not args.upstream:
+        parser.error("--upstream is required for prepare and finish")
     if args.command == "prepare":
         prepare(root, args.upstream)
     else:
