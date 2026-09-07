@@ -1,3 +1,6 @@
+{%- macro model_type(data_type) -%}
+{{ data_type.alias or data_type.type or data_type.reference.short_name }}
+{%- endmacro -%}
 {% for decorator in decorators -%}
 {{ decorator }}
 {% endfor -%}
@@ -35,17 +38,17 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         def {{ field_setter_name }}(self, value_or_callback: {{ field.type_hint }}, /) -> "{{ class_name }}.Builder": ...
         
         @overload
-        def {{ field_setter_name }}(self, value_or_callback: Callable[[GenericListBuilder[{{ item_type.type_hint }}, {{ item_type.type_hint }}.Builder]], GenericListBuilder[{{ item_type.type_hint }}, {{ item_type.type_hint }}.Builder] | list[{{ item_type.type_hint }}]], /) -> "{{ class_name }}.Builder": ...
+        def {{ field_setter_name }}(self, value_or_callback: Callable[[GenericListBuilder[{{ item_type.type_hint }}, {{ model_type(item_type) }}.Builder]], GenericListBuilder[{{ item_type.type_hint }}, {{ model_type(item_type) }}.Builder] | list[{{ item_type.type_hint }}]], /) -> "{{ class_name }}.Builder": ...
         
         @overload
-        def {{ field_setter_name }}(self, value_or_callback: Never = ...) -> ListBuilderContext[{{ item_type.type_hint }}.Builder]: ...
+        def {{ field_setter_name }}(self, value_or_callback: Never = ...) -> ListBuilderContext[{{ model_type(item_type) }}.Builder]: ...
         
         def {{ field_setter_name }}(self, value_or_callback=UNSET, /):
             {%- if field.docstring %}
             {{ field.docstring | tojson }}
             {%- endif %}
             if self._in_context and value_or_callback is UNSET:
-                context = ListBuilderContext[{{ item_type.type_hint }}.Builder]()
+                context = ListBuilderContext[{{ model_type(item_type) }}.Builder]()
                 context._parent_builder = self
                 context._field_name = "{{ field.name }}"
                 return context
@@ -54,7 +57,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
                 raise TypeError("A value is required outside a builder context")
             value = value_or_callback
             if callable(value_or_callback):
-                output = value_or_callback({{ item_type.type_hint }}.list_builder())
+                output = value_or_callback({{ model_type(item_type) }}.list_builder())
                 if isinstance(output, GenericListBuilder):
                     value = output.build()
                 else:
@@ -73,17 +76,17 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
         def {{ field_setter_name }}(self, value_or_callback: {{ field.type_hint }}, /) -> "{{ class_name }}.Builder": ...
         
         @overload
-        def {{ field_setter_name }}(self, value_or_callback: Callable[[{{ field.data_type.type_hint }}.Builder], {{ field.data_type.type_hint }}.Builder | {{ field.data_type.type_hint }}], /) -> "{{ class_name }}.Builder": ...
+        def {{ field_setter_name }}(self, value_or_callback: Callable[[{{ model_type(field.data_type) }}.Builder], {{ model_type(field.data_type) }}.Builder | {{ field.data_type.type_hint }}], /) -> "{{ class_name }}.Builder": ...
         
         @overload
-        def {{ field_setter_name }}(self, value_or_callback: Never = ...) -> "{{ field.data_type.type_hint }}.BuilderContext": ...
+        def {{ field_setter_name }}(self, value_or_callback: Never = ...) -> "{{ model_type(field.data_type) }}.BuilderContext": ...
         
         def {{ field_setter_name }}(self, value_or_callback=UNSET, /):
             {%- if field.docstring %}
             {{ field.docstring | tojson }}
             {%- endif %}
             if self._in_context and value_or_callback is UNSET:
-                context = {{ field.data_type.type_hint }}.BuilderContext()
+                context = {{ model_type(field.data_type) }}.BuilderContext()
                 context._parent_builder = self
                 context._field_name = "{{ field.name }}"
                 return context
@@ -92,8 +95,8 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
                 raise TypeError("A value is required outside a builder context")
             value = value_or_callback
             if callable(value_or_callback):
-                output = value_or_callback({{ field.data_type.type_hint }}.builder())
-                if isinstance(output, {{ field.data_type.type_hint }}.Builder):
+                output = value_or_callback({{ model_type(field.data_type) }}.builder())
+                if isinstance(output, {{ model_type(field.data_type) }}.Builder):
                     value = output.build()
                 else:
                     value = output
@@ -149,7 +152,7 @@ class {{ class_name }}(BaseModel):{% if comment is defined %}  # {{ comment }}{%
     {{ field.name }}: {{ field.type_hint }}
     {%- endif %}
     {%- if not field.has_default_factory_in_field and (not field.required or field.use_default_with_required) and (field.represented_default != 'None' or not field.strip_default_none or field.data_type.is_optional)
-            %} = {% if field.represented_default == "{}" and (field.data_type.reference is not none or (field.data_type.import_ is not none and field.data_type.import_.from_ in external_packages)) %}{{ field.data_type.type_hint }}.model_validate({{ field.represented_default }}){% else %}{{ field.represented_default }}{% endif %}
+            %} = {% if field.represented_default == "{}" and (field.data_type.reference is not none or (field.data_type.import_ is not none and field.data_type.import_.from_ in external_packages)) %}{{ model_type(field.data_type) }}.model_validate({{ field.represented_default }}){% else %}{{ field.represented_default }}{% endif %}
     {%- endif -%}
     {%- endif %}
     {%- if field.docstring %}
