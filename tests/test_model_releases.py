@@ -245,6 +245,7 @@ def release_environment(package, monkeypatch):
         "previous": {},
         "diff": 1,
         "draft_sha": "b" * 40,
+        "draft_id": 123,
     }
     monkeypatch.setenv("GITHUB_REPOSITORY", "cloudcoil/models-sample")
     monkeypatch.setattr(releases, "release_list", lambda repo: state["releases"])
@@ -279,11 +280,16 @@ def release_environment(package, monkeypatch):
                 for p in package.rglob("*")
                 if p.is_file() and "dist" not in p.parts
             )
+        if args[:3] == ("gh", "release", "create"):
+            state["releases"].append({"id": state["draft_id"], "tag_name": args[3], "draft": True})
         if args[:2] == ("gh", "api"):
+            if "/releases/tags/" in args[-1]:
+                raise subprocess.CalledProcessError(1, args, stderr="Not Found (HTTP 404)")
+            assert args[-1] == f"repos/cloudcoil/models-sample/releases/{state['draft_id']}"
             return json.dumps(
                 {
                     "draft": True,
-                    "tag_name": args[-1].split("/")[-1],
+                    "tag_name": state["releases"][-1]["tag_name"],
                     "target_commitish": state["draft_sha"],
                 }
             )
@@ -322,7 +328,7 @@ def test_advanced_main_never_pushes_or_publishes(package, release_environment):
 
 def test_existing_draft_is_reused_and_pinned_to_validated_commit(package, release_environment):
     state, calls = release_environment
-    state["releases"] = [{"tag_name": "1.2.3.0", "draft": True}]
+    state["releases"] = [{"id": 123, "tag_name": "1.2.3.0", "draft": True}]
     releases.finish(package, "1.2.3")
     edits = [c for c in calls if c[:3] == ("gh", "release", "edit")]
     assert len(edits) == 1
@@ -335,7 +341,7 @@ def test_existing_draft_is_reused_and_pinned_to_validated_commit(package, releas
 def test_retry_of_identical_draft_can_publish_without_an_empty_commit(package, release_environment):
     state, calls = release_environment
     state["diff"] = 0
-    state["releases"] = [{"tag_name": "1.2.3.0", "draft": True}]
+    state["releases"] = [{"id": 123, "tag_name": "1.2.3.0", "draft": True}]
     releases.finish(package, "1.2.3", publish=True)
     assert not any(c[:2] == ("git", "commit") for c in calls)
     assert any("--draft=false" in c for c in calls)
@@ -363,3 +369,13 @@ def test_ignored_type_marker_stops_staging(package, release_environment, monkeyp
     with pytest.raises(ValueError, match="Git ignore rules hide generated"):
         releases.finish(package, "1.2.3", publish=True)
     assert not any(c[:2] in [("git", "push"), ("gh", "release")] for c in calls)
+
+
+def test_new_draft_publication_uses_release_id_when_tag_is_not_published(
+    package, release_environment
+):
+    state, calls = release_environment
+    releases.finish(package, "1.2.3", publish=True)
+    assert state["releases"][0]["id"] == 123
+    assert ("gh", "api", "repos/cloudcoil/models-sample/releases/123") in calls
+    assert any("--draft=false" in c for c in calls)
