@@ -690,3 +690,41 @@ async def test_manager_initialization_failure_reaches_readiness_waiters(cluster)
         await manager.wait_ready(2)
     with pytest.raises(ValueError, match="discovery failed"):
         await task
+
+
+async def test_request_and_mapper_read_the_runtime_informers_without_extra_api_calls(cluster):
+    cluster.items["configmaps"] = [cm("a")]
+    cluster.items["secrets"] = [
+        Secret(metadata={"name": "settings", "namespace": "ns"}, stringData={"key": "value"})
+    ]
+    seen = asyncio.Event()
+    mapped = []
+
+    async def reconcile(request):
+        before = len(cluster.requests)
+        assert request.cached(ConfigMap).get("a").name == "a"
+        secret = request.cached(Secret).get("settings")
+        assert secret.name == "settings"
+        secret.metadata.labels = {"modified": "copy"}
+        assert request.cached(Secret).get("settings").metadata.labels is None
+        assert len(request.cached(Secret).list()) == 1
+        assert len(cluster.requests) == before
+        seen.set()
+
+    controller = Controller(ConfigMap, reconcile, config=cluster.config)
+
+    def mapper(secret):
+        keys = [
+            ResourceKey.from_resource(obj)
+            for obj in controller.cached(ConfigMap).list(namespace=secret.namespace)
+        ]
+        mapped.extend(keys)
+        return keys
+
+    controller.watch(Secret, mapper=mapper)
+    async with running(controller):
+        await wait(seen.wait())
+        assert ResourceKey("a", "ns") in mapped
+        view = controller.cached(Secret)
+    with pytest.raises(RuntimeError, match="synced"):
+        view.list()

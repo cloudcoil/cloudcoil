@@ -514,6 +514,11 @@ def convert_crd_to_schema(crd: dict) -> Dict[str, Any]:
             def_name = f"core.{version_name}.{kind}"
 
         schema["components"]["schemas"][def_name] = schema_obj
+        schema_obj["x-cloudcoil-api"] = {
+            "plural": spec.get("names", {}).get("plural"),
+            "scope": spec.get("scope"),
+            "status": "status" in version.get("subresources", {}),
+        }
 
         # Add GVK metadata
         schema["components"]["schemas"][def_name]["x-kubernetes-group-version-kind"] = [
@@ -714,9 +719,25 @@ def generate_extra_data(schema: dict) -> dict:
     """Generate extra data for both OpenAPI and JSONSchema formats."""
     extra_data = {}
     definitions = get_schema_definitions(schema)
+    apis = {}
+    for path, operations in schema.get("paths", {}).items():
+        # Only item endpoints; never infer plural from an English kind name.
+        if not path.endswith("/{name}"):
+            continue
+        for operation in operations.values():
+            if not isinstance(operation, dict):
+                continue
+            gvk = operation.get("x-kubernetes-group-version-kind")
+            if not isinstance(gvk, dict):
+                continue
+            apis[(gvk.get("group", ""), gvk["version"], gvk["kind"])] = {
+                "plural": path.rsplit("/", 2)[-2],
+                "scope": "Namespaced" if "/namespaces/{namespace}/" in path else "Cluster",
+                "status": f"{path}/status" in schema["paths"],
+            }
 
     for prop_name, prop in definitions.items():
-        extra_prop_data = {
+        extra_prop_data: dict[str, Any] = {
             "is_gvk": False,
             "is_list": False,
             "preserve_unknown": bool(prop.get("x-kubernetes-preserve-unknown-fields")),
@@ -725,6 +746,12 @@ def generate_extra_data(schema: dict) -> dict:
         # Check for GVK
         if len(prop.get("x-kubernetes-group-version-kind", [])) == 1:
             extra_prop_data["is_gvk"] = True
+            gvk = prop["x-kubernetes-group-version-kind"][0]
+            api = prop.get("x-cloudcoil-api") or apis.get(
+                (gvk.get("group", ""), gvk["version"], gvk["kind"])
+            )
+            if api and api.get("plural") and api.get("scope"):
+                extra_prop_data["api_metadata"] = api
 
         # Check for List type
         if prop_name.endswith("List") and "properties" in prop:
@@ -980,6 +1007,7 @@ def _generate(config: ModelConfig, workdir: Path):
     args.append(f"--extra-template-data={extra_data_file}")
     base_class = "cloudcoil.pydantic.BaseModel"
     additional_imports = [
+        "typing.ClassVar",
         "typing.Callable",
         "typing.Union",
         "typing.Type",

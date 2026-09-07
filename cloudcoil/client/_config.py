@@ -587,19 +587,30 @@ class Config:
         with self._discovery_lock:
             if not self._rest_mapping:
                 logger.debug("Initializing API resource mapping")
-                self._create_rest_mapper()
+                try:
+                    self._create_rest_mapper()
+                except BaseException:
+                    # A failed discovery must be retried, not mistaken for a
+                    # completed mapping because it yielded some resources.
+                    self._rest_mapping.clear()
+                    raise
 
     async def async_initialize(self) -> None:
         """Discover resources without blocking the event loop."""
-        if not self._rest_mapping:
-            await asyncio.to_thread(self.initialize)
+        # Discovery populates the map incrementally. A nonempty map does not
+        # prove another thread has finished, so acquire its lock off-loop.
+        await asyncio.to_thread(self.initialize)
 
     async def async_client_for(
         self, resource: Type[T], cached: bool | None = None
     ) -> AsyncAPIClient[T]:
-        """Get an async client, performing initial discovery off the event loop."""
-        await self.async_initialize()
-        return self.client_for(resource, sync=False, cached=cached)
+        """Get an async client without blocking on discovery or concurrent refresh."""
+
+        def create() -> AsyncAPIClient[T]:
+            with self._discovery_lock:
+                return self.client_for(resource, sync=False, cached=cached)
+
+        return await asyncio.to_thread(create)
 
     def activate(self):
         logger.debug("Activating config")
@@ -697,8 +708,9 @@ class Config:
 
     def refresh_api_resources(self) -> None:
         logger.debug("Refreshing API resource mapping")
-        self._rest_mapping.clear()
-        self._create_rest_mapper()
+        with self._discovery_lock:
+            self._rest_mapping.clear()
+            self.initialize()
 
     def clone(self, **overrides: Unpack[ConfigOptions]) -> "Config":
         """Create a new Config instance with the same parameters but with specified overrides.

@@ -1,29 +1,29 @@
+UV_RUN_FLAGS ?= --frozen
+
 .PHONY: test
 test:
-	uv run --frozen pytest
+	uv run $(UV_RUN_FLAGS) pytest
 
 .PHONY: lint
 lint:
-	uv run --frozen ruff check cloudcoil tests
-	uv run --frozen ruff format --check cloudcoil tests
-	uv run --frozen mypy -p cloudcoil
+	uv run $(UV_RUN_FLAGS) ruff check cloudcoil tests
+	uv run $(UV_RUN_FLAGS) ruff format --check cloudcoil tests
+	uv run $(UV_RUN_FLAGS) mypy -p cloudcoil
 
 .PHONY: fix-lint
 fix-lint:
 	uv run --frozen ruff format cloudcoil tests
 	uv run --frozen ruff check --fix --unsafe-fixes cloudcoil tests
 
-.PHONY: docs-deploy
-docs-deploy:
-	rm -rf docs/index.md
-	cp README.md docs/index.md
-	uv run --frozen mkdocs gh-deploy --force
+.PHONY: docs-build docs-deploy docs-serve
+docs-build:
+	uv run $(UV_RUN_FLAGS) mkdocs build --strict
 
-.PHONY: docs-serve
+docs-deploy:
+	uv run $(UV_RUN_FLAGS) mkdocs gh-deploy --strict --force
+
 docs-serve:
-	rm -rf docs/index.md
-	cp README.md docs/index.md
-	uv run --frozen mkdocs serve
+	uv run $(UV_RUN_FLAGS) mkdocs serve --strict
 
 .PHONY: prepare-for-pr
 prepare-for-pr: fix-lint lint test

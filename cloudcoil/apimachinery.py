@@ -324,6 +324,45 @@ class FieldsV1(BaseModel):
     pass
 
 
+class GroupResource(BaseModel):
+    class Builder(BaseModelBuilder):
+        @property
+        def cls(self) -> type["GroupResource"]:
+            return GroupResource
+
+        def build(self) -> "GroupResource":
+            return GroupResource(**self._attrs)
+
+        def group(self, value: str, /) -> Self:
+            return self._set("group", value)
+
+        def resource(self, value: str, /) -> Self:
+            return self._set("resource", value)
+
+    class BuilderContext(BuilderContextBase["GroupResource.Builder"]):
+        def model_post_init(self, __context) -> None:
+            self._builder = GroupResource.Builder()
+            self._builder._in_context = True
+            self._parent_builder = None
+            self._field_name = None
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def new(cls) -> BuilderContext:
+        """Creates a new context manager builder for GroupResource."""
+        return cls.BuilderContext()
+
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["GroupResource", Builder]:
+        return GenericListBuilder[GroupResource, GroupResource.Builder]()
+
+    group: str
+    resource: str
+
+
 class GroupVersionForDiscovery(BaseModel):
     class Builder(BaseModelBuilder):
         @property
@@ -414,61 +453,6 @@ class LabelSelectorRequirement(BaseModel):
     "operator represents a key\u0027s relationship to a set of values. Valid operators are In, NotIn, Exists and DoesNotExist."
     values: list[str] | None = None
     "values is an array of string values. If the operator is In or NotIn, the values array must be non-empty. If the operator is Exists or DoesNotExist, the values array must be empty. This array is replaced during a strategic merge patch."
-
-
-class ListMeta(BaseModel):
-    class Builder(BaseModelBuilder):
-        @property
-        def cls(self) -> type["ListMeta"]:
-            return ListMeta
-
-        def build(self) -> "ListMeta":
-            return ListMeta(**self._attrs)
-
-        def continue_(self, value: str | None, /) -> Self:
-            "continue may be set if the user set a limit on the number of items returned, and indicates that the server has more data available. The value is opaque and may be used to issue another request to the endpoint that served this list to retrieve the next set of available objects. Continuing a consistent list may not be possible if the server configuration has changed or more than a few minutes have passed. The resourceVersion field returned when using this continue value will be identical to the value in the first response, unless you have received this token from an error message."
-            return self._set("continue_", value)
-
-        def remaining_item_count(self, value: int | None, /) -> Self:
-            "remainingItemCount is the number of subsequent items in the list which are not included in this list response. If the list request contained label or field selectors, then the number of remaining items is unknown and the field will be left unset and omitted during serialization. If the list is complete (either because it is not chunking or because this is the last chunk), then there are no more remaining items and this field will be left unset and omitted during serialization. Servers older than v1.15 do not set this field. The intended use of the remainingItemCount is *estimating* the size of a collection. Clients should not rely on the remainingItemCount to be set or to be exact."
-            return self._set("remaining_item_count", value)
-
-        def resource_version(self, value: str | None, /) -> Self:
-            "String that identifies the server\u0027s internal version of this object that can be used by clients to determine when objects have changed. Value must be treated as opaque by clients and passed unmodified back to the server. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency"
-            return self._set("resource_version", value)
-
-        def self_link(self, value: str | None, /) -> Self:
-            "Deprecated: selfLink is a legacy read-only field that is no longer populated by the system."
-            return self._set("self_link", value)
-
-    class BuilderContext(BuilderContextBase["ListMeta.Builder"]):
-        def model_post_init(self, __context) -> None:
-            self._builder = ListMeta.Builder()
-            self._builder._in_context = True
-            self._parent_builder = None
-            self._field_name = None
-
-    @classmethod
-    def builder(cls) -> Builder:
-        return cls.Builder()
-
-    @classmethod
-    def new(cls) -> BuilderContext:
-        """Creates a new context manager builder for ListMeta."""
-        return cls.BuilderContext()
-
-    @classmethod
-    def list_builder(cls) -> GenericListBuilder["ListMeta", Builder]:
-        return GenericListBuilder[ListMeta, ListMeta.Builder]()
-
-    continue_: Annotated[str | None, Field(alias="continue")] = None
-    "continue may be set if the user set a limit on the number of items returned, and indicates that the server has more data available. The value is opaque and may be used to issue another request to the endpoint that served this list to retrieve the next set of available objects. Continuing a consistent list may not be possible if the server configuration has changed or more than a few minutes have passed. The resourceVersion field returned when using this continue value will be identical to the value in the first response, unless you have received this token from an error message."
-    remaining_item_count: Annotated[int | None, Field(alias="remainingItemCount")] = None
-    "remainingItemCount is the number of subsequent items in the list which are not included in this list response. If the list request contained label or field selectors, then the number of remaining items is unknown and the field will be left unset and omitted during serialization. If the list is complete (either because it is not chunking or because this is the last chunk), then there are no more remaining items and this field will be left unset and omitted during serialization. Servers older than v1.15 do not set this field. The intended use of the remainingItemCount is *estimating* the size of a collection. Clients should not rely on the remainingItemCount to be set or to be exact."
-    resource_version: Annotated[str | None, Field(alias="resourceVersion")] = None
-    "String that identifies the server\u0027s internal version of this object that can be used by clients to determine when objects have changed. Value must be treated as opaque by clients and passed unmodified back to the server. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency"
-    self_link: Annotated[str | None, Field(alias="selfLink")] = None
-    "Deprecated: selfLink is a legacy read-only field that is no longer populated by the system."
 
 
 class MicroTime(RootModel[AwareDatetime]):
@@ -698,6 +682,43 @@ class ServerAddressByClientCIDR(BaseModel):
     "The CIDR with which clients can match their IP to figure out the server address that they should use."
     server_address: Annotated[str, Field(alias="serverAddress")]
     "Address of this server, suitable for a client that matches the above CIDR. This can be a hostname, hostname:port, IP or IP:port."
+
+
+class ShardInfo(BaseModel):
+    class Builder(BaseModelBuilder):
+        @property
+        def cls(self) -> type["ShardInfo"]:
+            return ShardInfo
+
+        def build(self) -> "ShardInfo":
+            return ShardInfo(**self._attrs)
+
+        def selector(self, value: str, /) -> Self:
+            "selector is the shard selector string from the request, echoed back so clients can verify which shard they received and merge responses from multiple shards."
+            return self._set("selector", value)
+
+    class BuilderContext(BuilderContextBase["ShardInfo.Builder"]):
+        def model_post_init(self, __context) -> None:
+            self._builder = ShardInfo.Builder()
+            self._builder._in_context = True
+            self._parent_builder = None
+            self._field_name = None
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def new(cls) -> BuilderContext:
+        """Creates a new context manager builder for ShardInfo."""
+        return cls.BuilderContext()
+
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["ShardInfo", Builder]:
+        return GenericListBuilder[ShardInfo, ShardInfo.Builder]()
+
+    selector: str
+    "selector is the shard selector string from the request, echoed back so clients can verify which shard they received and merge responses from multiple shards."
 
 
 class StatusCause(BaseModel):
@@ -986,6 +1007,14 @@ class Info(BaseModel):
         def compiler(self, value: str, /) -> Self:
             return self._set("compiler", value)
 
+        def emulation_major(self, value: str | None, /) -> Self:
+            "EmulationMajor is the major version of the emulation version"
+            return self._set("emulation_major", value)
+
+        def emulation_minor(self, value: str | None, /) -> Self:
+            "EmulationMinor is the minor version of the emulation version"
+            return self._set("emulation_minor", value)
+
         def git_commit(self, value: str, /) -> Self:
             return self._set("git_commit", value)
 
@@ -999,9 +1028,19 @@ class Info(BaseModel):
             return self._set("go_version", value)
 
         def major(self, value: str, /) -> Self:
+            "Major is the major version of the binary version"
             return self._set("major", value)
 
+        def min_compatibility_major(self, value: str | None, /) -> Self:
+            "MinCompatibilityMajor is the major version of the minimum compatibility version"
+            return self._set("min_compatibility_major", value)
+
+        def min_compatibility_minor(self, value: str | None, /) -> Self:
+            "MinCompatibilityMinor is the minor version of the minimum compatibility version"
+            return self._set("min_compatibility_minor", value)
+
         def minor(self, value: str, /) -> Self:
+            "Minor is the minor version of the binary version"
             return self._set("minor", value)
 
         def platform(self, value: str, /) -> Self:
@@ -1029,12 +1068,22 @@ class Info(BaseModel):
 
     build_date: Annotated[str, Field(alias="buildDate")]
     compiler: str
+    emulation_major: Annotated[str | None, Field(alias="emulationMajor")] = None
+    "EmulationMajor is the major version of the emulation version"
+    emulation_minor: Annotated[str | None, Field(alias="emulationMinor")] = None
+    "EmulationMinor is the minor version of the emulation version"
     git_commit: Annotated[str, Field(alias="gitCommit")]
     git_tree_state: Annotated[str, Field(alias="gitTreeState")]
     git_version: Annotated[str, Field(alias="gitVersion")]
     go_version: Annotated[str, Field(alias="goVersion")]
     major: str
+    "Major is the major version of the binary version"
+    min_compatibility_major: Annotated[str | None, Field(alias="minCompatibilityMajor")] = None
+    "MinCompatibilityMajor is the major version of the minimum compatibility version"
+    min_compatibility_minor: Annotated[str | None, Field(alias="minCompatibilityMinor")] = None
+    "MinCompatibilityMinor is the minor version of the minimum compatibility version"
     minor: str
+    "Minor is the minor version of the binary version"
     platform: str
 
 
@@ -1518,15 +1567,13 @@ class DeleteOptions(BaseModel):
                     "authorization.k8s.io/v1beta1",
                     "autoscaling/v1",
                     "autoscaling/v2",
-                    "autoscaling/v2beta1",
-                    "autoscaling/v2beta2",
                     "batch/v1",
                     "batch/v1beta1",
                     "certificates.k8s.io/v1",
                     "certificates.k8s.io/v1alpha1",
                     "certificates.k8s.io/v1beta1",
                     "coordination.k8s.io/v1",
-                    "coordination.k8s.io/v1alpha1",
+                    "coordination.k8s.io/v1alpha2",
                     "coordination.k8s.io/v1beta1",
                     "discovery.k8s.io/v1",
                     "discovery.k8s.io/v1beta1",
@@ -1539,8 +1586,8 @@ class DeleteOptions(BaseModel):
                     "flowcontrol.apiserver.k8s.io/v1beta3",
                     "imagepolicy.k8s.io/v1alpha1",
                     "internal.apiserver.k8s.io/v1alpha1",
+                    "lifecycle.k8s.io/v1alpha1",
                     "networking.k8s.io/v1",
-                    "networking.k8s.io/v1alpha1",
                     "networking.k8s.io/v1beta1",
                     "node.k8s.io/v1",
                     "node.k8s.io/v1alpha1",
@@ -1550,14 +1597,18 @@ class DeleteOptions(BaseModel):
                     "rbac.authorization.k8s.io/v1",
                     "rbac.authorization.k8s.io/v1alpha1",
                     "rbac.authorization.k8s.io/v1beta1",
+                    "resource.k8s.io/v1",
                     "resource.k8s.io/v1alpha3",
+                    "resource.k8s.io/v1beta1",
+                    "resource.k8s.io/v1beta2",
                     "scheduling.k8s.io/v1",
-                    "scheduling.k8s.io/v1alpha1",
+                    "scheduling.k8s.io/v1alpha3",
                     "scheduling.k8s.io/v1beta1",
                     "storage.k8s.io/v1",
                     "storage.k8s.io/v1alpha1",
                     "storage.k8s.io/v1beta1",
-                    "storagemigration.k8s.io/v1alpha1",
+                    "storagemigration.k8s.io/v1",
+                    "storagemigration.k8s.io/v1beta1",
                 ]
                 | None
             ),
@@ -1573,6 +1624,12 @@ class DeleteOptions(BaseModel):
         def grace_period_seconds(self, value: int | None, /) -> Self:
             "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately."
             return self._set("grace_period_seconds", value)
+
+        def ignore_store_read_error_with_cluster_breaking_potential(
+            self, value: bool | None, /
+        ) -> Self:
+            "if set to true, it will trigger an unsafe deletion of the resource in case the normal deletion flow fails with a corrupt object error. A resource is considered corrupt if it can not be retrieved from the underlying storage successfully because of a) its data can not be transformed e.g. decryption failure, or b) it fails to decode into an object. NOTE: unsafe deletion ignores finalizer constraints, skips precondition checks, and removes the object from the storage. WARNING: This may potentially break the cluster if the workload associated with the resource being unsafe-deleted relies on normal deletion flow. Use only if you REALLY know what you are doing. The default value is false, and the user must opt in to enable it"
+            return self._set("ignore_store_read_error_with_cluster_breaking_potential", value)
 
         def kind(self, value: Literal["DeleteOptions"] | None, /) -> Self:
             "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
@@ -1666,15 +1723,13 @@ class DeleteOptions(BaseModel):
             "authorization.k8s.io/v1beta1",
             "autoscaling/v1",
             "autoscaling/v2",
-            "autoscaling/v2beta1",
-            "autoscaling/v2beta2",
             "batch/v1",
             "batch/v1beta1",
             "certificates.k8s.io/v1",
             "certificates.k8s.io/v1alpha1",
             "certificates.k8s.io/v1beta1",
             "coordination.k8s.io/v1",
-            "coordination.k8s.io/v1alpha1",
+            "coordination.k8s.io/v1alpha2",
             "coordination.k8s.io/v1beta1",
             "discovery.k8s.io/v1",
             "discovery.k8s.io/v1beta1",
@@ -1687,8 +1742,8 @@ class DeleteOptions(BaseModel):
             "flowcontrol.apiserver.k8s.io/v1beta3",
             "imagepolicy.k8s.io/v1alpha1",
             "internal.apiserver.k8s.io/v1alpha1",
+            "lifecycle.k8s.io/v1alpha1",
             "networking.k8s.io/v1",
-            "networking.k8s.io/v1alpha1",
             "networking.k8s.io/v1beta1",
             "node.k8s.io/v1",
             "node.k8s.io/v1alpha1",
@@ -1698,14 +1753,18 @@ class DeleteOptions(BaseModel):
             "rbac.authorization.k8s.io/v1",
             "rbac.authorization.k8s.io/v1alpha1",
             "rbac.authorization.k8s.io/v1beta1",
+            "resource.k8s.io/v1",
             "resource.k8s.io/v1alpha3",
+            "resource.k8s.io/v1beta1",
+            "resource.k8s.io/v1beta2",
             "scheduling.k8s.io/v1",
-            "scheduling.k8s.io/v1alpha1",
+            "scheduling.k8s.io/v1alpha3",
             "scheduling.k8s.io/v1beta1",
             "storage.k8s.io/v1",
             "storage.k8s.io/v1alpha1",
             "storage.k8s.io/v1beta1",
-            "storagemigration.k8s.io/v1alpha1",
+            "storagemigration.k8s.io/v1",
+            "storagemigration.k8s.io/v1beta1",
         ]
         | None,
         Field(alias="apiVersion"),
@@ -1715,6 +1774,10 @@ class DeleteOptions(BaseModel):
     "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed"
     grace_period_seconds: Annotated[int | None, Field(alias="gracePeriodSeconds")] = None
     "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately."
+    ignore_store_read_error_with_cluster_breaking_potential: Annotated[
+        bool | None, Field(alias="ignoreStoreReadErrorWithClusterBreakingPotential")
+    ] = None
+    "if set to true, it will trigger an unsafe deletion of the resource in case the normal deletion flow fails with a corrupt object error. A resource is considered corrupt if it can not be retrieved from the underlying storage successfully because of a) its data can not be transformed e.g. decryption failure, or b) it fails to decode into an object. NOTE: unsafe deletion ignores finalizer constraints, skips precondition checks, and removes the object from the storage. WARNING: This may potentially break the cluster if the workload associated with the resource being unsafe-deleted relies on normal deletion flow. Use only if you REALLY know what you are doing. The default value is false, and the user must opt in to enable it"
     kind: Literal["DeleteOptions"] | None = None
     "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds"
     orphan_dependents: Annotated[bool | None, Field(alias="orphanDependents")] = None
@@ -1804,6 +1867,95 @@ class LabelSelector(BaseModel):
     "matchExpressions is a list of label selector requirements. The requirements are ANDed."
     match_labels: Annotated[dict[str, str] | None, Field(alias="matchLabels")] = None
     'matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.'
+
+
+class ListMeta(BaseModel):
+    class Builder(BaseModelBuilder):
+        @property
+        def cls(self) -> type["ListMeta"]:
+            return ListMeta
+
+        def build(self) -> "ListMeta":
+            return ListMeta(**self._attrs)
+
+        def continue_(self, value: str | None, /) -> Self:
+            "continue may be set if the user set a limit on the number of items returned, and indicates that the server has more data available. The value is opaque and may be used to issue another request to the endpoint that served this list to retrieve the next set of available objects. Continuing a consistent list may not be possible if the server configuration has changed or more than a few minutes have passed. The resourceVersion field returned when using this continue value will be identical to the value in the first response, unless you have received this token from an error message."
+            return self._set("continue_", value)
+
+        def remaining_item_count(self, value: int | None, /) -> Self:
+            "remainingItemCount is the number of subsequent items in the list which are not included in this list response. If the list request contained label or field selectors, then the number of remaining items is unknown and the field will be left unset and omitted during serialization. If the list is complete (either because it is not chunking or because this is the last chunk), then there are no more remaining items and this field will be left unset and omitted during serialization. Servers older than v1.15 do not set this field. The intended use of the remainingItemCount is *estimating* the size of a collection. Clients should not rely on the remainingItemCount to be set or to be exact."
+            return self._set("remaining_item_count", value)
+
+        def resource_version(self, value: str | None, /) -> Self:
+            "String that identifies the server\u0027s internal version of this object that can be used by clients to determine when objects have changed. Value must be treated as opaque by clients and passed unmodified back to the server. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency"
+            return self._set("resource_version", value)
+
+        def self_link(self, value: str | None, /) -> Self:
+            "Deprecated: selfLink is a legacy read-only field that is no longer populated by the system."
+            return self._set("self_link", value)
+
+        @overload
+        def shard_info(self, value_or_callback: ShardInfo | None, /) -> "ListMeta.Builder": ...
+
+        @overload
+        def shard_info(
+            self,
+            value_or_callback: Callable[[ShardInfo.Builder], ShardInfo.Builder | ShardInfo],
+            /,
+        ) -> "ListMeta.Builder": ...
+
+        @overload
+        def shard_info(self, value_or_callback: Never = ...) -> "ShardInfo.BuilderContext": ...
+
+        def shard_info(self, value_or_callback=UNSET, /):
+            "shardInfo is set when the list is a filtered subset of the full collection, as selected by a shard selector on the request. It echoes back the selector so clients can verify which shard they received and merge sharded responses. Clients should not cache sharded list responses as a full representation of the collection.\n\nThis is an alpha field and requires enabling the ShardedListAndWatch feature gate."
+            if self._in_context and value_or_callback is UNSET:
+                context = ShardInfo.BuilderContext()
+                context._parent_builder = self
+                context._field_name = "shard_info"
+                return context
+
+            if value_or_callback is UNSET:
+                raise TypeError("A value is required outside a builder context")
+            value = value_or_callback
+            if callable(value_or_callback):
+                output = value_or_callback(ShardInfo.builder())
+                if isinstance(output, ShardInfo.Builder):
+                    value = output.build()
+                else:
+                    value = output
+            return self._set("shard_info", value)
+
+    class BuilderContext(BuilderContextBase["ListMeta.Builder"]):
+        def model_post_init(self, __context) -> None:
+            self._builder = ListMeta.Builder()
+            self._builder._in_context = True
+            self._parent_builder = None
+            self._field_name = None
+
+    @classmethod
+    def builder(cls) -> Builder:
+        return cls.Builder()
+
+    @classmethod
+    def new(cls) -> BuilderContext:
+        """Creates a new context manager builder for ListMeta."""
+        return cls.BuilderContext()
+
+    @classmethod
+    def list_builder(cls) -> GenericListBuilder["ListMeta", Builder]:
+        return GenericListBuilder[ListMeta, ListMeta.Builder]()
+
+    continue_: Annotated[str | None, Field(alias="continue")] = None
+    "continue may be set if the user set a limit on the number of items returned, and indicates that the server has more data available. The value is opaque and may be used to issue another request to the endpoint that served this list to retrieve the next set of available objects. Continuing a consistent list may not be possible if the server configuration has changed or more than a few minutes have passed. The resourceVersion field returned when using this continue value will be identical to the value in the first response, unless you have received this token from an error message."
+    remaining_item_count: Annotated[int | None, Field(alias="remainingItemCount")] = None
+    "remainingItemCount is the number of subsequent items in the list which are not included in this list response. If the list request contained label or field selectors, then the number of remaining items is unknown and the field will be left unset and omitted during serialization. If the list is complete (either because it is not chunking or because this is the last chunk), then there are no more remaining items and this field will be left unset and omitted during serialization. Servers older than v1.15 do not set this field. The intended use of the remainingItemCount is *estimating* the size of a collection. Clients should not rely on the remainingItemCount to be set or to be exact."
+    resource_version: Annotated[str | None, Field(alias="resourceVersion")] = None
+    "String that identifies the server\u0027s internal version of this object that can be used by clients to determine when objects have changed. Value must be treated as opaque by clients and passed unmodified back to the server. Populated by the system. Read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency"
+    self_link: Annotated[str | None, Field(alias="selfLink")] = None
+    "Deprecated: selfLink is a legacy read-only field that is no longer populated by the system."
+    shard_info: Annotated[ShardInfo | None, Field(alias="shardInfo")] = None
+    "shardInfo is set when the list is a filtered subset of the full collection, as selected by a shard selector on the request. It echoes back the selector so clients can verify which shard they received and merge sharded responses. Clients should not cache sharded list responses as a full representation of the collection.\n\nThis is an alpha field and requires enabling the ShardedListAndWatch feature gate."
 
 
 class ManagedFieldsEntry(BaseModel):

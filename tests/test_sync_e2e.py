@@ -2,6 +2,7 @@ import os
 import random
 import threading
 import time
+from contextlib import closing
 from importlib.metadata import version
 from pathlib import Path
 
@@ -171,31 +172,66 @@ def test_wait_operations(test_config):
 def test_watch_operations(test_config):
     with test_config:
         ns = k8s.core.v1.Namespace(metadata=ObjectMeta(generate_name="test-")).create()
-        events = []
+        stop = threading.Event()
+        done = threading.Event()
+        watch_thread = None
+        try:
+            cm = k8s.core.v1.ConfigMap(
+                metadata=ObjectMeta(name="test-watch", namespace=ns.name), data={"key": "value"}
+            ).create()
+            events = []
+            errors = []
+            client = test_config.client_for(k8s.core.v1.ConfigMap, cached=False)
 
-        def watch_func():
-            with test_config:
-                events.extend(
-                    k8s.core.v1.Namespace.watch(field_selector=f"metadata.name={ns.name}")
-                )
+            def watch_func():
+                try:
+                    # A short server timeout bounds shutdown on assertion failures;
+                    # the stop event also interrupts reconnect backoff.
+                    with closing(
+                        client.watch(
+                            namespace=ns.name,
+                            field_selector=f"metadata.name={cm.name}",
+                            resource_version=cm.metadata.resource_version,
+                            timeout_seconds=1,
+                            _stop_event=stop,
+                        )
+                    ) as stream:
+                        for event in stream:
+                            events.append(event)
+                            if event[0] == "DELETED":
+                                return
+                except Exception as error:
+                    errors.append(error)
+                finally:
+                    done.set()
 
-        watch_thread = threading.Thread(target=watch_func)
-        watch_thread.start()
-        time.sleep(1)
+            watch_thread = threading.Thread(target=watch_func, daemon=True)
+            watch_thread.start()
+            cm.metadata.annotations = {"test": "updated"}
+            updated = cm.update()
+            updated.remove()
+            assert done.wait(15), "Watch did not deliver deletion within 15 seconds"
+            if errors:
+                raise errors[0]
 
-        ns.metadata.annotations = {"test": "test"}
-        ns.update()
-        time.sleep(1)
-
-        assert (
-            k8s.core.v1.Namespace.delete(ns.name, grace_period_seconds=0).status.phase
-            == "Terminating"
-        )
-
-        time.sleep(2)
-        assert any(
-            event[0] == "MODIFIED" and event[1].status.phase == "Terminating" for event in events
-        )
+            modified = [obj for event, obj in events if event == "MODIFIED"]
+            deleted = [obj for event, obj in events if event == "DELETED"]
+            assert any(
+                obj.metadata.uid == cm.metadata.uid
+                and obj.metadata.resource_version == updated.metadata.resource_version
+                and obj.metadata.annotations == {"test": "updated"}
+                for obj in modified
+            )
+            assert len(deleted) == 1
+            assert deleted[0].metadata.uid == cm.metadata.uid
+            assert deleted[0].metadata.annotations == {"test": "updated"}
+        finally:
+            stop.set()
+            if watch_thread is not None:
+                watch_thread.join(timeout=7)
+            ns.remove()
+            if watch_thread is not None:
+                assert not watch_thread.is_alive(), "Watch thread failed to shut down"
 
 
 @pytest.mark.configure_test_cluster(

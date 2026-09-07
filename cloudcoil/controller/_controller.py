@@ -6,10 +6,11 @@ import math
 import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, Self
+from typing import Any, Self, cast
 
 from cloudcoil._context import context
 from cloudcoil.caching._informer import AsyncInformer
+from cloudcoil.caching._reader import CachedResources
 from cloudcoil.caching._types import InformerOptions
 from cloudcoil.client import Config
 from cloudcoil.resources import Resource
@@ -87,6 +88,7 @@ class Controller[T: Resource]:
         self._queue = WorkQueue[ResourceKey]()
         self._watches: list[_Watch] = []
         self._informers: list[AsyncInformer[Any]] = []
+        self._readers: dict[type[Resource], AsyncInformer[Any]] = {}
         self._primary: AsyncInformer[T] | None = None
         self._primary_namespaced = True
         self._pool: _InformerPool | None = None
@@ -96,13 +98,17 @@ class Controller[T: Resource]:
         self._finished = asyncio.Event()
         self._failure: BaseException | None = None
 
-    def owns(self, resource: type[Resource]) -> Self:
+    def owns(self, *resources: type[Resource]) -> Self:
         """Enqueue primary owners when a child changes (direct controller references).
 
         Owner matching uses group/kind and UID, including across served versions.
         For indirect or non-owning relationships use watch(..., mapper=...).
+        Application manifests grant get/list/watch/create/patch for owned children.
+        Deletion is left to Kubernetes garbage collection or explicit RBAC.
         """
-        return self._add_watch(_Watch(resource))
+        for resource in resources:
+            self._add_watch(_Watch(resource))
+        return self
 
     def watch[U: Resource](self, resource: type[U], *, mapper: Mapper[U]) -> Self:
         """Map secondary resources to primary keys; updates map both old and new state.
@@ -123,6 +129,20 @@ class Controller[T: Resource]:
         if not isinstance(key, ResourceKey):
             raise TypeError("enqueue expects a ResourceKey")
         self._queue.add(key)
+
+    def cached[U: Resource](self, resource: type[U]) -> CachedResources[U]:
+        """Read a declared informer, including from a secondary-event mapper.
+
+        The primary informer syncs before secondary mappers run. Use explicit
+        namespaces when mapping all-namespace dependencies. No new watch starts.
+        """
+        if resource not in self._readers:
+            raise ValueError(f"{resource.__name__} is not initialized; declare a watch first")
+        namespace = (
+            self._options.namespace
+            or (self._prepared_config or self.config or context.active_config).namespace
+        )
+        return CachedResources(cast(AsyncInformer[U], self._readers[resource]), namespace)
 
     @property
     def ready(self) -> bool:
@@ -193,6 +213,7 @@ class Controller[T: Resource]:
         self._primary.on_update(self._update_primary)
         self._primary.on_delete(self._enqueue_primary)
         self._informers.append(self._primary)
+        self._readers[self.resource] = self._primary
         for watch in self._watches:
             client = await config.async_client_for(watch.resource, cached=False)
             # A primary selector is not generally a selector for its dependencies.
@@ -228,6 +249,9 @@ class Controller[T: Resource]:
             informer.on_delete(changed)
             informer.on_update(updated)
             self._informers.append(informer)
+            # Primary selectors may differ from secondary watches of the same kind.
+            # cached(Primary) consistently refers to the primary snapshot.
+            self._readers.setdefault(watch.resource, informer)
 
     async def _sync(self) -> None:
         async with asyncio.timeout(self._sync_timeout):
@@ -267,7 +291,10 @@ class Controller[T: Resource]:
                 # while reconcile awaits, or the caller edits request.resource in place.
                 original = resource.model_copy(deep=True) if resource is not None else None
                 request = Request(
-                    key, original.model_copy(deep=True) if original is not None else None
+                    key,
+                    original.model_copy(deep=True) if original is not None else None,
+                    config=context.active_config,
+                    _informers=self._readers,
                 )
                 async with asyncio.timeout(self._reconcile_timeout):
                     returned = await self.reconcile(request)

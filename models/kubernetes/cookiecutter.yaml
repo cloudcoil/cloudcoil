@@ -3,6 +3,7 @@ default_context:
   author_name: Sambhav Kothari
   author_email: sambhavs.email@gmail.com
   crd_namespace: ''
-  crd_urls: https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.32.1/api/openapi-spec/swagger.json
-  versions: "'1.29.13', '1.30.9', '1.31.5', '1.32.1'"
+  crd_urls: https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.37.0/api/openapi-spec/swagger.json
+  # Only versions that have not reached upstream end of life; see VERSIONING.md.
+  versions: "'1.34.11', '1.35.8', '1.36.4', '1.37.0'"
   version_replacement_sed: refs/tags/v

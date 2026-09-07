@@ -8,9 +8,11 @@ from typing import Protocol, runtime_checkable
 import httpx
 from filelock import FileLock
 
-DEFAULT_K3D_VERSION = "v5.7.5"
-DEFAULT_K8S_VERSION = "v1.31.4"
-DEFAULT_KIND_VERSION = "v0.20.0"
+DEFAULT_K3D_VERSION = "v5.9.0"
+DEFAULT_K8S_VERSION = "v1.37.0"
+# k3s releases independently of upstream Kubernetes.
+DEFAULT_K3S_VERSION = "v1.36.4"
+DEFAULT_KIND_VERSION = "v0.33.0"
 
 
 @runtime_checkable
@@ -67,12 +69,12 @@ class K3DCluster(BaseCluster):
         cluster_name: str,
         remove: bool = True,
         k3d_version: str | None = DEFAULT_K3D_VERSION,
-        k8s_version: str | None = DEFAULT_K8S_VERSION,
+        k8s_version: str | None = None,
         k8s_image: str | None = None,
     ):
         super().__init__(cluster_name, remove)
         self.k3d_version = k3d_version or DEFAULT_K3D_VERSION
-        self.k8s_version = k8s_version or DEFAULT_K8S_VERSION
+        self.k8s_version = k8s_version or DEFAULT_K3S_VERSION
         self.k8s_image = k8s_image or f"rancher/k3s:{self.k8s_version}-k3s1"
         self.binary_path = Path.home() / ".cache" / "cloudcoil" / "k3d" / self.k3d_version / "k3d"
         system, machine = self._compute_system_machine()
@@ -126,7 +128,7 @@ class KindCluster(BaseCluster):
         super().__init__(cluster_name, remove)
         self.kind_version = kind_version or DEFAULT_KIND_VERSION
         self.k8s_version = k8s_version or DEFAULT_K8S_VERSION
-        self.k8s_image = k8s_image
+        self.k8s_image = k8s_image or f"kindest/node:{self.k8s_version}"
         self.binary_path = (
             Path.home() / ".cache" / "cloudcoil" / "kind" / self.kind_version / "kind"
         )
@@ -154,9 +156,8 @@ class KindCluster(BaseCluster):
                     f"--name={self.cluster_name}",
                     f"--kubeconfig={self._kubeconfig}",
                     "--wait=5m",
+                    f"--image={self.k8s_image}",
                 ]
-                if self.k8s_image:
-                    command.append(f"--image={self.k8s_image}")
                 subprocess.run(command, check=True)
             else:
                 subprocess.run(

@@ -22,6 +22,7 @@ cloudcoil-model-codegen = "cloudcoil.codegen.generator:main"
 
 [project.optional-dependencies]
 test = ["pytest", "filelock", "pytest-asyncio"]
+operator = ["uvicorn>=0.38,<1"]
 codegen = ["datamodel-code-generator[http]>=0.72,<0.73", "ruff"]
 cert-manager = ["cloudcoil.models.cert_manager"]
 fluxcd = ["cloudcoil.models.fluxcd"]
@@ -31,6 +32,8 @@ knative-eventing = ["cloudcoil.models.knative_eventing"]
 knative-serving = ["cloudcoil.models.knative_serving"]
 kpack = ["cloudcoil.models.kpack"]
 kubernetes = ["cloudcoil.models.kubernetes"]
+# Deprecated: EOL Kubernetes model extras; retained only for existing installations.
+# No active CI or new model releases. See VERSIONING.md for migration.
 kubernetes-1-29 = ["cloudcoil.models.kubernetes~=1.29.0"]
 kubernetes-1-30 = ["cloudcoil.models.kubernetes~=1.30.0"]
 kubernetes-1-31 = ["cloudcoil.models.kubernetes~=1.31.0"]
@@ -95,6 +98,7 @@ asyncio_default_fixture_loop_scope = "function"
 [dependency-groups]
 dev = [
     "mypy>=1.19",
+    "uvicorn>=0.38,<1",
     "pyright>=1.1.407",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.5.3",
@@ -150,7 +154,7 @@ conflicts = [
 # This will be used as the name for the setuptools entrypoints
 namespace = "cloudcoil"
 # The input OpenAPI spec
-input = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.31.4/api/openapi-spec/swagger.json"
+input = "https://raw.githubusercontent.com/kubernetes/kubernetes/refs/tags/v1.37.0/api/openapi-spec/swagger.json"
 mode = "base"
 generate-init = false
 generate-py-typed = false

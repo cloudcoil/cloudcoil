@@ -41,6 +41,7 @@ Example usage:
 from ._cache import Cache
 from ._cached_client import AsyncCachedClient, CachedClient
 from ._informer import AsyncInformer
+from ._reader import CachedResources
 from ._store import ConcurrentStore
 from ._sync_informer import SyncInformer
 from ._types import CacheStatus
@@ -51,6 +52,7 @@ __all__ = [
     "CacheStatus",
     # Informer types (for type hints)
     "AsyncInformer",
+    "CachedResources",
     "SyncInformer",
     # Cached clients
     "CachedClient",

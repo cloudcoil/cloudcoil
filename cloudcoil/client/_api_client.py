@@ -239,6 +239,9 @@ class APIClient(_BaseAPIClient[T]):
         dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
+        *,
+        uid: str | None = None,
+        resource_version: str | None = None,
     ) -> T | Status:
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
@@ -249,7 +252,23 @@ class APIClient(_BaseAPIClient[T]):
             params["propagationPolicy"] = propagation_policy.capitalize()
         if grace_period_seconds is not None:
             params["gracePeriodSeconds"] = grace_period_seconds
-        response = self._client.delete(url, params=params)
+        preconditions = {
+            key: value
+            for key, value in {
+                "uid": uid,
+                "resourceVersion": resource_version,
+            }.items()
+            if value is not None
+        }
+        if preconditions:
+            response = self._client.request(
+                "DELETE",
+                url,
+                params=params,
+                json={"apiVersion": "v1", "kind": "DeleteOptions", "preconditions": preconditions},
+            )
+        else:
+            response = self._client.delete(url, params=params)
         return self._handle_delete_response(response, namespace, name)
 
     def remove(
@@ -676,6 +695,9 @@ class AsyncAPIClient(_BaseAPIClient[T]):
         dry_run: bool = False,
         propagation_policy: Literal["orphan", "background", "foreground"] | None = None,
         grace_period_seconds: int | None = None,
+        *,
+        uid: str | None = None,
+        resource_version: str | None = None,
     ) -> T | Status:
         namespace = namespace or self.default_namespace
         url = self._build_url(name=name, namespace=namespace)
@@ -686,7 +708,23 @@ class AsyncAPIClient(_BaseAPIClient[T]):
             params["propagationPolicy"] = propagation_policy.capitalize()
         if grace_period_seconds is not None:
             params["gracePeriodSeconds"] = grace_period_seconds
-        response = await self._client.delete(url, params=params)
+        preconditions = {
+            key: value
+            for key, value in {
+                "uid": uid,
+                "resourceVersion": resource_version,
+            }.items()
+            if value is not None
+        }
+        if preconditions:
+            response = await self._client.request(
+                "DELETE",
+                url,
+                params=params,
+                json={"apiVersion": "v1", "kind": "DeleteOptions", "preconditions": preconditions},
+            )
+        else:
+            response = await self._client.delete(url, params=params)
         return self._handle_delete_response(response, namespace, name)
 
     async def remove(
