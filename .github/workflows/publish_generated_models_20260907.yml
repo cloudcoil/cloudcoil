@@ -1,0 +1,81 @@
+name: Publish validated model releases (2026-09-07)
+
+on:
+  push:
+    branches: [release/generated-models-20260907]
+    paths: [.github/workflows/publish_generated_models_20260907.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-generated-models-20260907
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    if: github.ref == 'refs/heads/release/generated-models-20260907'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - model: argocd
+            source: 0da10ed7ce65958e2759d38bc9d17bed77cb861e
+          - model: cert-manager
+            source: cb15bce1da0ac197c28d0c0ad6ebab81f00ffb6c
+          - model: contour
+            source: 42ed3609258e5b70296ebf856794b7fc608912b1
+          - model: crossplane
+            source: aec95a539c9763ab3f433219dab98533e3554520
+          - model: fluxcd
+            source: f86390ee977f36f94d7a4ce1c1795acb0ec46dea
+          - model: istio
+            source: dedc44ed30c1fb865f25df59317aefe187d356d5
+          - model: keda
+            source: f4ce98cdcf3814288851207d2dd8203ecd55e798
+          - model: knative-eventing
+            source: db821b4edf848cd9bf1faa8713c48a5e87ae05b1
+          - model: knative-serving
+            source: e43929ebec8ea4ac047da8826758373d4ca452d4
+          - model: kpack
+            source: 2c596fff7db76b6d5781a96856bbc2d0ec2bc0f9
+          - model: kubernetes
+            source: 40e64d517e76e02ac6026a22d055e9a08a509ff1
+          - model: kyverno
+            source: 8423f1d002cebd10bbd506ee724bf294f061f50a
+          - model: prometheus-operator
+            source: f3e1286bc5e7770093c60f7cda865907f0184d09
+          - model: sealed-secrets
+            source: 61b239d6576caea5af1ccb2ebaad483edc1dcb9a
+          - model: tekton
+            source: 3cd1c9be5a659fc49441476a5007bc246df4f4a1
+          - model: velero
+            source: 4e04f7c82ef668f43b1aa2d00b194d3d72a39fc7
+    steps:
+      - name: Dispatch the existing validated publisher at the approved source
+        env:
+          GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
+          MODEL: ${{ matrix.model }}
+          SOURCE: ${{ matrix.source }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess
+          model, source = os.environ['MODEL'], os.environ['SOURCE']
+          assert re.fullmatch(r'[a-z0-9-]+', model)
+          assert re.fullmatch(r'[0-9a-f]{40}', source)
+          repo = 'cloudcoil/models-' + model
+          def head():
+              return json.loads(subprocess.check_output(
+                  ['gh', 'api', f'repos/{repo}/git/ref/heads/main'], text=True
+              ))['object']['sha']
+          assert head() == source, f'{repo}: main moved; review the new source before publishing'
+          subprocess.run([
+              'gh', 'workflow', 'run', 'update_releases.yml', '--repo', repo,
+              '--ref', 'main', '-f', 'publish=true', '-f', 'dry_run=false'
+          ], check=True)
+          assert head() == source, f'{repo}: main moved during dispatch; inspect the release run'
+          print(f'Dispatched validated publication for {repo} at {source}')
+          PY
