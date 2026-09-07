@@ -42,7 +42,7 @@ artifacts, and checks for missing generated modules. No release credentials are
 provided to this PR workflow.
 
 After merging a source update, the existing **Update Versions** workflow pushes
-the rendered templates to each model repository. That repository's **Update
+the generated models and templates to each model repository. That repository's **Update
 Versions** workflow then:
 
 1. Selects the configured upstream schema version and refreshes the compatible
@@ -79,8 +79,8 @@ A published version is immutable, including a yanked version.
 ## Adding an integration
 
 Add its source config, upstream entry, and resource round-trip tests. Run
-`make gen-repo-<name>`, then `make gen-models lint test` and `uv build` inside the
-rendered repository. The generator infers Kubernetes resource identities from the
+`make gen-repo-<name>`, then `make lint test check-artifacts` inside the
+generated repository. The generator infers Kubernetes resource identities from the
 upstream schemas; add configuration overrides only for demonstrated schema issues.
 
 Before publishing a new package, configure a PyPI trusted publisher for owner

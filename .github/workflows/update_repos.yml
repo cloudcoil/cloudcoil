@@ -13,6 +13,9 @@ on:
   workflow_dispatch:
   repository_dispatch:
     types: [update-repos]
+permissions:
+  contents: read
+
 concurrency:
   group: regenerate-model-repositories
   cancel-in-progress: false
