@@ -84,7 +84,7 @@ def update_core_requirement(template, versions):
     current = re.search(r"cloudcoil>=(\d+\.\d+\.\d+),<([\d.]+)", template)
     if not current:
         raise ValueError("Missing shared Cloudcoil requirement")
-    old, upper = current.groups()
+    old, _upper = current.groups()
     # Minor changes may break models and require an intentional migration.
     candidates = [
         v for v in versions if VERSION.fullmatch(v) and version_key(v)[:2] == version_key(old)[:2]

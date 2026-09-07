@@ -17,6 +17,8 @@ TEMPLATE = ROOT / "cookiecutter/models-{{ cookiecutter.model_name }}"
 
 def load_module(name, path):
     spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load release helper from {path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -295,3 +297,19 @@ def test_draft_target_change_stops_publication(package, release_environment):
     with pytest.raises(ValueError, match="Draft changed"):
         releases.finish(package, "1.2.3", publish=True)
     assert not any("--draft=false" in c for c in calls)
+
+
+def test_ignored_type_marker_stops_staging(package, release_environment, monkeypatch):
+    _, calls = release_environment
+    original = releases.run
+
+    def omit_type_marker(*args, cwd=None):
+        result = original(*args, cwd=cwd)
+        if args[:2] == ("git", "ls-files"):
+            return "\n".join(path for path in result.splitlines() if not path.endswith("py.typed"))
+        return result
+
+    monkeypatch.setattr(releases, "run", omit_type_marker)
+    with pytest.raises(ValueError, match="Git ignore rules hide generated"):
+        releases.finish(package, "1.2.3", publish=True)
+    assert not any(c[:2] in [("git", "push"), ("gh", "release")] for c in calls)

@@ -244,7 +244,11 @@ def finish(root, upstream, publish=False, dry_run=False):
             "git", "ls-files", "--cached", "--others", "--exclude-standard", cwd=root
         ).splitlines()
         # Fail if ignore rules hide generated namespaces (for example nested build/).
-        generated = {str(p.relative_to(root)) for p in (root / "cloudcoil").rglob("*.py")}
+        generated = {
+            str(p.relative_to(root))
+            for p in (root / "cloudcoil").rglob("*")
+            if p.is_file() and p.suffix in {".py", ".typed"}
+        }
         if not generated <= set(files):
             raise ValueError("Git ignore rules hide generated model files")
         for filename in files:
