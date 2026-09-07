@@ -14,68 +14,119 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  dispatch:
+  publish:
     if: github.ref == 'refs/heads/release/generated-models-20260907'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
           - model: argocd
+            upstream: 3.5.2
             source: 0da10ed7ce65958e2759d38bc9d17bed77cb861e
+            previous_run: 34150306289
           - model: cert-manager
+            upstream: 1.21.1
             source: cb15bce1da0ac197c28d0c0ad6ebab81f00ffb6c
+            previous_run: 34150305966
           - model: contour
+            upstream: 1.33.7
             source: 42ed3609258e5b70296ebf856794b7fc608912b1
+            previous_run: 34150315507
           - model: crossplane
+            upstream: 2.4.0
             source: aec95a539c9763ab3f433219dab98533e3554520
+            previous_run: 34150305580
           - model: fluxcd
+            upstream: 2.9.5
             source: f86390ee977f36f94d7a4ce1c1795acb0ec46dea
+            previous_run: 34150306551
           - model: istio
+            upstream: 1.31.0
             source: dedc44ed30c1fb865f25df59317aefe187d356d5
+            previous_run: 34150306355
           - model: keda
+            upstream: 2.20.2
             source: f4ce98cdcf3814288851207d2dd8203ecd55e798
+            previous_run: 34150305834
           - model: knative-eventing
+            upstream: 1.23.0
             source: db821b4edf848cd9bf1faa8713c48a5e87ae05b1
+            previous_run: 34150314644
           - model: knative-serving
+            upstream: 1.23.0
             source: e43929ebec8ea4ac047da8826758373d4ca452d4
+            previous_run: 34150305220
           - model: kpack
+            upstream: 0.18.0
             source: 2c596fff7db76b6d5781a96856bbc2d0ec2bc0f9
+            previous_run: 34150310361
           - model: kubernetes
+            upstream: 1.34.11
             source: 40e64d517e76e02ac6026a22d055e9a08a509ff1
+            previous_run: 34150312467
+          - model: kubernetes
+            upstream: 1.35.8
+            source: 40e64d517e76e02ac6026a22d055e9a08a509ff1
+            previous_run: 34150312467
+          - model: kubernetes
+            upstream: 1.36.4
+            source: 40e64d517e76e02ac6026a22d055e9a08a509ff1
+            previous_run: 34150312467
+          - model: kubernetes
+            upstream: 1.37.0
+            source: 40e64d517e76e02ac6026a22d055e9a08a509ff1
+            previous_run: 34150312467
           - model: kyverno
+            upstream: 1.19.0
             source: 8423f1d002cebd10bbd506ee724bf294f061f50a
+            previous_run: 34150309742
           - model: prometheus-operator
+            upstream: 0.93.1
             source: f3e1286bc5e7770093c60f7cda865907f0184d09
+            previous_run: 34150313918
           - model: sealed-secrets
+            upstream: 0.39.1
             source: 61b239d6576caea5af1ccb2ebaad483edc1dcb9a
+            previous_run: 34150314641
           - model: tekton
+            upstream: 1.15.1
             source: 3cd1c9be5a659fc49441476a5007bc246df4f4a1
+            previous_run: 34150309771
           - model: velero
+            upstream: 1.18.2
             source: 4e04f7c82ef668f43b1aa2d00b194d3d72a39fc7
+            previous_run: 34150309611
     steps:
-      - name: Dispatch the existing validated publisher at the approved source
+      - uses: actions/checkout@v4
+        with:
+          # Publication fix: resolve unpublished drafts by release ID.
+          ref: bf606f41d48eee52bdf39313eb1e8072c698b5e0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+          enable-cache: true
+      - name: Validate and publish with the corrected release helper
         env:
           GH_TOKEN: ${{ secrets.CI_GITHUB_TOKEN }}
           MODEL: ${{ matrix.model }}
           SOURCE: ${{ matrix.source }}
+          UPSTREAM: ${{ matrix.upstream }}
+          PREVIOUS_RUN: ${{ matrix.previous_run }}
         run: |
-          python - <<'PY'
-          import json, os, re, subprocess
-          model, source = os.environ['MODEL'], os.environ['SOURCE']
-          assert re.fullmatch(r'[a-z0-9-]+', model)
-          assert re.fullmatch(r'[0-9a-f]{40}', source)
-          repo = 'cloudcoil/models-' + model
-          def head():
-              return json.loads(subprocess.check_output(
-                  ['gh', 'api', f'repos/{repo}/git/ref/heads/main'], text=True
-              ))['object']['sha']
-          assert head() == source, f'{repo}: main moved; review the new source before publishing'
-          subprocess.run([
-              'gh', 'workflow', 'run', 'update_releases.yml', '--repo', repo,
-              '--ref', 'main', '-f', 'publish=true', '-f', 'dry_run=false'
-          ], check=True)
-          assert head() == source, f'{repo}: main moved during dispatch; inspect the release run'
-          print(f'Dispatched validated publication for {repo} at {source}')
-          PY
+          repo="cloudcoil/models-$MODEL"
+          helper="$GITHUB_WORKSPACE/cookiecutter/models-{{ cookiecutter.model_name }}/tools/release_models.py"
+          gh auth setup-git
+          while [ "$(gh api "repos/$repo/actions/runs/$PREVIOUS_RUN" --jq .status)" != completed ]; do
+            sleep 10
+          done
+          test "$(gh api "repos/$repo/git/ref/heads/main" --jq .object.sha)" = "$SOURCE"
+          git clone --quiet --branch main "https://github.com/$repo.git" integration
+          cd integration
+          test "$(git rev-parse HEAD)" = "$SOURCE"
+          python "$helper" prepare --upstream "$UPSTREAM"
+          uv lock --upgrade-package cloudcoil
+          uv sync --locked --all-extras --dev
+          make gen-models lint test
+          GITHUB_REPOSITORY="$repo" uv run --no-sync python "$helper" finish --upstream "$UPSTREAM" --publish
