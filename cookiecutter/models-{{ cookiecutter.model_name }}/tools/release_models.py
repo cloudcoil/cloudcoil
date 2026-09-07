@@ -349,7 +349,12 @@ def finish(root, upstream, publish=False, dry_run=False):
                 raise ValueError("Main advanced before publication; release remains a draft")
             if run("git", "ls-remote", remote, f"refs/heads/{branch}").split()[0] != sha:
                 raise ValueError("Release branch advanced before publication")
-            draft = json.loads(run("gh", "api", f"repos/{repo}/releases/tags/{version}"))
+            # GitHub's release-by-tag endpoint does not return unpublished drafts.
+            candidates = [r for r in release_list(repo) if r["tag_name"] == version]
+            if len(candidates) != 1:
+                raise ValueError("Expected exactly one release before publication")
+            release_id = candidates[0]["id"]
+            draft = json.loads(run("gh", "api", f"repos/{repo}/releases/{release_id}"))
             if (
                 not draft["draft"]
                 or draft["target_commitish"] != sha
