@@ -1,48 +1,49 @@
-> [!WARNING]  
-> Models are generated from upstream 1.23.0 schemas with Cloudcoil 0.7. Run `make gen-models` to regenerate them.
+## Knative Serving models
 
-## 🔧 Installation
+Models are generated from pinned upstream schemas. Configuration, schema inputs
+and README sources are maintained in
+[cloudcoil/cloudcoil](https://github.com/cloudcoil/cloudcoil/tree/main/models/knative-serving);
+the generated package is in
+[cloudcoil/models-knative-serving](https://github.com/cloudcoil/models-knative-serving). Edit the
+source integration in Cloudcoil because generated repository edits are replaced
+on template refresh.
 
-> [!NOTE]
-> For versioning information and compatibility, see the [Versioning Guide](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md).
+### Use a typed resource
 
-Using [uv](https://github.com/astral-sh/uv) (recommended):
-
-```bash
-# Install with Knative Serving support
-uv add cloudcoil.models.knative-serving
-```
-
-Using pip:
-
-```bash
-pip install cloudcoil.models.knative-serving
-```
-
-## Usage
-
-Cloudcoil 0.7 generates a typed lookup function so callers do not need to depend on schema-derived module names:
+After installing `cloudcoil.models.knative_serving`, use the package's typed lookup to
+select an exact Kubernetes kind and API version:
 
 ```python
 from cloudcoil.models.knative_serving import get_model
 
 Service = get_model("Service", api_version="serving.knative.dev/v1")
-resource = Service.model_validate({
-    "metadata": {"name": "example"},
-    "spec": {'template': {'spec': {'containers': [{'image': 'example.com/app:latest'}]}}},
-})
-resource.create()
+
+for resource in Service.list(namespace="default"):
+    print(resource.name)
 ```
 
-Generated resources support validation, fluent builders, and the Cloudcoil client API.
+The lookup is local; `list` reads the configured cluster. Async code uses
+`await Service.async_list(namespace="default")`. Direct class imports are also supported; the
+lookup avoids depending on schema-derived module names.
 
-## Development
+Install the upstream Knative Serving CRDs and operator separately before making API calls.
+The model package supplies Python types and client methods, not the operator.
+
+Use the shared [resource guide](https://cloudcoil.github.io/cloudcoil/resources/)
+for constructors, builders, writes and watches, and the
+[controller guide](https://cloudcoil.github.io/cloudcoil/controllers/) for
+reconciliation. Pydantic validates constructed models at runtime; generated
+annotations provide field completion and static type checking.
+
+### Maintain this integration
+
+From the Cloudcoil repository root:
 
 ```sh
-uv sync --dev
-make gen-models
-make lint test
-uv build
+make gen-repo-knative-serving
+make -C output/models-knative-serving lint test check-artifacts
 ```
 
-Generation uses the `namespace` and `input` configuration in `pyproject.toml`, with automatic resource identity and field alias inference. Generated modules are built on release branches; pull requests regenerate and test them before publishing.
+Rendering generates the models before validation. The
+[model release guide](https://cloudcoil.github.io/cloudcoil/model-releases/)
+covers source updates, artifact checks and publishing.
