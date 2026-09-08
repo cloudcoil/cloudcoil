@@ -2,7 +2,7 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from cloudcoil.caching._reader import CachedResources
 from cloudcoil.resources import Resource
@@ -10,6 +10,8 @@ from cloudcoil.resources import Resource
 if TYPE_CHECKING:
     from cloudcoil.caching._informer import AsyncInformer
     from cloudcoil.client import AsyncAPIClient, Config
+
+    from ._events import EventRecorder
 
 
 @dataclass(frozen=True)
@@ -45,6 +47,17 @@ class Request[T: Resource]:
     _informers: "dict[type[Resource], AsyncInformer[Any]]" = field(
         default_factory=dict, repr=False, compare=False
     )
+    _events: "EventRecorder | None" = field(default=None, repr=False, compare=False)
+
+    async def event(
+        self, reason: str, message: str, *, type: Literal["Normal", "Warning"] = "Normal"
+    ) -> bool:
+        """Record a bounded, best-effort Kubernetes Event regarding this resource."""
+        if self.resource is None or self._events is None:
+            return False
+        return await self._events.emit(
+            self.resource, reason, message, type=type, config=self.config
+        )
 
     def cached[U: Resource](self, resource: type[U]) -> CachedResources[U]:
         """Read the primary or a declared .owns/.watch informer, without I/O."""

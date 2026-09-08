@@ -15,6 +15,7 @@ from cloudcoil.caching._types import InformerOptions
 from cloudcoil.client import Config
 from cloudcoil.resources import Resource
 
+from ._events import EventRecorder
 from ._informers import _InformerPool
 from ._metrics import ControllerStatus, _ReconcileMetrics
 from ._mutations import _persist
@@ -57,6 +58,7 @@ class Controller[T: Resource]:
         sync_timeout: float = 30,
         shutdown_timeout: float = 10,
         reconcile_timeout: float | None = None,
+        events: bool | EventRecorder = True,
     ) -> None:
         if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
             raise ValueError("workers must be a positive integer")
@@ -70,6 +72,13 @@ class Controller[T: Resource]:
         if name is not None and not name.strip():
             raise ValueError("Controller name must not be empty")
         self.name = name
+        self._events = (
+            events
+            if isinstance(events, EventRecorder)
+            else EventRecorder(f"cloudcoil/{name or resource.gvk().kind.lower()}")
+            if events
+            else None
+        )
         self._metrics = _ReconcileMetrics()
         self.resource = resource
         self.reconcile = reconcile
@@ -295,6 +304,7 @@ class Controller[T: Resource]:
                     original.model_copy(deep=True) if original is not None else None,
                     config=context.active_config,
                     _informers=self._readers,
+                    _events=self._events,
                 )
                 async with asyncio.timeout(self._reconcile_timeout):
                     returned = await self.reconcile(request)
