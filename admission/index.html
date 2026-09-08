@@ -1,0 +1,1459 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Cloud-native made easy with Python">
+      
+      
+        <meta name="author" content="Sambhav Kothari">
+      
+      
+        <link rel="canonical" href="https://cloudcoil.github.io/cloudcoil/admission/">
+      
+      
+        <link rel="prev" href="../reads/">
+      
+      
+        <link rel="next" href="../operators/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Admission - cloudcoil</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#admission-policies" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="cloudcoil" class="md-header__button md-logo" aria-label="cloudcoil" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            cloudcoil
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Admission
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cloudcoil/cloudcoil" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudcoil/cloudcoil
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../resources/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../caching/" class="md-tabs__link">
+          
+  
+  
+  Advanced
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../api/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  API reference
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="cloudcoil" class="md-nav__button md-logo" aria-label="cloudcoil" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    cloudcoil
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cloudcoil/cloudcoil" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cloudcoil/cloudcoil
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Logs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model generation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../integrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model integrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model-releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintaining model packages
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../custom-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom resources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../controllers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controllers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../staged-controllers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stages, cases and reporting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live clients and informer reads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admission
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#standalone-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standalone policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scoped-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scoped policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#callback-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Callback contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations-subresources-and-namespace-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations, subresources and namespace selection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mutation-and-client-reads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mutation and client reads
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-local-policies-and-standalone-hosting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource-local policies and standalone hosting
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Application deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lifespan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lifespans and leadership
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../patterns/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Patterns
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../caching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Client caching and informers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime and observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#standalone-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standalone policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scoped-policies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scoped policies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#callback-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Callback contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operations-subresources-and-namespace-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operations, subresources and namespace selection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mutation-and-client-reads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mutation and client reads
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-local-policies-and-standalone-hosting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource-local policies and standalone hosting
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="admission-policies">Admission policies</h1>
+<p>Use admission to default or validate an incoming Kubernetes write. Policies can apply
+to built-in resources and external CRDs without a controller or ownership.</p>
+<h2 id="standalone-policies">Standalone policies</h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.admission</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdmissionDenied</span><span class="p">,</span> <span class="n">AdmissionRequest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.apps.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Deployment</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.application</span><span class="w"> </span><span class="kn">import</span> <span class="n">Application</span><span class="p">,</span> <span class="n">WebhookServer</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">Application</span><span class="p">(</span>
+    <span class="s2">"deployment-policy"</span><span class="p">,</span>
+    <span class="n">webhook</span><span class="o">=</span><span class="n">WebhookServer</span><span class="p">(</span><span class="n">tls_secret</span><span class="o">=</span><span class="s2">"deployment-policy-tls"</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="nd">@app</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">Deployment</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">"/replica-limit"</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">replica_limit</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">AdmissionRequest</span><span class="p">[</span><span class="n">Deployment</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">resource</span>
+    <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">obj</span><span class="o">.</span><span class="n">spec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">replicas</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span> <span class="k">if</span> <span class="n">obj</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">replicas</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">AdmissionDenied</span><span class="p">(</span><span class="s2">"At most ten replicas are allowed"</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</code></pre></div>
+<p>Follow <a href="../operators/#generate-install-run">deployment and TLS setup</a> to install it.
+Installing admission does not scan or repair stored objects; subsequent matching
+requests are checked. The <a href="https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_existing.py">complete Deployment policy</a>
+also covers <code>/scale</code>, immutable fields, DELETE and live policy reads.</p>
+<h2 id="scoped-policies">Scoped policies</h2>
+<p>A controller group supplies its primary resource type. Using the Widget definition
+from the <a href="../custom-resources/">custom resource guide</a>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.controller</span><span class="w"> </span><span class="kn">import</span> <span class="n">Context</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.core.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigMap</span>
+
+<span class="n">widgets</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">controller</span><span class="p">(</span><span class="n">Widget</span><span class="p">,</span> <span class="n">owns</span><span class="o">=</span><span class="p">(</span><span class="n">ConfigMap</span><span class="p">,))</span>
+
+<span class="nd">@widgets</span><span class="o">.</span><span class="n">reconcile</span><span class="p">()</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reconcile</span><span class="p">(</span><span class="n">widget</span><span class="p">:</span> <span class="n">Widget</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">Context</span><span class="p">[</span><span class="n">Widget</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">await</span> <span class="n">ctx</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="n">ConfigMap</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="p">{</span><span class="s2">"message"</span><span class="p">:</span> <span class="n">widget</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">message</span><span class="p">}))</span>
+
+<span class="nd">@widgets</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">validate_message</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">AdmissionRequest</span><span class="p">[</span><span class="n">Widget</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">resource</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">resource</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="n">AdmissionDenied</span><span class="p">(</span><span class="s2">"Message must contain text"</span><span class="p">)</span>
+</code></pre></div>
+<p>Decorated handlers take exactly one <code>AdmissionRequest</code>. Default paths are stable
+names derived from the handler, target and subresource. Set <code>path=</code> for a specific route;
+duplicate paths across groups fail before serving. Registration performs no network I/O.</p>
+<h2 id="callback-contract">Callback contract</h2>
+<p>Handlers are async. <code>AdmissionRequest[T]</code> provides the typed current and old
+resources, operation, dry-run flag, user information, and the original object.
+Mutation returns a modified resource; <code>None</code> produces no mutation. Validation
+returns <code>None</code> to allow or raises <code>AdmissionDenied</code> to reject with an explanation.
+An explicit denial is a normal admission decision, distinct from a server failure.
+A valid AdmissionReview whose resource fails Pydantic validation is also denied
+with code 422, including when the registration uses <code>failure_policy="Ignore"</code>.
+Malformed envelopes and unexpected handler failures remain transport/server errors
+subject to Kubernetes's configured failure policy.</p>
+<p>The runtime speaks <code>admission.k8s.io/v1</code>, echoes the request UID, and generates the
+base64 JSON Patch response expected by Kubernetes. It does not persist the
+returned resource through a Kubernetes client: the API server applies the admission patch as
+part of the pending request. Keep handlers fast and free of external side effects,
+including on dry-run. The generated registration declares <code>sideEffects: None</code>.
+<a href="https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#webhook-request-and-response">Kubernetes admission request/response protocol</a>.</p>
+<p>Pydantic normalization alone is not a mutation; explicitly change and return the
+resource when the stored value should change. The mutation patch contains the
+handler's changes without removing fields unknown
+to the typed model or adding unchanged Pydantic defaults. When defaulting a nested
+field beneath an omitted parent, explicitly assign the parent object as well so
+Pydantic records the field as set. List changes that cannot
+safely preserve unmodeled data fail explicitly. Admission is pre-persistence: newly
+created objects need not have the UID/resourceVersion required by controller write
+helpers. Do not call <code>mutate</code> or return reconciliation <code>Result</code> objects here.</p>
+<p>Registration defaults to CREATE and UPDATE. DELETE validation can be registered
+explicitly and uses <code>old_resource</code> when <code>resource</code> is absent. Same-kind subresources
+can be registered explicitly. CONNECT, conversion webhooks, and automatic discovery of equivalent API versions
+are outside this API; configurations use exact matching. Differing-kind subresources
+such as scale declare their parent with target=.</p>
+<h2 id="operations-subresources-and-namespace-selection">Operations, subresources and namespace selection</h2>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th><code>resource</code></th>
+<th><code>old_resource</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CREATE</td>
+<td>Proposed object</td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td>UPDATE</td>
+<td>Proposed object</td>
+<td>Previous object</td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>None</code></td>
+<td>Object being deleted</td>
+</tr>
+</tbody>
+</table>
+<p>These snapshots come from the API server. An informer lookup is not a substitute
+for <code>old_resource</code>. Reads bypass admission; callbacks must not write external state,
+even during dry runs.</p>
+<p>Subresources require explicit routes. A Scale payload has a different kind from its
+Deployment endpoint:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.autoscaling.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scale</span>
+
+<span class="nd">@app</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span>
+    <span class="n">Scale</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">Deployment</span><span class="p">,</span> <span class="n">subresource</span><span class="o">=</span><span class="s2">"scale"</span><span class="p">,</span>
+    <span class="n">path</span><span class="o">=</span><span class="s2">"/scale-limit"</span><span class="p">,</span> <span class="n">operations</span><span class="o">=</span><span class="p">(</span><span class="s2">"UPDATE"</span><span class="p">,),</span>
+<span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">scale_limit</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">AdmissionRequest</span><span class="p">[</span><span class="n">Scale</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">resource</span>
+    <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">obj</span><span class="o">.</span><span class="n">spec</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">spec</span><span class="o">.</span><span class="n">replicas</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">AdmissionDenied</span><span class="p">(</span><span class="s2">"At most ten replicas are allowed"</span><span class="p">)</span>
+</code></pre></div>
+<p>Routes infer plural and scope from current generated models or custom-resource
+metadata. Older models can supply <code>resource=</code> and <code>scope=</code>. Registrations match exact
+API versions and subresources.</p>
+<p>Namespaced routes follow matching controller namespaces, or the operator namespace
+for admission-only applications. Set <code>namespace_selector={"matchLabels": {"policy": "enabled"}}</code>
+on a route to select namespaces explicitly, or <code>{}</code> for all namespaces. Explicit
+selectors are preserved. RBAC for live reads must cover the selected scope.</p>
+<p>See <a href="../reads/#admission-caches">live clients and informer reads</a> for per-replica caches.</p>
+<h2 id="mutation-and-client-reads">Mutation and client reads</h2>
+<p>Mutation returns the changed payload; validation returns <code>None</code> or raises
+<code>AdmissionDenied</code>. For example, add a label only when it is absent:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@app</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">Deployment</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">default_team</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">AdmissionRequest</span><span class="p">[</span><span class="n">Deployment</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Deployment</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">obj</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">resource</span>
+    <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">obj</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">labels</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"team"</span><span class="p">:</span> <span class="s2">"unassigned"</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">labels</span> <span class="ow">or</span> <span class="p">{})}</span>
+    <span class="k">return</span> <span class="n">obj</span>
+</code></pre></div>
+<p>Use <code>await request.client(ResourceType)</code> for a live client of any kind. It shares
+the application's Config and defaults to the admission namespace, without changing
+the shared configuration. Declare those reads in Application <code>rules</code>, for example:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.application</span><span class="w"> </span><span class="kn">import</span> <span class="n">RBACRule</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cloudcoil.models.kubernetes.core.v1</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigMap</span>
+
+<span class="n">policy_rule</span> <span class="o">=</span> <span class="n">RBACRule</span><span class="p">(</span><span class="n">ConfigMap</span><span class="p">,</span> <span class="p">(</span><span class="s2">"get"</span><span class="p">,),</span> <span class="n">resource_names</span><span class="o">=</span><span class="p">(</span><span class="s2">"deployment-policy"</span><span class="p">,))</span>
+</code></pre></div>
+<p>Pass <code>rules=(policy_rule,)</code> when constructing the Application. Inside a handler,
+<code>client = await request.client(ConfigMap)</code> followed by
+<code>policy = await client.get("deployment-policy")</code> performs the live lookup.
+Client discovery and reads are subject to the admission timeout. A lookup and the
+pending write are not an atomic cross-resource transaction.</p>
+<p><code>request.cached(Kind)</code> reads a separately configured per-replica cache; see
+<a href="../reads/#admission-caches">admission caches</a>. It does not use a leader's controller
+informers. The <a href="https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_existing.py">existing Deployment policy</a>
+combines defaulting, immutable fields, DELETE, <code>/scale</code> and a live namespace policy.</p>
+<h2 id="resource-local-policies-and-standalone-hosting">Resource-local policies and standalone hosting</h2>
+<p>Existing resource-local class/static methods using @validating()/@mutating() remain
+available. Application discovers them on installed CRD models; use @classmethod
+outermost and AdmissionRequest[Self] for inherited policies. The optional second
+injected client belongs to that low-level interface only. For standalone ASGI hosting,
+AdmissionWebhook(config=config).register(Widget) remains supported.</p>
+<p><code>AdmissionWebhook</code> is an ASGI application with no required server dependency. Serve it with your existing
+ASGI server and TLS setup; installing Cloudcoil does not install or start an HTTP
+server. For an ASGI object named <code>admission</code> in <code>my_webhooks.py</code>:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>--extra<span class="w"> </span>kubernetes<span class="w"> </span>--with<span class="w"> </span>uvicorn<span class="w"> </span>uvicorn<span class="w"> </span>my_webhooks:admission<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">9443</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--ssl-certfile<span class="w"> </span>/certs/tls.crt<span class="w"> </span>--ssl-keyfile<span class="w"> </span>/certs/tls.key
+</code></pre></div>
+<p>Generate registration manifests that match the configured handler paths:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">configurations</span> <span class="o">=</span> <span class="n">admission</span><span class="o">.</span><span class="n">configurations</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"widgets.examples.cloudcoil.dev"</span><span class="p">,</span>
+    <span class="n">service_name</span><span class="o">=</span><span class="s2">"widget-webhook"</span><span class="p">,</span>
+    <span class="n">service_namespace</span><span class="o">=</span><span class="s2">"operators"</span><span class="p">,</span>
+    <span class="n">ca_bundle</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="s2">"/certs/ca.crt"</span><span class="p">)</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">(),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>ca_bundle</code> is PEM bytes, encoded for Kubernetes by the generator. A Service should
+route its HTTPS port to the ASGI server's TLS port. The certificate must cover
+<code>widget-webhook.operators.svc</code>. Supply certificates through your certificate
+manager or deployment process; this library does not provision certificates or
+rotate them. Kubernetes verifies the serving certificate against the configured
+CA. <a href="https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#contacting-the-webhook">Webhook service references and TLS</a>.</p>
+<p>Bring up the server and its Service before applying webhook configurations. Generated
+configurations fail closed by default, so registering an unavailable webhook blocks
+matching writes. During removal, delete the webhook registrations before the
+serving workload. Restrict access to the admission listener using your network/TLS
+configuration, and keep registrations scoped to the resources and operations needed.</p>
+<p>Serve admission on every webhook replica. It should remain available independently
+of which reconciliation manager holds the Lease. A separate webhook workload is a
+straightforward arrangement: controller standby readiness intentionally remains
+false, so its readiness should not decide whether a webhook replica receives traffic.
+The ASGI application's lifecycle and request limits are independent of <code>Manager</code>.
+Requests are bounded by <code>max_body_bytes</code> (4 MiB by default) and the registered
+<code>timeout_seconds</code> (5 by default, 1–30 allowed). Disconnects and cancellation stop and
+join the handler. <code>GET /healthz</code> can be used to probe the serving application.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tabs"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
