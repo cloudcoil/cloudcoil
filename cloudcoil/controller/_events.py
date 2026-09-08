@@ -83,7 +83,8 @@ class EventRecorder:
         key = (config.server or "", namespace, resource.metadata.uid, type, reason, action)
         now = self._clock()
         previous = self._recent.get(key)
-        if previous is not None and now - previous < self.interval:
+        # Compare deadlines: subtraction can round an elapsed interval below its boundary.
+        if previous is not None and now < previous + self.interval:
             return False
         self._tokens = min(20.0, self._tokens + (now - self._last_token) * 5)
         self._last_token = now
