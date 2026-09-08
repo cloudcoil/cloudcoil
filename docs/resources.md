@@ -1,28 +1,44 @@
 # Working with resources
 
-Start with the [quickstart](getting-started.md) for installation and a first API call.
-This guide covers typed resource operations and builders.
+Every generated Kubernetes model and handwritten `Resource` subclass has typed
+client operations. Use constructors or builders to create local values, then call
+an API method explicitly. The [quickstart](getting-started.md) covers installation.
 
-## Reading Resources
+## Configure and read
 
 ```python
 from cloudcoil.client import Config
-import cloudcoil.models.kubernetes as k8s
+from cloudcoil.models.kubernetes.core.v1 import Pod, Service
 
-# Get a resource
-service = k8s.core.v1.Service.get("kubernetes")
-
-# Iterate resources, following server pagination
-for pod in k8s.core.v1.Pod.list(namespace="default"):
-    print(f"Found pod: {pod.metadata.name}")
-
-# Async equivalent
-async for pod in await k8s.core.v1.Pod.async_list():
-    print(f"Found pod: {pod.metadata.name}")
+with Config(namespace="default"):
+    service = Service.get("kubernetes")
+    for pod in Pod.list():
+        print(pod.name)
 ```
-## Building resources
 
-Ordinary constructors have static types and Pydantic validation:
+Config uses kubeconfig locally or ServiceAccount credentials in a Pod. Supply
+`kubeconfig="dev-cluster.yaml"` to choose a file. A context makes that configuration
+active and manages its lifetime. An explicit `namespace=` on a request overrides
+the context's default.
+
+Async code enters `async with config` and uses `async_` resource methods:
+
+```python
+async def pod_names() -> list[str | None]:
+    async with Config(namespace="default"):
+        pods = await Pod.async_list()
+        return [pod.name async for pod in pods]
+```
+
+Iterating a ResourceList follows server continuation tokens. `.items` contains
+only the current page. For an explicit client, use `await Pod.async_client(config)`
+or `Pod.client(config)`. Client methods use `get`, `list`, `create`, etc.; async
+clients are awaited. In controllers, use `await ctx.client(Pod)` to share the
+application's connection and namespace; see [read contracts](reads.md).
+
+## Build a local resource
+
+Ordinary constructors provide static field types and Pydantic validation:
 
 ```python
 from cloudcoil.apimachinery import ObjectMeta
@@ -56,156 +72,111 @@ with ConfigMap.new() as builder:
 settings = builder.build()
 ```
 
-All three construct a model without API access. Call `settings.create()` or
-`await settings.async_create()` to persist it. Builders validate at `build()`;
-fluent chains are immutable outside context-manager scopes. Handwritten models
-have dynamic builders, but constructors provide more precise static field types.
-See [custom resource builders](custom-resources.md#use-a-handwritten-resource-as-a-client).
+All three produce a local model without API access. Builders validate at `build()`;
+fluent chains are immutable outside context-manager scopes. A builder context
+constructs values; it does not create or clean up cluster resources. Handwritten
+models have dynamic builders; use constructors for precise static field types.
 
-## Creating Resources
+## Create, update and delete
 
 ```python
-# Create with Pythonic syntax
-namespace = k8s.core.v1.Namespace(
-    metadata=dict(name="dev")
-).create()
+settings = settings.create()
+settings.data = {"message": "updated"}
+settings = settings.update()
 
-# Generate names automatically
-test_ns = k8s.core.v1.Namespace(
-    metadata=dict(generate_name="test-")
-).create()
+# save creates a missing resource or updates an existing one.
+settings = settings.save()
+
+# Delete the fetched instance, or delete by name.
+settings.remove()
+# ConfigMap.delete("settings", namespace="default")
 ```
 
-## Modifying Resources
+Use the returned model to retain server-assigned metadata and resourceVersion.
+`update` performs replacement; it is different from an owned-child `ctx.ensure`
+that manages only supplied fields. `save` respects the fetched/supplied version.
+Conflicts propagate rather than silently overwriting a newer object.
+
+Async equivalents include `async_create`, `async_update`, `async_save`,
+`async_remove` and `async_delete`. Use `dry_run=True` to request a server dry run.
+For a narrow guarded change, see [explicit writes](runtime.md#explicit-guarded-writes).
+For reconciled primary resources, [return the changed object](controllers.md#returning-resources-and-status)
+and let the controller persist it.
+
+## Watch and wait
 
 ```python
-# Update resources fluently
-deployment = k8s.apps.v1.Deployment.get("web")
-deployment.spec.replicas = 3
-deployment.update()
+for event_type, pod in Pod.watch(field_selector="metadata.name=nginx"):
+    if event_type == "DELETED":
+        break
+```
 
-# Or use the save method which handles both create and update
-configmap = k8s.core.v1.ConfigMap(
-    metadata=dict(name="config"),
-    data={"key": "value"}
+Async watches are iterators; do not await the iterator itself:
+
+```python
+async def wait_for_deletion() -> None:
+    async for event_type, pod in Pod.async_watch(field_selector="metadata.name=nginx"):
+        if event_type == "DELETED":
+            return
+```
+
+For a fetched resource, `wait_for` also evaluates a predicate until it succeeds or
+the timeout expires:
+
+```python
+pod = Pod.get("nginx", namespace="default")
+pod.wait_for(
+    lambda _, current: current.status is not None and current.status.phase == "Running",
+    timeout=300,
 )
-configmap.save()  # Creates the ConfigMap
-
-configmap.data["key"] = "new-value"
-configmap.save()  # Updates the ConfigMap
 ```
 
-## Deleting Resources
+`async_wait_for` is the async equivalent. A dictionary of named predicates returns
+the name of the first satisfied predicate. Use [controllers](controllers.md) when
+you need retry queues and ongoing convergence instead of a one-off watch.
 
-```python
-# Delete by name
-k8s.core.v1.Pod.delete("nginx", namespace="default")
+## Resources without generated models
 
-# Or remove the resource instance
-pod = k8s.core.v1.Pod.get("nginx")
-pod.remove()
-```
-
-## Watching Resources
-
-```python
-for event_type, resource in k8s.core.v1.Pod.watch(field_selector="metadata.name=mypod"):
-    # Wait for the pod to be deleted
-    if event_type == "DELETED":
-        break
-
-# You can also use the async watch
-async for event_type, resource in k8s.core.v1.Pod.async_watch(field_selector="metadata.name=mypod"):
-    # Wait for the pod to be deleted
-    if event_type == "DELETED":
-        break
-```
-
-## Waiting for Resources
-
-```python
-# Wait for a resource to reach a desired state
-pod = k8s.core.v1.Pod.get("nginx")
-pod.wait_for(lambda _, pod: pod.status.phase == "Running", timeout=300)
-
-# You can also check of the resource to be deleted
-await pod.async_wait_for(lambda event, _: event == "DELETED", timeout=300)
-
-# You can also supply multiple conditions. The wait will end when the first condition is met.
-# It will also return the key of the condition that was met.
-test_pod = k8s.core.v1.Pod.get("tests")
-status = await test_pod.async_wait_for({
-    "succeeded": lambda _, pod: pod.status.phase == "Succeeded",
-    "failed": lambda _, pod: pod.status.phase == "Failed"
-    }, timeout=300)
-assert status == "succeeded"
-```
-
-## Dynamic Resources
+`get_dynamic_resource` creates an `Unstructured` resource type from its API identity:
 
 ```python
 from cloudcoil.resources import get_dynamic_resource
 
-# Get a dynamic resource class for any CRD or resource without a model
-DynamicJob = get_dynamic_resource("Job", "batch/v1")
-
-# Create using dictionary syntax
-job = DynamicJob(
-    metadata={"name": "dynamic-job"},
-    spec={
-        "template": {
-            "spec": {
-                "containers": [{"name": "job", "image": "busybox"}],
-                "restartPolicy": "Never"
-            }
-        }
-    }
+DynamicConfigMap = get_dynamic_resource("ConfigMap", "v1")
+settings = DynamicConfigMap(
+    metadata={"name": "settings", "namespace": "default"},
+    data={"message": "hello"},
 )
-
-# Create on the cluster
-created = job.create()
-
-# Access fields using dict-like syntax
-assert created["spec"]["template"]["spec"]["containers"][0]["image"] == "busybox"
-
-# Update metadata (a Job pod template is immutable)
-created.metadata.labels = {"example.com/source": "dynamic"}
-updated = created.update()
-
-# Get raw dictionary representation
-raw_dict = updated.raw
+settings["data"]["message"] = "updated"
+payload = settings.raw
 ```
 
-`Unstructured` mapping access accepts Python field names and wire aliases and returns
-live values, including declared fields on subclasses. For example,
-`resource["spec"]["replicas"] = 2` updates the resource directly. Declared nested
-models remain typed models: use `resource["metadata"].name` or `resource.metadata.name`.
-Use `resource.raw` for a serialized dictionary snapshot. Membership tests include
-fields whose value is `None`; serialization may omit those fields.
+This constructs a local object. Call `create` or another resource method to persist
+it. Unknown fields support dictionary access; declared nested models such as
+metadata remain typed (`settings.metadata.name`). Mapping access returns live
+values, while `.raw` returns a serialized snapshot. Membership includes fields
+whose value is `None`; serialization can omit them.
 
-## Resource Parsing
+## Parse manifests and look up models
 
 ```python
 from cloudcoil import resources
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
-# Parse YAML files
-deployment = resources.parse_file("deployment.yaml")
-
-# Parse multiple resources
-documents = resources.parse_file("k8s-manifests.yaml", load_all=True)
-
-# Get resource class by GVK if its an existing resource model class
-Job = resources.get_model("Job", api_version="batch/v1")
+settings = resources.parse({
+    "apiVersion": "v1",
+    "kind": "ConfigMap",
+    "metadata": {"name": "settings"},
+    "data": {"message": "hello"},
+})
+assert isinstance(settings, ConfigMap)
 ```
 
-## Context Management
+`resources.parse_file("manifests.yaml", load_all=True)` reads multiple documents;
+omit `load_all` for one resource. Import or install the model package containing
+the types you intend to parse.
 
-```python
-# Temporarily switch namespace
-with Config(namespace="kube-system"):
-    pods = k8s.core.v1.Pod.list()
-
-# Custom configs
-with Config(kubeconfig="dev-cluster.yaml"):
-    services = k8s.core.v1.Service.list()
-```
+`resources.get_model("ConfigMap", api_version="v1")` performs runtime model lookup
+and returns `type[Resource]`. A generated package's own `get_model` preserves the
+concrete static type for literal arguments. Specify `api_version` when a kind has
+multiple versions; ambiguous bare names fail. See [model typing](models.md#ide-typing).

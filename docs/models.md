@@ -67,27 +67,6 @@ The checked-in regression corpus covers complete HelmRelease, Certificate, and
 Prometheus CRDs plus the complete kpack OpenAPI schema, without schema hints.
 The cookiecutter template remains available for packaging and publishing models.
 
-### Migrating from 0.4 / earlier 0.5 development builds
-
-- Upgrade to Python 3.14 and regenerate your models with the current codegen extra.
-- Remove `cloudcoil.mypy` from type-checker configuration. Use direct imports or a
-  generated package's `get_model` for precise static types.
-- Inferred module and nested-class names can change; retain explicit
-  transformations when you need a particular layout.
-- Iterate watches directly: `async for event in Pod.async_watch(): ...` (no `await`
-  before the iterable). Async operations perform initial discovery off the event loop;
-  explicit clients are available with `await config.async_client_for(Pod)`.
-- A bare kind lookup now rejects ambiguous versions instead of selecting one by
-  import order.
-- Direct client deletion now defaults to performing the operation, matching
-  resource methods. Pass `dry_run=True` explicitly to preview a deletion.
-- List pagination follows the server's continuation token and stays with its
-  originating client. Requesting a nonexistent next page raises `ValueError`.
-- `save()` uses the fetched resource version for replacement without mutating the
-  caller's model. A caller-supplied version remains authoritative.
-- Nested and concurrent cached scopes share a cache until the last scope exits.
-  Use separate cached configs for synchronous and asynchronous scopes.
-
 ## IDE typing
 
 Cloudcoil targets Python 3.14 and uses standard Python annotations understood by
@@ -97,7 +76,7 @@ Direct imports provide the clearest completions:
 ```python
 from hello.v1 import Widget
 
-widget = Widget.builder().metadata(lambda meta: meta.name("example")).build()
+widgets = Widget.list(namespace="default")
 ```
 
 Generated packages also include their own typed lookup. Literal names and API
@@ -107,7 +86,7 @@ versions resolve to the concrete class in both type checkers:
 from hello import get_model
 
 Widget = get_model("Widget", api_version="widgets.example.com/v1")
-widget = Widget.builder().metadata(lambda meta: meta.name("example")).build()
+widgets = Widget.list(namespace="default")
 ```
 
 A kind name alone works when it is unique in that package. If several versions

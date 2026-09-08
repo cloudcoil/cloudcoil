@@ -1,6 +1,6 @@
 # Live clients and informer reads
 
-Controller Context and AdmissionRequest both expose explicit live clients and caches.
+Controller `Context` and `AdmissionRequest` both expose explicit live clients and caches.
 In a decorated controller:
 
 ```python
@@ -85,7 +85,7 @@ app = Application(
 )
 ```
 
-Register policies with @app.validate(Model) or @app.mutate(Model).
+Register policies with `@app.validate(Model)` or `@app.mutate(Model)`.
 Each replica syncs this cache before serving. `request.cached(Kind)` requires the
 kind in `Cache.resources`. Use one configured namespace or `namespaces=None` for
 all namespaces. `max_items_per_resource=0` disables eviction. If you pass an explicit
@@ -100,4 +100,3 @@ Callbacks must not write external state, including on dry runs.
 
 See [client caching](caching.md) for cached resource methods and direct informer
 subscriptions outside the operator runtime.
-

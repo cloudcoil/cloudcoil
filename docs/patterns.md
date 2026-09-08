@@ -2,7 +2,7 @@
 
 These are executable applications, with tested callbacks, informer reads and generated
 manifests. Run commands from the repository root with the development dependencies and
-current generated Kubernetes models installed (see [the Widget demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets)).
+matching Kubernetes models installed (see [checkout setup](getting-started.md#run-the-checkout)).
 
 | Pattern | Example | Reads and writes |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ current generated Kubernetes models installed (see [the Widget demo](https://git
 | Aggregate existing resources | [Workload summary](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/workload_summary.py) | Cache-list Pods by labels; report CR status; no Pod writes |
 | Variable number of children and pruning | [Child set](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/child_set.py) | Ensure desired ConfigMaps; cache-list old children; delete with UID/version guards |
 | External resources and periodic repair | [Finalizers](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/finalizers.py) | Persist finalizer before side effects; retry idempotent cleanup; timed requeue |
+| Process and leadership lifetime | [Lifespan](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/lifespan.py) | Typed acquisition/loss/shutdown events; cleanup after workers stop |
 | Several controllers in one process | [Multiple controllers](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/multiple_controllers.py) | Shared runtime and clients, leader election, separate reconcilers |
 | Admission on existing built-in resources | [Deployment policy](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_existing.py) | Live-read namespace policy; defaults, immutable label, delete protection, `/scale` |
 | Admission on someone else's CRD | [Database policy](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_external_crd.py) | Compare UPDATE snapshots; no CRD installation or ownership |
@@ -106,7 +107,3 @@ Unlike `ensure` map merging, this example intentionally replaces the entire chil
 data map to remove keys deleted from the source. It uses `mutate` for that guarded
 replacement. Leader election and probes on port 8080 are configured on the Application;
 the example no longer needs its own signal handling or separate CLI flags.
-
-
-The [lifespan example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/lifespan.py)
-shows process and leader scopes, typed acquisition/loss/shutdown events, and cleanup ordering.

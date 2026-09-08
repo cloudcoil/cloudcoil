@@ -1,6 +1,5 @@
 # Logs
 
-
 Read or follow a Pod or workload with the same interface:
 
 ```python

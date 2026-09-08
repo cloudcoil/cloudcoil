@@ -4,45 +4,39 @@
 controller manager into one application definition. Use `app.main()` instead
 of writing argument parsing, signal handling, or client cleanup for each operator.
 
+A complete controller-only application needs one resource group and one handler:
+
 ```python
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
+
 from cloudcoil.application import Application
-from cloudcoil.controller import Context
-from cloudcoil.admission import AdmissionRequest
-from cloudcoil.application import RBACRule, WebhookServer
 
-app = Application(
-    "widgets",
-    rules=(RBACRule(ConfigMap, ("get",), resource_names=("widget-policy",)),),
-    webhook=WebhookServer(tls_secret="widgets-tls"),
-    leader_election=True,
-)
+app = Application("settings", leader_election=True)
+configs = app.controller(ConfigMap, label_selector="example.com/manage=true")
 
-widgets = app.controller(Widget, owns=(ConfigMap, Deployment, Service))
-
-@widgets.reconcile()
-async def reconcile(widget: Widget, ctx: Context[Widget]) -> None:
-    await ctx.ensure(desired_deployment(widget))
-
-@widgets.validate()
-async def validate(request: AdmissionRequest[Widget]) -> None:
-    ...  # Raise AdmissionDenied for an invalid request.
+@configs.reconcile()
+async def reconcile(config: ConfigMap) -> ConfigMap:
+    config.data = {**(config.data or {}), "managed-by": "cloudcoil"}
+    return config
 
 if __name__ == "__main__":
     app.main()
 ```
 
-The [complete Widget example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py)
-defines the resource, policies, reconciler, and operator in one module. It maintains
-an owned ConfigMap, Deployment and Service using `ctx.ensure(...)`, with decorated stages and automatic status reporting. The
-[local demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets) includes
-a Dockerfile, TLS setup, installation, drift repair and admission policy checks.
-Handwritten resources inherit normal client operations; for explicit access use
-`client = await Widget.async_client(config)` and `await client.get("example")`.
+For reusable modules, create a `Controller(Model)` group and include it with
+`app.include(group)`. Definitions register without I/O; import modules explicitly
+before generating manifests or starting the runtime.
 
-Install `cloudcoil[operator,kubernetes]` for the shared HTTPS runtime. Uvicorn is an
-optional dependency; manifest generation and controller-only operators do not
-start or require an HTTP server. Until supported Kubernetes model packages are
-published, follow the [model generation instructions](getting-started.md#install).
+The [Widget operator](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py)
+adds a CRD, ordered stages, three owned child kinds, status and scoped admission.
+The [local demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets)
+builds an image, creates TLS credentials and tests the generated deployment.
+
+Install `cloudcoil[operator,kubernetes]` to host admission with the optional Uvicorn
+server. Configure `webhook=WebhookServer(tls_secret="widgets-tls")` on the
+Application and register [admission decorators](admission.md). Controller-only
+applications and offline manifest generation do not require an HTTP server.
+Use the [checkout setup](getting-started.md#run-the-checkout) for repository examples.
 
 ## Generate, install, run
 
@@ -109,7 +103,9 @@ remove admission registrations before removing their server.
 
 ## Resources and permissions
 
-Decorated primary resources are automatically included as CRDs. Add other owned
+Primary models annotated with `@custom_resource` are included in generated CRD
+manifests; `install` applies them. Ordinary generated resources do not imply CRD
+installation. Add other owned
 definitions through `resources=(OtherResource, CRD(...))`. Watched dependencies
 are not automatically installed: they may belong to another operator. Repeated
 definitions of the same CRD name fail, including competing single-version models.
@@ -122,6 +118,7 @@ RBAC inference covers the framework's own operations:
 | Enabled primary status | patch on `/status` |
 | Owned children (`owns`) | get, list, watch, create, patch |
 | Referenced dependencies (`watch`) | get, list, watch |
+| Enabled Events | create on events.k8s.io/events |
 | Leader election | create Leases; get/update the named Lease |
 | Arbitrary reconcile/webhook client calls | Declare with `RBACRule` |
 
@@ -146,12 +143,12 @@ the deployed application runs `run` with its generated ServiceAccount. The clien
 does not inspect Python function bodies to infer arbitrary API access.
 [Kubernetes RBAC rules](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
 
-## Lifecycle and embedding
+## Running and embedding
 
 `await app.run(stop=event)` embeds the runtime without replacing signal
 handlers. `app.main()` supplies SIGINT/SIGTERM handling. Owned clients close
 after workers and webhook requests have stopped; a supplied Config stays open.
-Fatal component errors stop sibling components and propagate. Each operator and
+Fatal component errors stop sibling components and propagate. Each Application and
 controller runs once; use a new instance for a restart.
 
 Webhook serving runs on every replica independently of manager leadership.
@@ -168,7 +165,8 @@ connection. Callbacks do not manage connections or their lifetime.
 
 All managed controllers share the operator Config. For controllers targeting
 different clusters, use separate operators or the lower-level `Manager` API.
-The lower-level `CRD`, `AdmissionWebhook`, and `Manager` remain usable independently.
+For a standalone client, webhook server or controller manager, the lower-level
+`CRD`, `AdmissionWebhook` and `Manager` remain usable independently.
 
 ## Common patterns
 
@@ -180,50 +178,13 @@ live API access. Register standalone policies with `@app.validate(Model)` and
 `@app.mutate(Model)` without adding a CRD or controller.
 
 
-## Lifespan decorators
+## Lifespans
 
-```python
-from collections.abc import AsyncIterator
-from cloudcoil.application import LifecycleEvent, LifecycleType
-
-@app.lifespan()
-async def process(event: LifecycleEvent) -> AsyncIterator[None]:
-    async with provider:
-        yield
-
-@app.lifespan(scope="leader")
-async def leadership(event: LifecycleEvent) -> AsyncIterator[None]:
-    # Lease is acquired and renewed while this scope is active.
-    await leader_services.start()
-    try:
-        yield
-    finally:
-        # Reconciliation workers have stopped. Read the updated exit event here.
-        if event.type == LifecycleType.LEADERSHIP_LOST:
-            logger.warning("Lost leadership: %s", event.error)
-        await leader_services.stop()
-```
-
-Each scope has one async-generator hook, taking zero arguments or a LifecycleEvent.
-Compose multiple resources with async with/AsyncExitStack inside it. Use finally for
-cleanup on cancellation; statements after an unguarded yield can be skipped.
-
-| Scope | Entry event | Exit event | Lifetime |
-| --- | --- | --- | --- |
-| process (default) | STARTUP | SHUTDOWN, FAILURE, or LEADERSHIP_LOST | Every replica, around webhook and controller execution |
-| leader | LEADERSHIP_ACQUIRED | SHUTDOWN, LEADERSHIP_LOST, or FAILURE | After lease acquisition, before controller startup; exits after workers stop, before lease release |
-
-The same event object's type/error are updated before cleanup; identity identifies
-the election participant. A leader scope requires configured leader election and
-at least one controller. Standbys enter only the process scope. Offline manifests
-and installation do not enter either scope. Hooks register before runtime starts;
-late registration fails. Startup must complete before handlers are started.
-
-On loss the runtime cancels and joins workers, runs leader cleanup, attempts guarded
-lease release, and exits. It does not reacquire within the same manager instance.
-Cleanup after loss must not assume lease ownership or delete shared external state.
-Lifecycle hooks manage process services; resource finalizers manage object deletion.
-See the [lifecycle example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/lifespan.py).
+Register process resources with `@app.lifespan()` and leader-only resources with
+`@app.lifespan(scope="leader")`. Each hook pairs setup and cleanup around `yield`.
+An optional `LifecycleEvent` distinguishes normal shutdown, leadership loss and
+failure. See [lifespans and leadership](lifespan.md) for a complete example,
+event fields and cleanup ordering.
 
 ## Definition validation
 

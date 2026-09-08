@@ -1,113 +1,141 @@
-# Stages, cases, conditions and Events
+# Stages, cases and reporting
 
-Start with one `@controller.reconcile()` function. Choose stages when separate
-progress conditions help explain an operator, and cases for mutually exclusive
-behaviors. All use the same clients, ownership checks, reporting and retry queue.
-There is no separate step abstraction, code generation or workflow checkpoint store.
+Use one `@controller.reconcile()` function for ordinary Python control flow. Add
+stages when separate progress conditions help explain the work. Add cases when
+exactly one alternative should run. A stage can contain cases; there is no separate
+step abstraction or persistent workflow checkpoint.
 
 ## Sequential stages
 
-Define a status derived from `ReconcileStatus`; additional fields need defaults so
-new resources can initialize status. This opts into automatic Ready reporting.
+This complete operator turns a Settings object into an owned ConfigMap, then
+reports the checksum of the configuration it reads back:
 
 ```python
-from cloudcoil.controller import Context, Controller, ReconcileStatus, Wait
+import hashlib
+import json
 
-class WidgetStatus(ReconcileStatus):
-    ready_replicas: int = 0
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
-# On Widget: status: WidgetStatus | None = None
-widgets = Controller(Widget, owns=(ConfigMap, Deployment))
+from cloudcoil.application import Application
+from cloudcoil.controller import Context, ReconcileStatus, Wait
+from cloudcoil.crd import custom_resource
+from cloudcoil.pydantic import BaseModel
+from cloudcoil.resources import Resource
 
-@widgets.stage(condition="ConfigurationReady")
-async def configure(widget: Widget, ctx: Context[Widget]) -> None:
-    await ctx.ensure(desired_config(widget))
+class SettingsSpec(BaseModel):
+    message: str
+    suspended: bool = False
 
-@widgets.stage(depends=configure, condition="DeploymentApplied")
-async def deploy(widget: Widget, ctx: Context[Widget]) -> None:
-    await ctx.ensure(desired_deployment(widget))
+class SettingsStatus(ReconcileStatus):
+    checksum: str = ""
 
-@widgets.stage(depends=deploy, condition="WorkloadAvailable")
-async def available(widget: Widget, ctx: Context[Widget]) -> None:
-    assert widget.name is not None
-    deployment = await ctx.get(Deployment, widget.name)
-    if not rollout_complete(deployment):
-        raise Wait("RollingOut", "Waiting for the current rollout", after=10)
+@custom_resource(api_version="examples.cloudcoil.dev/v1", plural="settings")
+class Settings(Resource):
+    spec: SettingsSpec
+    status: SettingsStatus | None = None
+
+app = Application("settings")
+settings = app.controller(Settings, owns=(ConfigMap,))
+
+@settings.stage(condition="ConfigurationReady")
+async def configure(obj: Settings, ctx: Context[Settings]) -> None:
+    if obj.spec.suspended:
+        raise Wait("Suspended", after=300)
+    await ctx.ensure(ConfigMap(data={"message": obj.spec.message}))
+
+@settings.stage(depends=configure, condition="ChecksumReady")
+async def checksum(obj: Settings, ctx: Context[Settings]) -> None:
+    assert obj.name is not None
+    config = await ctx.get(ConfigMap, obj.name)
+    value = json.dumps(config.data or {}, sort_keys=True).encode()
+    ctx.set_status(checksum=hashlib.sha256(value).hexdigest())
+
+if __name__ == "__main__":
+    app.main()
 ```
 
-The [Widget example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py)
-includes the CRD, resource builders and admission handlers. Its readiness check
-compares observed generation and updated/available replicas with current intent.
-A live read after preceding writes avoids accepting an old cached rollout as Ready.
+Save as `app.py`. `python app.py install` installs its CRD and RBAC;
+`python app.py run` runs locally. Create a Settings object with
+`spec: {message: hello}` to observe ConfigurationReady, ChecksumReady and Ready
+conditions. See [deployment](operators.md) to run it in a Pod.
 
-`depends=` accepts a registered function or a tuple of functions. A named stage
-scope can also be referenced. Dependencies must establish a unique order; missing
-references, cycles, repeated condition names and ambiguous order fail offline during
-manifest generation or before workers start. Import order never resolves ties.
-Execution is serial. A wait or error stops the pass, including later stages.
+`ReconcileStatus` opts the resource into automatic conditions. Additional status
+fields need defaults. `ctx.ensure` defaults the child name, namespace and owner
+from the primary. The next stage reads live because an informer may not yet have
+observed the preceding write.
 
-Every pass starts at the first stage, including after Ready and after restart.
-Conditions record current observations; they are not checkpoints. Handlers must be
-idempotent. A stage returns None or raises Wait; it does not implicitly save primary
-spec/metadata mutations. Use explicit status helpers and owned-child operations.
+`depends=` accepts a registered function, a named stage scope or a tuple of either.
+The dependencies must establish one unique order. Missing references, cycles,
+repeated condition names and ties fail during offline validation or before workers
+start. Import order never resolves a tie. Stages run serially; waiting or failing
+stops the pass before any later stage.
+
+Every pass starts at the first stage, including after success and after restart.
+Conditions record observations, not completed-once checkpoints. Handlers must be
+idempotent. A stage returns `None` or raises `Wait`; it uses explicit status helpers
+and child operations rather than returning primary spec/metadata edits.
 
 ## Cases within a stage
 
-A stage can contain one handler or a case group:
+For a longer set of alternatives, replace the `configure` stage above with a named
+scope. Keep the same resource definitions and change the checksum dependency to
+`depends=configuration`:
 
 ```python
-configuration = widgets.stage("configuration", condition="ConfigurationReady")
+configuration = settings.stage("configuration", condition="ConfigurationReady")
 
-@configuration.case(when=is_suspended)
-async def suspended(widget: Widget) -> None:
+@configuration.case(when=lambda obj: obj.spec.suspended)
+async def suspended(obj: Settings) -> None:
     raise Wait("Suspended", after=300)
 
-@configuration.case(when=input_missing, after=suspended)
-async def missing(widget: Widget) -> None:
-    raise Wait("InputMissing", after=30)
+@configuration.case(when=lambda obj: not obj.spec.message.strip(), after=suspended)
+async def missing_message(obj: Settings) -> None:
+    raise Wait("InputMissing", "Set spec.message to non-empty text", after=30)
 
 @configuration.otherwise()
-async def configure(widget: Widget, ctx: Context[Widget]) -> None:
-    await ctx.ensure(desired_config(widget))
-
-@widgets.stage(depends=configuration, condition="DeploymentApplied")
-async def deploy(widget: Widget, ctx: Context[Widget]) -> None:
-    await ctx.ensure(desired_deployment(widget))
+async def configure(obj: Settings, ctx: Context[Settings]) -> None:
+    await ctx.ensure(ConfigMap(data={"message": obj.spec.message}))
 ```
 
-Use this configuration stage **instead of** the first sequence's configure stage.
-Only the first matching case runs. `after=` orders predicate evaluation, not handler
-execution. It accepts a function or tuple, and must establish a unique order. An
-`otherwise()` fallback is mandatory. Predicates take `(resource)` or `(resource, ctx)`,
-return bool synchronously, and must have no side effects. Errors in predicates retry
-through the normal controller path; waiting never falls through to another case.
+`after=` orders predicate evaluation. It accepts a case function or tuple and must
+establish a unique order. Predicates take `(resource)` or `(resource, ctx)`, return
+`bool` synchronously and have no side effects. Use a named predicate when that is
+clearer than a lambda. Predicate exceptions retry like handler exceptions.
 
-A selected case reports on its enclosing stage condition. For example, missing input
-sets ConfigurationReady=False with reason InputMissing; successful configuration
-sets it True with reason configure. Branch names never become separate conditions.
-The [conditional configuration example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/conditional_config.py)
-then runs a dependent checksum stage, including live reads and a reverse dependency watch.
+Only the first match runs. `@otherwise()` is required and runs when no case matches.
+Waiting does not fall through. In this example a blank message reports
+ConfigurationReady=False with reason InputMissing; successful configuration reports
+ConfigurationReady=True. Branches do not create their own conditions.
+
+A stage accepts either a handler or cases. Register this alternative instead of the
+original configure stage; registering both would duplicate ConfigurationReady.
+The [conditional configuration pattern](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/conditional_config.py)
+shows this structure with dependency watches and a following checksum stage.
 
 ## Root cases
 
-The same `case()` and `otherwise()` decorators are available directly on a controller:
+A controller can select a single branch without introducing stages. Using the same
+Settings model, an alternative controller definition is:
 
 ```python
-configs = Controller(ApplicationConfig, owns=(ConfigMap,))
+from cloudcoil.controller import Controller
 
-@configs.case(when=is_suspended)
-async def suspended(config: ApplicationConfig) -> None:
+settings = Controller(Settings, owns=(ConfigMap,))
+
+@settings.case(when=lambda obj: obj.spec.suspended)
+async def suspended(obj: Settings) -> None:
     raise Wait("Suspended", after=300)
 
-@configs.otherwise()
-async def configure(config: ApplicationConfig, ctx: Context[ApplicationConfig]) -> None:
-    await ctx.ensure(desired_config(config))
+@settings.otherwise()
+async def configure(obj: Settings, ctx: Context[Settings]) -> None:
+    await ctx.ensure(ConfigMap(data={"message": obj.spec.message}))
 ```
 
-Root cases report through Ready. Each controller has exactly one entrypoint:
-reconcile, stages, or root cases. Cases can nest within stages, but arbitrary recursive
-workflows are not supported. For two simple guards, ordinary if statements in a
-reconcile handler may be easier to read.
+Include this group with `app.include(settings)` instead of the staged controller.
+Root cases report through Ready. A controller has exactly one entrypoint:
+reconcile, stages or root cases. Cases can live inside stages; they cannot recursively
+contain stages or more cases. For a simple guard, an `if` inside reconcile is often
+more readable.
 
 ## Outcomes and retries
 
@@ -128,7 +156,7 @@ waits and errors take precedence. No retry resumes halfway through a stage seque
 ## Status helpers
 
 ```python
-ctx.set_status(ready_replicas=2, endpoint="https://example.com")
+ctx.set_status(checksum="observed-checksum")
 ctx.condition("DependenciesReady", False, reason="InputMissing")
 ```
 
@@ -183,10 +211,9 @@ Stage truth/reason transitions produce Normal Events; failures produce Warning E
 Suppression is process-local, so restarts may duplicate Events. Events are diagnostics,
 not durable work triggers or proof of exactly-once execution.
 
-## Low-level compatibility
+## Explicit low-level APIs
 
-Existing Request callbacks, Stages/Stage/Cases constructors, returned Wait values,
-Result and immediate `await request.event(...)` remain supported for embedding.
-They retain their existing contracts; examples use the decorator API. Do not mix a
-constructor reconciler with decorated reconciliation/finalizer handlers.
-For external cleanup, prefer the [finalize decorator](controllers.md#finalizers).
+`Request`, `Stages`, `Stage`, `Cases`, returned `Wait` values and immediate
+`await request.event(...)` remain available for embedding. Their contracts differ
+from queued Context reports; see [runtime and explicit writes](runtime.md#low-level-embedding)
+and the [API reference](api.md). Use one registration style per controller.

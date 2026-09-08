@@ -91,5 +91,5 @@ async def monitor(stop: asyncio.Event) -> None:
 Async informers accept sync or async callbacks. For synchronous applications, use
 `get_informer(Pod, sync=True)` and register synchronous handlers before `with config:`.
 Direct informer objects are lower-level cache views; copy returned resources before
-editing. The operator's `request.cached(...)` interface always returns deep copies.
+editing. Controller `ctx.cached(...)` and admission `request.cached(...)` return deep copies.
 Use controllers when you need retry queues and reconciliation rather than raw events.

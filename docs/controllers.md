@@ -28,10 +28,23 @@ coalesce: handlers observe current state, not a history or an exactly-once strea
 Different keys can run concurrently, but one key never does. Handlers must tolerate
 repeated execution and partial child writes.
 
+## Choose the execution structure
+
+| Structure | Use it for | What runs |
+| --- | --- | --- |
+| `@reconcile()` | Most controllers; ordinary guards and loops | One handler per pass |
+| `@stage(condition=..., depends=...)` | Several responsibilities with visible progress | Every stage, in dependency order, until one waits or fails |
+| `@case(when=..., after=...)` and `@otherwise()` | Mutually exclusive behavior | The first matching case, or the fallback |
+
+A controller chooses one row. A stage can itself contain cases. Start with a
+reconcile function and split it only when names and conditions make the flow
+clearer. See [stages and reporting](staged-controllers.md) for ordering and outcomes.
+
 ## Registration and composition
 
 For a reusable module, create `Controller(Model, owns=(...))`, decorate handlers,
-then call `app.include(controller)`. `app.controller(Model, ...)` creates and includes
+then call `app.include(controller)`. Import that module before running the app;
+there is no automatic module scanning. `app.controller(Model, ...)` creates and includes
 the same group directly. Registrations perform no I/O. Manifest generation validates
 completed definitions; startup freezes them. Duplicate inclusion and late registration
 fail explicitly. A group has one reconciliation function, automatic stages, or cases.
@@ -97,6 +110,10 @@ its persistence; shutdown cancellation stops without writing a failure report.
 
 ## Finalizers
 
+For a resource representing external state, pair provisioning and cleanup. This
+excerpt assumes an `ExternalRecord` model and an idempotent provider adapter; see
+the [complete finalizer example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/finalizers.py).
+
 ```python
 records = app.controller(ExternalRecord)
 
@@ -118,64 +135,12 @@ success removes it. One finalizer handler owns this controller's cleanup; compos
 multiple operations explicitly inside it. Cleanup must be idempotent and return None,
 or raise Wait while pending. Cache absence never triggers destructive cleanup.
 
-Use [application lifespans](operators.md#lifespan-decorators) for process/leadership
+Use [application lifespans](lifespan.md) for process/leadership
 resources; finalizers belong to individual Kubernetes objects.
-
-## Low-level embedding
-
-The existing `Controller(Model, request_callback)` interface remains available.
-Request contains an optional resource, name, namespace, key, Config and clients;
-callers handle absence/deletion explicitly in that interface. Existing Stages/Cases
-and immediate awaited Request.event calls retain their low-level contracts.
-
-## Optimistic changes and finalizers
-
-For explicit writes, use `mutate` for a narrow update based on a **live, uncached** read:
-
-```python
-from cloudcoil.controller import mutate
-from cloudcoil.models.kubernetes.core.v1 import ConfigMap
-
-async def mark_observed(resource: ConfigMap) -> ConfigMap:
-    def change(current: ConfigMap) -> None:
-        assert current.metadata is not None
-        current.metadata.annotations = {
-            **(current.metadata.annotations or {}),
-            "example.com/observed": "true",
-        }
-    return await mutate(resource, change)
-```
-
-The callback edits a deep copy, must return `None`, and must not perform external
-side effects. A no-op skips PATCH. Changes use JSON Patch with UID and resourceVersion
-tests; conflicts propagate for reconciliation to retry from fresh state. A resource
-recreated under the same name is rejected before invoking the callback. `status=True`
-uses the status subresource and rejects changes outside status.
-
-For explicit control, `cloudcoil.patches.diff(original, desired)` generates a guarded
-patch between copies of one fetched resource. Apply it with
-`await original.async_patch(operations)` or `original.patch(operations)`; both accept
-`subresource="status"` and `dry_run=True`. Skip the write when the diff is empty.
-`patches.json_patch(before_json, after_json)` calculates unguarded RFC 6902 patches
-for arbitrary JSON values. Arrays are replaced atomically, object keys are diffed,
-and JSON Pointer characters are escaped. No strategic-merge or field ownership is
-inferred. [JSON Patch specification](https://www.rfc-editor.org/rfc/rfc6902).
-
-`await ensure_finalizer(resource, "example.com/cleanup")` persists your finalizer
-before provisioning external state; `await remove_finalizer(...)` removes only that
-entry after successful cleanup. Both use live reads and UID/version tests, preserve
-other controllers' finalizers, and skip no-op writes. Adding a missing finalizer
-after deletion starts raises `TerminalError`.
-
-Check deletionTimestamp before provisioning and again on the object returned by
-ensure_finalizer. On deletion, run idempotent cleanup only if your finalizer is
-present, then remove it. Kubernetes can mark deletion concurrently with any request;
-finalizers coordinate cleanup, not exactly-once external operations. Never remove a
-finalizer merely to bypass a failing cleanup. See [Kubernetes finalizers](https://kubernetes.io/docs/concepts/overview/working-with-objects/finalizers/).
 
 ## Next steps
 
 - [Live clients and informer reads](reads.md)
 - [Controller patterns](patterns.md)
 - [Deploy an operator](operators.md)
-- [Runtime, leadership and observability](runtime.md)
+- [Runtime, explicit writes and embedding](runtime.md)

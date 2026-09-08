@@ -6,11 +6,24 @@ collection removes children when their Widget is deleted. A webhook adds a label
 and checks an optional namespace policy using the same client API as reconciliation.
 
 The implementation is in [`../widget_operator.py`](../widget_operator.py). It has
-one resource declaration, decorated stages and admission policies, and one app.main() entry point.
+a resource definition, an Application and a controller group. Read the registrations
+first, then the desired-resource builders below them:
+
+| Registration | Responsibility |
+| --- | --- |
+| `@widgets.mutate()` / `@widgets.validate()` | Default labels and check the namespace message policy |
+| `configure` | Converge the ConfigMap; report ConfigurationReady |
+| `deploy`, depending on `configure` | Converge the Deployment; report DeploymentApplied |
+| `expose`, depending on `deploy` | Converge the Service; report ServiceReady |
+| `available`, depending on `expose` | Read the current rollout; report WorkloadAvailable and ready replicas |
+
+A waiting stage stops the pass and schedules another reconciliation. Every pass
+runs from configuration again; status conditions describe observations, not
+checkpoints. Child watches repair drift. `app.main()` supplies the common CLI.
 
 ## Run the whole demo
 
-From a checkout of this PR, with Python 3.14, uv, Docker, kind, kubectl and
+From the repository root, with Python 3.14, uv, Docker, kind, kubectl and
 openssl available:
 
 ```bash
@@ -78,7 +91,7 @@ Use `install` with the same options to wait for CRDs and the Deployment before
 registering webhooks. The runtime mounts the Secret; it does not need the public
 CA file. See [operator documentation](../../docs/operators.md) for embedding and TLS.
 
-`owns(ConfigMap, Deployment, Service)` declares watches and get/list/watch/create/
+`owns=(ConfigMap, Deployment, Service)` declares watches and get/list/watch/create/
 patch permissions. `ctx.ensure(...)` defaults child identity from the Widget,
 sets the controller owner, and refuses to adopt an unrelated object with that name.
 Omitted fields survive, maps merge, lists replace, and explicit `None` clears a
@@ -87,7 +100,7 @@ obsolete children explicitly and declare the corresponding delete permission.
 Use explicit names when managing multiple children of the same kind.
 
 For a referenced dependency that belongs to another controller, use
-`@controller.watch(Resource)` and `ctx.client(Resource)`; do not use `ensure`.
+`@controller.watch(Resource)` and `await ctx.client(Resource)`; do not use `ensure`.
 
 ## Cleanup
 
@@ -98,8 +111,3 @@ kind delete cluster --name cloudcoil-widgets
 The CI live test imports this exact reconciler and exercises three-child creation,
 CR updates, drift repair, deletion/recreation, allocated Service field preservation,
 status persistence and admission policy reads against Kubernetes.
-
-
-The controller uses @stage(depends=...) for configuration, deployment, service and
-rollout readiness. Admission policies use @widgets.validate()/mutate(). Large desired
-resource definitions remain ordinary helper functions below the stage outline.
