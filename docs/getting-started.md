@@ -47,21 +47,16 @@ and [logs](logs.md) for workload log collection.
 Save this as `app.py`:
 
 ```python
-from cloudcoil.controller import Controller, Request
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 from cloudcoil.application import Application
 
-async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
-    obj = request.resource
-    if obj is None or (obj.metadata and obj.metadata.deletion_timestamp):
-        return None
-    obj.data = {**(obj.data or {}), "managed-by": "cloudcoil"}
-    return obj
+app = Application("configmap-labeler")
+configs = app.controller(ConfigMap, label_selector="example.com/manage=true")
 
-app = Application(
-    "configmap-labeler",
-    Controller(ConfigMap, reconcile, label_selector="example.com/manage=true"),
-)
+@configs.reconcile()
+async def reconcile(config: ConfigMap) -> ConfigMap:
+    config.data = {**(config.data or {}), "managed-by": "cloudcoil"}
+    return config
 
 if __name__ == "__main__":
     app.main()
@@ -102,3 +97,4 @@ The [Widget demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widg
 is a complete CRD and operator with three child kinds, readiness, TLS and admission.
 The [pattern guide](patterns.md) covers shared dependencies, existing resources,
 pruning, finalizers and multiple controllers.
+

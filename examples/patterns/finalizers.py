@@ -7,7 +7,6 @@ Replace it with a durable API adapter for actual external resources.
 from typing import Protocol
 
 from cloudcoil.application import Application
-from cloudcoil.controller import Controller, Request, Result, ensure_finalizer, remove_finalizer
 from cloudcoil.crd import custom_resource
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
@@ -43,25 +42,20 @@ class MemoryProvider:
 def build_app(provider: Provider | None = None) -> Application:
     external = provider if provider is not None else MemoryProvider()
 
-    async def reconcile(request: Request[ExternalRecord]) -> Result | None:
-        obj = request.resource
-        if not obj or not obj.metadata or not obj.metadata.uid:
-            return None  # Cache absence never authorizes external deletion.
-        if obj.metadata.deletion_timestamp:
-            if FINALIZER in (obj.metadata.finalizers or []):
-                await external.delete(obj.metadata.uid)  # Idempotent; retry errors normally.
-                await remove_finalizer(obj, FINALIZER, config=request.config)
-            return None
-        # Persist this before the first external side effect. A returned resource
-        # would not be persisted until after this callback completes.
-        uid = obj.metadata.uid
-        obj = await ensure_finalizer(obj, FINALIZER, config=request.config)
-        if obj.metadata and obj.metadata.deletion_timestamp:
-            return Result(requeue_after=0)  # Deletion may begin during the live finalizer read.
-        await external.put(uid, obj.spec.value)
-        return Result(requeue_after=60)  # External changes have no Kubernetes watch.
+    app = Application("external-records")
+    records = app.controller(ExternalRecord)
 
-    return Application("external-records", Controller(ExternalRecord, reconcile))
+    @records.reconcile(every=60)
+    async def reconcile(record: ExternalRecord) -> None:
+        assert record.metadata and record.metadata.uid
+        await external.put(record.metadata.uid, record.spec.value)
+
+    @records.finalize(FINALIZER)
+    async def cleanup(record: ExternalRecord) -> None:
+        assert record.metadata and record.metadata.uid
+        await external.delete(record.metadata.uid)
+
+    return app
 
 
 if __name__ == "__main__":

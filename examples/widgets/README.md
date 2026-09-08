@@ -6,7 +6,7 @@ collection removes children when their Widget is deleted. A webhook adds a label
 and checks an optional namespace policy using the same client API as reconciliation.
 
 The implementation is in [`../widget_operator.py`](../widget_operator.py). It has
-one resource declaration, one reconciler and one `Application(...).main()` entry point.
+one resource declaration, decorated stages and admission policies, and one app.main() entry point.
 
 ## Run the whole demo
 
@@ -79,7 +79,7 @@ registering webhooks. The runtime mounts the Secret; it does not need the public
 CA file. See [operator documentation](../../docs/operators.md) for embedding and TLS.
 
 `owns(ConfigMap, Deployment, Service)` declares watches and get/list/watch/create/
-patch permissions. `request.ensure(...)` defaults child identity from the Widget,
+patch permissions. `ctx.ensure(...)` defaults child identity from the Widget,
 sets the controller owner, and refuses to adopt an unrelated object with that name.
 Omitted fields survive, maps merge, lists replace, and explicit `None` clears a
 field. There is no automatic pruning: if a variable child set shrinks, delete the
@@ -87,7 +87,7 @@ obsolete children explicitly and declare the corresponding delete permission.
 Use explicit names when managing multiple children of the same kind.
 
 For a referenced dependency that belongs to another controller, use
-`watch(Resource, mapper=...)` and `request.client(Resource)`; do not use `ensure`.
+`@controller.watch(Resource)` and `ctx.client(Resource)`; do not use `ensure`.
 
 ## Cleanup
 
@@ -98,3 +98,8 @@ kind delete cluster --name cloudcoil-widgets
 The CI live test imports this exact reconciler and exercises three-child creation,
 CR updates, drift repair, deletion/recreation, allocated Service field preservation,
 status persistence and admission policy reads against Kubernetes.
+
+
+The controller uses @stage(depends=...) for configuration, deployment, service and
+rollout readiness. Admission policies use @widgets.validate()/mutate(). Large desired
+resource definitions remain ordinary helper functions below the stage outline.

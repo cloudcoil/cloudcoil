@@ -66,6 +66,11 @@ cancellable, and use external fencing where side effects require it. This follow
 the limitations described by [client-go leader election](https://pkg.go.dev/k8s.io/client-go/tools/leaderelection).
 See also [Kubernetes Leases](https://kubernetes.io/docs/concepts/architecture/leases/).
 
+For application startup/cleanup, use [lifespan decorators](operators.md#lifespan-decorators).
+A leader-scoped hook receives LifecycleEvent with LEADERSHIP_ACQUIRED at entry and
+SHUTDOWN, LEADERSHIP_LOST or FAILURE in its finally block. Workers stop before that
+cleanup, and lease release follows it. Process-scoped hooks also run on standby replicas.
+
 ## Health and metrics
 
 ```python
@@ -125,3 +130,4 @@ ready work to drain. `shutdown(immediate=True)` also discards ready work. Neithe
 cancels in-flight work; the caller owns worker tasks. `await join()` waits for
 accepted work to finish. Keys are not persisted: a controller must list current
 state on startup to recover after process restarts.
+

@@ -5,17 +5,27 @@ controller manager into one application definition. Use `app.main()` instead
 of writing argument parsing, signal handling, or client cleanup for each operator.
 
 ```python
-from cloudcoil.controller import Controller
 from cloudcoil.application import Application
+from cloudcoil.controller import Context
+from cloudcoil.admission import AdmissionRequest
 from cloudcoil.application import RBACRule, WebhookServer
 
 app = Application(
     "widgets",
-    Controller(Widget, reconcile).owns(ConfigMap, Deployment, Service),
     rules=(RBACRule(ConfigMap, ("get",), resource_names=("widget-policy",)),),
     webhook=WebhookServer(tls_secret="widgets-tls"),
     leader_election=True,
 )
+
+widgets = app.controller(Widget, owns=(ConfigMap, Deployment, Service))
+
+@widgets.reconcile()
+async def reconcile(widget: Widget, ctx: Context[Widget]) -> None:
+    await ctx.ensure(desired_deployment(widget))
+
+@widgets.validate()
+async def validate(request: AdmissionRequest[Widget]) -> None:
+    ...  # Raise AdmissionDenied for an invalid request.
 
 if __name__ == "__main__":
     app.main()
@@ -23,8 +33,7 @@ if __name__ == "__main__":
 
 The [complete Widget example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py)
 defines the resource, policies, reconciler, and operator in one module. It maintains
-an owned ConfigMap, Deployment and Service using `request.ensure(...)`, and returns
-the Widget with updated status for automatic patching. The
+an owned ConfigMap, Deployment and Service using `ctx.ensure(...)`, with decorated stages and automatic status reporting. The
 [local demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets) includes
 a Dockerfile, TLS setup, installation, drift repair and admission policy checks.
 Handwritten resources inherit normal client operations; for explicit access use
@@ -153,8 +162,8 @@ operator without webhooks, pass `health=HealthServer(...)` to expose the manager
 health server. `app.manager` becomes available during startup for direct
 manager readiness and metrics access.
 
-Controllers and webhooks both use `await request.client(ResourceType)` for a live
-client of any kind, defaulting to the request namespace and sharing the operator
+Controllers use `await ctx.client(ResourceType)` and admission uses
+`await request.client(ResourceType)` for a live client of any kind, defaulting to the request namespace and sharing the operator
 connection. Callbacks do not manage connections or their lifetime.
 
 All managed controllers share the operator Config. For controllers targeting
@@ -166,6 +175,61 @@ The lower-level `CRD`, `AdmissionWebhook`, and `Manager` remain usable independe
 The [pattern examples](patterns.md) cover informer get/list,
 shared dependencies, existing-resource aggregation, child pruning, finalizers,
 multiple controllers, and admission on built-in or externally defined resources.
-Use `request.cached(Kind)` for explicit informer snapshots and
-`await request.client(Kind)` for live API access. Standalone webhook routes can be
-passed as `Application(..., admission=policies)` without registering a CRD or controller.
+Use `ctx.cached(Kind)` for controller snapshots and `await ctx.client(Kind)` for
+live API access. Register standalone policies with `@app.validate(Model)` and
+`@app.mutate(Model)` without adding a CRD or controller.
+
+
+## Lifespan decorators
+
+```python
+from collections.abc import AsyncIterator
+from cloudcoil.application import LifecycleEvent, LifecycleType
+
+@app.lifespan()
+async def process(event: LifecycleEvent) -> AsyncIterator[None]:
+    async with provider:
+        yield
+
+@app.lifespan(scope="leader")
+async def leadership(event: LifecycleEvent) -> AsyncIterator[None]:
+    # Lease is acquired and renewed while this scope is active.
+    await leader_services.start()
+    try:
+        yield
+    finally:
+        # Reconciliation workers have stopped. Read the updated exit event here.
+        if event.type == LifecycleType.LEADERSHIP_LOST:
+            logger.warning("Lost leadership: %s", event.error)
+        await leader_services.stop()
+```
+
+Each scope has one async-generator hook, taking zero arguments or a LifecycleEvent.
+Compose multiple resources with async with/AsyncExitStack inside it. Use finally for
+cleanup on cancellation; statements after an unguarded yield can be skipped.
+
+| Scope | Entry event | Exit event | Lifetime |
+| --- | --- | --- | --- |
+| process (default) | STARTUP | SHUTDOWN, FAILURE, or LEADERSHIP_LOST | Every replica, around webhook and controller execution |
+| leader | LEADERSHIP_ACQUIRED | SHUTDOWN, LEADERSHIP_LOST, or FAILURE | After lease acquisition, before controller startup; exits after workers stop, before lease release |
+
+The same event object's type/error are updated before cleanup; identity identifies
+the election participant. A leader scope requires configured leader election and
+at least one controller. Standbys enter only the process scope. Offline manifests
+and installation do not enter either scope. Hooks register before runtime starts;
+late registration fails. Startup must complete before handlers are started.
+
+On loss the runtime cancels and joins workers, runs leader cleanup, attempts guarded
+lease release, and exits. It does not reacquire within the same manager instance.
+Cleanup after loss must not assume lease ownership or delete shared external state.
+Lifecycle hooks manage process services; resource finalizers manage object deletion.
+See the [lifecycle example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/lifespan.py).
+
+## Definition validation
+
+An initially empty Application is valid while decorators register components.
+Manifest generation validates the completed registry offline; run validates and
+freezes it before network startup. Include reusable groups with app.include(group),
+or create/include them together with app.controller(Model, ...). Duplicate inclusion,
+ambiguous stage/case order, missing fallbacks, conflicting routes and missing webhook
+hosting configuration fail explicitly. Registration does not execute handler code.

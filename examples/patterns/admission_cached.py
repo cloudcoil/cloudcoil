@@ -2,15 +2,22 @@
 
 from cloudcoil.models.kubernetes.core.v1 import Namespace, Pod
 
-from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
+from cloudcoil.admission import AdmissionDenied, AdmissionRequest
 from cloudcoil.application import Application, RBACRule, WebhookServer
 from cloudcoil.caching import Cache
 
 
 def build_app() -> Application:
-    policies = AdmissionWebhook()
+    app = Application(
+        "namespace-policy",
+        cache=Cache(
+            resources=[Namespace], mode="strict", wait_for_sync=True, max_items_per_resource=0
+        ),
+        rules=(RBACRule(Namespace, ("get", "list", "watch")),),
+        webhook=WebhookServer(tls_secret="namespace-policy-tls"),
+    )
 
-    @policies.validating(
+    @app.validate(
         Pod,
         path="/namespace-policy",
         namespace_selector={"matchLabels": {"patterns.cloudcoil.dev/enforce": "true"}},
@@ -27,15 +34,7 @@ def build_app() -> Application:
                 "Namespace must opt in with patterns.cloudcoil.dev/allow-pods=true"
             )
 
-    return Application(
-        "namespace-policy",
-        admission=policies,
-        cache=Cache(
-            resources=[Namespace], mode="strict", wait_for_sync=True, max_items_per_resource=0
-        ),
-        rules=(RBACRule(Namespace, ("get", "list", "watch")),),
-        webhook=WebhookServer(tls_secret="namespace-policy-tls"),
-    )
+    return app
 
 
 if __name__ == "__main__":

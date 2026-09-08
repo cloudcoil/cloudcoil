@@ -7,9 +7,10 @@ current generated Kubernetes models installed (see [the Widget demo](https://git
 | Pattern | Example | Reads and writes |
 | --- | --- | --- |
 | Mirror objects of the same kind | [ConfigMap mirror](https://github.com/cloudcoil/cloudcoil/blob/main/examples/configmap_controller.py) | Ensure missing children; guarded replacement of the complete data map |
-| One CR manages several child kinds | [Widget](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py) | `ensure` ConfigMap, Deployment and Service; return parent status |
+| One CR manages several child kinds | [Widget](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py) | `ensure` ConfigMap, Deployment and Service; decorated stages and automatic status |
+| Cases within a stage | [Conditional configuration](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/conditional_config.py) | First-match branches with a dependent checksum stage |
 | Watch dependencies without owning them | [Dependency rollout](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/dependency_rollout.py) | Cache-get referenced ConfigMaps; reverse-map changes to opted-in Deployments |
-| Aggregate existing resources | [Workload summary](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/workload_summary.py) | Cache-list Pods by labels; return CR status; no Pod writes |
+| Aggregate existing resources | [Workload summary](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/workload_summary.py) | Cache-list Pods by labels; report CR status; no Pod writes |
 | Variable number of children and pruning | [Child set](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/child_set.py) | Ensure desired ConfigMaps; cache-list old children; delete with UID/version guards |
 | External resources and periodic repair | [Finalizers](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/finalizers.py) | Persist finalizer before side effects; retry idempotent cleanup; timed requeue |
 | Several controllers in one process | [Multiple controllers](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/multiple_controllers.py) | Shared runtime and clients, leader election, separate reconcilers |
@@ -105,3 +106,7 @@ Unlike `ensure` map merging, this example intentionally replaces the entire chil
 data map to remove keys deleted from the source. It uses `mutate` for that guarded
 replacement. Leader election and probes on port 8080 are configured on the Application;
 the example no longer needs its own signal handling or separate CLI flags.
+
+
+The [lifespan example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/lifespan.py)
+shows process and leader scopes, typed acquisition/loss/shutdown events, and cleanup ordering.

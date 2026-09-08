@@ -6,7 +6,10 @@ from examples.patterns.workload_summary import controller as summary
 
 
 def build_app() -> Application:
-    return Application("workload-tools", reloader(), summary(), leader_election=True)
+    app = Application("workload-tools", leader_election=True)
+    app.include(reloader())
+    app.include(summary())
+    return app
 
 
 if __name__ == "__main__":

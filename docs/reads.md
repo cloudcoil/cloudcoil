@@ -1,15 +1,16 @@
 # Live clients and informer reads
 
-Controllers and admission callbacks use the same two explicit entry points:
+Controller Context and AdmissionRequest both expose explicit live clients and caches.
+In a decorated controller:
 
 ```python
 # Live API access to any kind; async, using the shared Config.
-client = await request.client(ConfigMap)
+client = await ctx.client(ConfigMap)
 config = await client.get("settings")
 
 # Local snapshots from an already registered informer; synchronous.
-config = request.cached(ConfigMap).get("settings")
-pods = request.cached(Pod).list(labels={"app": "web"})
+config = ctx.cached(ConfigMap).get("settings")
+pods = ctx.cached(Pod).list(labels={"app": "web"})
 ```
 
 | Read | Source | Missing object | Scope |
@@ -25,8 +26,8 @@ it does not mutate the shared Config. Declare extra API permissions with
 
 ## Controller informers
 
-The primary kind is registered automatically. Use `.owns(ChildKind, ...)` for
-owned children, or `.watch(DependencyKind, mapper=...)` for unowned dependencies.
+The primary kind is registered automatically. Use `owns=(ChildKind, ...)` for
+owned children, or `@controller.watch(DependencyKind)` for unowned dependencies.
 A mapper can list `controller.cached(PrimaryKind)` to find affected parents.
 The primary informer syncs before secondary handlers start. Updates map both old
 and new objects, so removing a label or reference also reconciles former dependents.
@@ -73,7 +74,6 @@ from cloudcoil.application import RBACRule, WebhookServer
 
 app = Application(
     "namespace-policy",
-    admission=policies,
     cache=Cache(
         resources=[Namespace],
         mode="strict",
@@ -85,6 +85,7 @@ app = Application(
 )
 ```
 
+Register policies with @app.validate(Model) or @app.mutate(Model).
 Each replica syncs this cache before serving. `request.cached(Kind)` requires the
 kind in `Cache.resources`. Use one configured namespace or `namespaces=None` for
 all namespaces. `max_items_per_resource=0` disables eviction. If you pass an explicit
@@ -99,3 +100,4 @@ Callbacks must not write external state, including on dry runs.
 
 See [client caching](caching.md) for cached resource methods and direct informer
 subscriptions outside the operator runtime.
+

@@ -38,21 +38,16 @@ locally and ServiceAccount credentials in a Pod.
 ## Write a controller
 
 ```python
-from cloudcoil.controller import Controller, Request
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 from cloudcoil.application import Application
 
-async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
-    obj = request.resource
-    if obj is None or (obj.metadata and obj.metadata.deletion_timestamp):
-        return None
-    obj.data = {**(obj.data or {}), "managed-by": "cloudcoil"}
-    return obj
+app = Application("configmap-labeler")
+configs = app.controller(ConfigMap, label_selector="example.com/manage=true")
 
-app = Application(
-    "configmap-labeler",
-    Controller(ConfigMap, reconcile, label_selector="example.com/manage=true"),
-)
+@configs.reconcile()
+async def reconcile(config: ConfigMap) -> ConfigMap:
+    config.data = {**(config.data or {}), "managed-by": "cloudcoil"}
+    return config
 
 if __name__ == "__main__":
     app.main()
@@ -88,3 +83,4 @@ The [Widget demo](examples/widgets/README.md) builds and deploys a complete oper
 with a CRD, ConfigMap, Deployment, Service, readiness and HTTPS admission.
 
 Licensed under [Apache-2.0](LICENSE).
+
