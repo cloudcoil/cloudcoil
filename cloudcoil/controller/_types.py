@@ -7,11 +7,22 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from cloudcoil.caching._reader import CachedResources
 from cloudcoil.resources import Resource
 
+from ._status import get_condition, set_condition, update_status
+
 if TYPE_CHECKING:
     from cloudcoil.caching._informer import AsyncInformer
     from cloudcoil.client import AsyncAPIClient, Config
 
     from ._events import EventRecorder
+
+
+@dataclass
+class _Report:
+    status: Any = None
+    dirty: bool = False
+    managed: bool = False
+    pending: list[str] = field(default_factory=list)
+    events: list[tuple[str, str, Literal["Normal", "Warning"], str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -48,6 +59,69 @@ class Request[T: Resource]:
         default_factory=dict, repr=False, compare=False
     )
     _events: "EventRecorder | None" = field(default=None, repr=False, compare=False)
+    _report: _Report = field(default_factory=_Report, repr=False, compare=False)
+
+    @property
+    def object(self) -> T:
+        """The present primary object; stages are only invoked for present objects."""
+        if self.resource is None:
+            raise ValueError("The primary resource is absent from the watched scope")
+        return self.resource
+
+    def set_status(self, **changes: Any) -> None:
+        """Stage validated status fields for persistence, even if the handler fails.
+
+        Only explicit helper updates are saved on failure, never spec or metadata.
+        Ordinary resource edits still require returning the resource on success.
+        """
+        update_status(self.object, **changes)
+        self._report.status = self.object.status.model_copy(deep=True)  # type: ignore[attr-defined]
+        self._report.dirty = True
+
+    def condition(
+        self,
+        condition: str,
+        status: bool | Literal["True", "False", "Unknown"],
+        *,
+        reason: str,
+        message: str = "",
+        event: bool = False,
+        warning: bool = False,
+    ) -> None:
+        """Stage a standard condition; optionally emit an Event on a transition.
+
+        A changed truth value or reason counts as an Event transition. Message and
+        generation-only changes do not. Events flush only after status persistence.
+        """
+        previous = get_condition(self.object, condition)
+        set_condition(self.object, condition, status, reason=reason, message=message)
+        self.set_status()
+        current = get_condition(self.object, condition)
+        assert current is not None
+        if event and (
+            previous is None
+            or (previous.status, previous.reason) != (current.status, current.reason)
+        ):
+            self._report.events.append(
+                (reason, message, "Warning" if warning else "Normal", condition)
+            )
+
+    def _failed(self, error: Exception) -> None:
+        """Report stable, non-sensitive failure details for the active stage."""
+        report = self._report
+        name = report.pending[0] if report.pending else "Reconcile"
+        reason = "TerminalError" if isinstance(error, TerminalError) else "ReconcileFailed"
+        message = f"{name} failed ({type(error).__name__}); see controller logs"
+        if report.managed:
+            if report.pending:
+                self.condition(
+                    name, False, reason=reason, message=message, event=True, warning=True
+                )
+            for pending in report.pending[1:]:
+                self.condition(pending, "Unknown", reason="DependencyNotReady")
+            self.condition("Ready", False, reason=reason, message=message)
+        elif report.pending:
+            report.events.append((reason, message, "Warning", name))
 
     async def event(
         self, reason: str, message: str, *, type: Literal["Normal", "Warning"] = "Normal"
@@ -112,6 +186,25 @@ class Result:
             not math.isfinite(self.requeue_after) or self.requeue_after < 0
         ):
             raise ValueError("requeue_after must be finite and nonnegative")
+
+
+@dataclass(frozen=True)
+class Wait:
+    """Normal progress: stop this pass and retry after a bounded delay or a watch.
+
+    Unlike an exception, waiting does not count as a failure or increase backoff.
+    A positive default avoids silently stalling on dependencies without watches.
+    """
+
+    reason: str
+    message: str = ""
+    requeue_after: float = 30
+
+    def __post_init__(self) -> None:
+        if not self.reason:
+            raise ValueError("Wait needs a reason")
+        if not math.isfinite(self.requeue_after) or self.requeue_after <= 0:
+            raise ValueError("Wait requeue_after must be finite and positive")
 
 
 class TerminalError(Exception):

@@ -8,11 +8,13 @@ from ._manager import Manager
 from ._metrics import ControllerStatus
 from ._mutations import ensure_finalizer, mutate, remove_finalizer
 from ._queue import QueueClosed, WorkQueue
+from ._stages import Cases, Stage, Stages
 from ._status import ReconcileStatus, get_condition, set_condition, update_status
-from ._types import Request, ResourceKey, Result, TerminalError
+from ._types import Request, ResourceKey, Result, TerminalError, Wait
 
 __all__ = [
     "Controller",
+    "Cases",
     "ControllerStatus",
     "EventRecorder",
     "HealthServer",
@@ -25,6 +27,9 @@ __all__ = [
     "ResourceKey",
     "Result",
     "TerminalError",
+    "Stage",
+    "Stages",
+    "Wait",
     "WorkQueue",
     "ensure_finalizer",
     "get_condition",
