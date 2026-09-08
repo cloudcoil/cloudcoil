@@ -56,10 +56,14 @@ def _start[T: Resource](
 
 
 async def _run[T: Resource](request: Request[T], stage: Stage[T]) -> Wait | None:
+    invalid_handler = f"Stage {stage.name!r} must return an awaitable; use an async handler"
     try:
         invocation = stage.run(request)
-        if not inspect.isawaitable(invocation):
-            raise TypeError(f"Stage {stage.name!r} must return an awaitable; use an async handler")
+    except Wait as error:
+        raise TypeError(invalid_handler) from error
+    if not inspect.isawaitable(invocation):
+        raise TypeError(invalid_handler)
+    try:
         result = await invocation
     except Wait as wait:
         result = wait
