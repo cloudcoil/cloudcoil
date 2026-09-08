@@ -7,6 +7,8 @@ The [published guide](https://cloudcoil.github.io/cloudcoil/patterns/) has the s
 | Pattern | Example | Reads and writes |
 | --- | --- | --- |
 | One CR manages several child kinds | [Widget](../widget_operator.py) | `ensure` ConfigMap, Deployment and Service; return parent status |
+| Ordered stages and rollout readiness | [Widget](../widget_operator.py) | Named stages; automatic conditions, Events, waiting and error retries |
+| First-match cases with explicit priority | [Conditional config](conditional_config.py) | Suspend, wait for a dependency, or converge an owned ConfigMap |
 | Watch dependencies without owning them | [Dependency rollout](dependency_rollout.py) | Cache-get referenced ConfigMaps; reverse-map changes to opted-in Deployments |
 | Aggregate existing resources | [Workload summary](workload_summary.py) | Cache-list Pods by labels; return CR status; no Pod writes |
 | Variable number of children and pruning | [Child set](child_set.py) | Ensure desired ConfigMaps; cache-list old children; delete with UID/version guards |

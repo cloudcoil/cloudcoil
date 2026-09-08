@@ -4,7 +4,7 @@ from cloudcoil.models.kubernetes.core.v1 import Pod
 from pydantic import Field
 
 from cloudcoil.application import Application
-from cloudcoil.controller import Controller, Request, ResourceKey
+from cloudcoil.controller import Controller, ReconcileStatus, Request, ResourceKey, update_status
 from cloudcoil.crd import custom_resource
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
@@ -14,10 +14,9 @@ class WorkloadSpec(BaseModel):
     selector: dict[str, str] = Field(min_length=1)
 
 
-class WorkloadStatus(BaseModel):
-    pods: int
-    ready: int
-    observed_generation: int | None = Field(default=None, alias="observedGeneration")
+class WorkloadStatus(ReconcileStatus):
+    pods: int = 0
+    ready: int = 0
 
 
 @custom_resource(api_version="patterns.cloudcoil.dev/v1alpha1", plural="workloads")
@@ -36,10 +35,9 @@ async def reconcile(request: Request[Workload]) -> Workload | None:
         for pod in pods
         if pod.status and not (pod.metadata and pod.metadata.deletion_timestamp)
     )
-    obj.status = WorkloadStatus(
-        pods=len(pods), ready=ready, observedGeneration=obj.metadata.generation
+    return update_status(
+        obj, pods=len(pods), ready=ready, observedGeneration=obj.metadata.generation
     )
-    return obj
 
 
 def controller() -> Controller[Workload]:

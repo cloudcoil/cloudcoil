@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock
 import httpx
 import pytest
 from cloudcoil.models.kubernetes.apps.v1 import Deployment
-from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Namespace, Pod
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Namespace, Pod, Service
 
 from cloudcoil.admission import AdmissionRequest
 from cloudcoil.caching import AsyncInformer, CachedResources
@@ -136,6 +136,94 @@ async def test_workload_aggregates_existing_pods_and_maps_label_changes():
     assert mapper(pod) == [ResourceKey("summary", "tenant")]
     pod.metadata.labels = {"app": "elsewhere"}
     assert mapper(pod) == []
+
+
+@pytest.mark.parametrize(
+    "observed,updated,total,available,complete",
+    [
+        (1, 1, 1, 1, False),
+        (2, 0, 1, 1, False),
+        (2, 1, 2, 1, False),
+        (2, 1, 1, 0, False),
+        (2, 1, 1, 1, True),
+    ],
+)
+async def test_widget_stages_check_current_rollout(
+    observed, updated, total, available, complete, monkeypatch
+):
+    from unittest.mock import AsyncMock
+
+    from cloudcoil.controller import get_condition
+    from examples import widget_operator as example
+
+    obj = example.Widget(
+        metadata={"name": "widget", "namespace": "tenant", "uid": "parent", "generation": 2},
+        spec=example.WidgetSpec(message="hello"),
+    )
+    deployment = Deployment.model_validate(
+        {
+            "metadata": {"name": "widget", "generation": 2},
+            "spec": {
+                "replicas": 1,
+                "selector": {"matchLabels": {"app": "widget"}},
+                "template": {
+                    "metadata": {"labels": {"app": "widget"}},
+                    "spec": {"containers": [{"name": "web", "image": "nginx:stable"}]},
+                },
+            },
+            "status": {
+                "observedGeneration": observed,
+                "updatedReplicas": updated,
+                "replicas": total,
+                "availableReplicas": available,
+                "readyReplicas": 1,
+            },
+        }
+    )
+    ensure = AsyncMock()
+    client = AsyncMock(return_value=SimpleNamespace(get=AsyncMock(return_value=deployment)))
+    monkeypatch.setattr(Request, "ensure", ensure)
+    monkeypatch.setattr(Request, "client", client)
+    req = Request(ResourceKey("widget", "tenant"), obj)
+    result = await example.reconcile(req)
+    assert [type(call.args[0]) for call in ensure.call_args_list] == [
+        ConfigMap,
+        Deployment,
+        Service,
+    ]
+    client.assert_awaited_once_with(Deployment)
+    assert get_condition(obj, "Ready").status == ("True" if complete else "False")
+    assert obj.status.phase == ("Ready" if complete else "Pending")
+    assert result.requeue_after == (None if complete else 10)
+
+
+async def test_conditional_example_suspension_dependency_and_convergence(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from cloudcoil.controller import get_condition
+    from examples.patterns import conditional_config as example
+
+    obj = example.ApplicationConfig(
+        metadata={"name": "consumer", "namespace": "tenant", "uid": "parent", "generation": 1},
+        spec=example.ConfigSpec(configMap="settings", suspended=True),
+    )
+    app = example.build_app()
+    ensure = AsyncMock()
+    monkeypatch.setattr(Request, "ensure", ensure)
+    # Suspended short-circuits without even accessing an informer.
+    req = Request(ResourceKey("consumer", "tenant"), obj)
+    assert (await app.controllers[0].reconcile(req)).requeue_after == 300
+    obj.spec.suspended = False
+    req = Request(req.key, obj, _informers={ConfigMap: informer(ConfigMap)})
+    assert (await app.controllers[0].reconcile(req)).requeue_after == 30
+    assert get_condition(obj, "Ready").reason == "ConfigMapMissing"
+    ensure.assert_not_awaited()
+    source = ConfigMap(metadata={"name": "settings", "namespace": "tenant"}, data={"key": "value"})
+    req = Request(req.key, obj, _informers={ConfigMap: informer(ConfigMap, source)})
+    await app.controllers[0].reconcile(req)
+    ensure.assert_awaited_once()
+    assert ensure.call_args.args[0].data == source.data
+    assert get_condition(obj, "Ready").status == "True"
 
 
 async def test_child_set_prunes_only_owned_entries_with_identity_guards():
@@ -333,6 +421,7 @@ async def test_admission_cache_requires_explicit_synced_replica_local_informer()
     "module",
     [
         "dependency_rollout",
+        "conditional_config",
         "workload_summary",
         "child_set",
         "finalizers",

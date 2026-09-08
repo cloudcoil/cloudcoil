@@ -16,7 +16,7 @@ from pydantic import Field
 
 from cloudcoil.admission import AdmissionDenied, AdmissionRequest, mutating, validating
 from cloudcoil.application import Application, RBACRule, WebhookServer
-from cloudcoil.controller import Controller, Request
+from cloudcoil.controller import Controller, ReconcileStatus, Request, Stage, Stages, Wait
 from cloudcoil.crd import PrinterColumn, custom_resource
 from cloudcoil.errors import ResourceNotFound
 from cloudcoil.pydantic import BaseModel
@@ -28,9 +28,8 @@ class WidgetSpec(BaseModel):
     replicas: int = Field(default=1, ge=1, le=5)
 
 
-class WidgetStatus(BaseModel):
-    phase: Annotated[Literal["Pending", "Ready"], PrinterColumn(name="Phase")]
-    observed_generation: int | None = Field(default=None, alias="observedGeneration")
+class WidgetStatus(ReconcileStatus):
+    phase: Annotated[Literal["Pending", "Ready"], PrinterColumn(name="Phase")] = "Pending"
     ready_replicas: int = Field(default=0, alias="readyReplicas")
 
 
@@ -72,15 +71,17 @@ class Widget(Resource):
             raise AdmissionDenied(f"Namespace policy limits messages to {limit} characters")
 
 
-async def reconcile(request: Request[Widget]) -> Widget | None:
-    obj = request.resource
-    if obj is None or obj.metadata is None or obj.metadata.deletion_timestamp:
-        return None
+async def configure(request: Request[Widget]) -> None:
+    obj = request.object
     # Names, namespaces and controller owner references come from the parent.
     # ensure preserves fields we omit (e.g. Service.clusterIP) and skips no-op writes.
     await request.ensure(ConfigMap(data={"index.html": f"<h1>{escape(obj.spec.message)}</h1>\n"}))
+
+
+async def deploy(request: Request[Widget]) -> None:
+    obj = request.object
     labels = {"examples.cloudcoil.dev/widget": request.name}
-    deployment = await request.ensure(
+    await request.ensure(
         Deployment.model_validate(
             {
                 "spec": {
@@ -111,6 +112,10 @@ async def reconcile(request: Request[Widget]) -> Widget | None:
             }
         )
     )
+
+
+async def expose(request: Request[Widget]) -> None:
+    labels = {"examples.cloudcoil.dev/widget": request.name}
     await request.ensure(
         Service.model_validate(
             {
@@ -118,15 +123,37 @@ async def reconcile(request: Request[Widget]) -> Widget | None:
             }
         )
     )
-    ready = (deployment.status.ready_replicas or 0) if deployment.status else 0
-    observed = deployment.status.observed_generation if deployment.status else None
-    current = bool(deployment.metadata and observed == deployment.metadata.generation)
-    obj.status = WidgetStatus(
-        phase="Ready" if current and ready >= obj.spec.replicas else "Pending",
-        observedGeneration=obj.metadata.generation,
-        readyReplicas=ready,
+
+
+async def available(request: Request[Widget]) -> Wait | None:
+    # Read our preceding writes live: a stale cache can report the old rollout Ready.
+    # Child watches still wake us when rollout progresses.
+    client = await request.client(Deployment)
+    deployment = await client.get(request.name)
+    status = deployment.status
+    replicas = request.object.spec.replicas
+    ready = (status.ready_replicas or 0) if status else 0
+    current = bool(
+        status
+        and deployment.metadata
+        and status.observed_generation == deployment.metadata.generation
+        and status.updated_replicas == replicas
+        and status.replicas == replicas
+        and status.available_replicas == replicas
     )
-    return obj  # The runtime patches /status; child events trigger the next pass.
+    request.set_status(phase="Ready" if current else "Pending", ready_replicas=ready)
+    if not current:
+        return Wait("RollingOut", f"{ready}/{replicas} replicas ready", requeue_after=10)
+    return None
+
+
+# Every pass repairs all children. None continues, Wait pauses, exceptions retry.
+reconcile = Stages(
+    Stage("ConfigurationReady", configure),
+    Stage("DeploymentApplied", deploy),
+    Stage("ServiceReady", expose),
+    Stage("WorkloadAvailable", available),
+)
 
 
 app = Application(

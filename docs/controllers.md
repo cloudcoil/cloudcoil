@@ -1,6 +1,7 @@
 # Controllers
 
-A reconciler reads the latest state and returns changes. `Application.main()` handles
+A reconciler reads the latest state and returns changes. For ordered work and branching,
+see [stages, conditions and Events](staged-controllers.md). `Application.main()` handles
 configuration, watches, retries, signals and cleanup. Start with the
 [quickstart](getting-started.md#write-a-controller) or browse the [patterns](patterns.md).
 
@@ -104,7 +105,9 @@ async def reconcile(request: Request[ConfigMap]) -> ConfigMap | None:
 
 The runtime retains an independent snapshot from dispatch, compares the returned
 resource against it, and sends only changed fields as JSON Patch. Editing
-`request.resource` and returning `None` does **not** save. Unchanged returned resources
+`request.resource` and returning `None` does **not** save. The explicit
+`request.set_status` and `request.condition` helpers opt into automatic status saving,
+including on failure; see the [status helper contract](staged-controllers.md#status-helpers). Unchanged returned resources
 produce no request, avoiding a write loop when the controller sees its own updates.
 All writes test UID and resourceVersion; conflicts retry the **whole reconciliation**
 against the latest cached state. The runtime never rebases a stale desired snapshot
