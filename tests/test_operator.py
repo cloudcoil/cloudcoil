@@ -363,4 +363,3 @@ def test_cli_container_command_preserves_options_and_quoted_arguments(capsys, co
     )
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     assert container["command"] == expected and container["args"] == ["run"]
-

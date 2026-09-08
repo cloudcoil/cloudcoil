@@ -232,7 +232,8 @@ def build_manifests(
                 _Identity("events.k8s.io", "events", "Namespaced"),
                 ("create",),
                 (controller._events.namespace or namespace)
-                if primary.scope == "Cluster" else watched_namespace,
+                if primary.scope == "Cluster"
+                else watched_namespace,
             )
         if primary.status:
             grant(primary, ("patch",), watched_namespace, ("status",))
