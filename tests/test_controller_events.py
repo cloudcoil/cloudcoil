@@ -53,15 +53,19 @@ async def test_cluster_scope_and_bounded_cache(sink):
     assert "namespace" not in json.loads(calls[0].content)["regarding"]
 
 
-async def test_global_limit_and_interval(sink):
+@pytest.mark.parametrize("start", [0.0, 7.9, 1_000_000.1])
+async def test_global_limit_and_interval(sink, start):
     config, calls = sink
     recorder = EventRecorder(interval=10)
-    now = recorder._last_token
+    now = start
+    recorder._last_token = now
     recorder._clock = lambda: now
     for i in range(30):
         await recorder.emit(widget(), f"Reason{i}", "x", config=config)
     assert len(calls) == 20
-    now += 10
+    now = start + 9.5
+    assert not await recorder.emit(widget(), "Reason0", "x", config=config)
+    now = start + 10
     assert await recorder.emit(widget(), "Reason0", "x", config=config)
 
 

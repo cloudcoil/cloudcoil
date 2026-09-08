@@ -67,6 +67,38 @@ async def test_stages_wait_then_recheck_all_work_and_repair_drift():
     assert get_condition(next_req.object, "ServiceReady").status == "Unknown"
 
 
+@pytest.mark.parametrize("mode", ["stages", "cases"])
+async def test_sync_stage_handler_has_actionable_error_and_stops_the_pass(mode):
+    calls = []
+
+    def invalid(req):
+        calls.append("invalid")
+
+    async def later(req):
+        calls.append("later")
+
+    if mode == "stages":
+        reconcile = Stages(Stage("ConfigurationReady", invalid), Stage("Later", later))
+    else:
+        reconcile = Cases()
+        reconcile.case("ConfigurationReady", when=lambda req: True)(invalid)
+        reconcile.otherwise("Later")(later)
+    with pytest.raises(TypeError, match="Stage 'ConfigurationReady' must return an awaitable"):
+        await reconcile(request())
+    assert calls == ["invalid"]
+
+
+async def test_stage_accepts_a_synchronous_factory_returning_an_awaitable():
+    calls = []
+
+    async def configure(req):
+        calls.append(req.name)
+
+    stages = Stages(Stage("ConfigurationReady", lambda req: configure(req)))
+    await stages(request())
+    assert calls == ["a"]
+
+
 async def test_cases_lazy_first_match_priority_and_fallback():
     cases = Cases[Widget]()
     calls = []

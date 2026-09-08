@@ -57,7 +57,10 @@ def _start[T: Resource](
 
 async def _run[T: Resource](request: Request[T], stage: Stage[T]) -> Wait | None:
     try:
-        result = await stage.run(request)
+        pending = stage.run(request)
+        if not inspect.isawaitable(pending):
+            raise TypeError(f"Stage {stage.name!r} must return an awaitable; use an async handler")
+        result = await pending
     except Wait as wait:
         result = wait
     if result is not None and not isinstance(result, Wait):
