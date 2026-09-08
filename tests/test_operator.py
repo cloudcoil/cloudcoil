@@ -122,7 +122,7 @@ def test_shared_config_and_policy_configuration_are_explicit(config):
     with pytest.raises(ValueError, match="share the operator Config"):
         Application("widgets", Controller(Widget, reconcile, config=config))
     with pytest.raises(ValueError, match="require webhook"):
-        Application("widgets", Controller(Policy, reconcile))
+        Application("widgets", Controller(Policy, reconcile)).manifests()
 
 
 async def test_lifecycle_stops_components_before_closing_owned_config(

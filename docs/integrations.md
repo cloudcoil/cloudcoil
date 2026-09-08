@@ -1,8 +1,11 @@
 # Model integrations
 
-Discover more Cloudcoil model integrations for popular Kubernetes operators and CRDs at [cloudcoil-models on GitHub](https://github.com/topics/cloudcoil-models).
+Install a model package to use typed clients for an existing Kubernetes API. These
+packages do not install upstream operators or CRDs. Match the model version to the
+API you run, and pin a compatible Cloudcoil minor; see the
+[versioning guide](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md).
 
-Current first-class integrations include:
+The core installation extras include:
 
 | Name | Github | PyPI |
 | ------- | ------- | -------  |
@@ -12,29 +15,30 @@ Current first-class integrations include:
 | [keda](https://github.com/kedacore/keda) | [models-keda](https://github.com/cloudcoil/models-keda) | [cloudcoil.models.keda](https://pypi.org/project/cloudcoil.models.keda) |
 | [knative-serving](https://github.com/knative/serving) | [models-knative-serving](https://github.com/cloudcoil/models-knative-serving) | [cloudcoil.models.knative_serving](https://pypi.org/project/cloudcoil.models.knative-serving) |
 | [knative-eventing](https://github.com/knative/eventing) | [models-knative-eventing](https://github.com/cloudcoil/models-knative-eventing) | [cloudcoil.models.knative_eventing](https://pypi.org/project/cloudcoil.models.knative-eventing) |
-| [kpack](https://github.com/pivotal/kpack) | [models-kpack](https://github.com/cloudcoil/models-kpack) | [cloudcoil.models.kpack](https://pypi.org/project/cloudcoil.models.kpack) |
+| [kpack](https://github.com/buildpacks-community/kpack) | [models-kpack](https://github.com/cloudcoil/models-kpack) | [cloudcoil.models.kpack](https://pypi.org/project/cloudcoil.models.kpack) |
 | [kyverno](https://github.com/kyverno/kyverno) | [models-kyverno](https://github.com/cloudcoil/models-kyverno) | [cloudcoil.models.kyverno](https://pypi.org/project/cloudcoil.models.kyverno) |
 | [prometheus-operator](https://github.com/prometheus-operator/prometheus-operator) | [models-prometheus-operator](https://github.com/cloudcoil/models-prometheus-operator) | [cloudcoil.models.prometheus_operator](https://pypi.org/project/cloudcoil.models.prometheus_operator) |
 | [sealed-secrets](https://github.com/bitnami-labs/sealed-secrets) | [models-sealed-secrets](https://github.com/cloudcoil/models-sealed-secrets) | [cloudcoil.models.sealed_secrets](https://pypi.org/project/cloudcoil.models.sealed_secrets) |
-| [velero](https://github.com/vmware-tanzu/velero) | [models-velero](https://github.com/cloudcoil/models-velero) | [cloudcoil.models.velero](https://pypi.org/project/cloudcoil.models.velero) |
+| [velero](https://github.com/velero-io/velero) | [models-velero](https://github.com/cloudcoil/models-velero) | [cloudcoil.models.velero](https://pypi.org/project/cloudcoil.models.velero) |
 
 You can install these integrations using
 
 ```bash
-uv add cloudcoil[kyverno]
+uv add 'cloudcoil[kyverno]'
 # You can also install multiple dependencies at once
-uv add cloudcoil[cert-manager,fluxcd,kyverno]
+uv add 'cloudcoil[cert-manager,fluxcd,kyverno]'
 # You can also install all available models in cloudcoil using
-uv add cloudcoil[all-models]
+uv add 'cloudcoil[all-models]'
 ```
 
 > Missing an integration you need? [Open a model request](https://github.com/cloudcoil/cloudcoil/issues/new?template=%F0%9F%94%8C-model-request.md) to suggest a new integration!
 
 ## New integration sources
 
-Generation configs and resource round-trip tests are available for the following
-projects. These packages are awaiting their initial PyPI publishing setup; generate
-from the checkout with `make gen-repo-<name>` in the meantime.
+Additional generation configurations and resource round-trip tests are maintained
+in this repository. They do not have core installation extras. Generate them from
+the checkout with `make gen-repo-<name>`; consult the corresponding model repository
+for its published packages.
 
 | Integration | Initially validated upstream version | Generation target |
 | --- | --- | --- |

@@ -4,36 +4,39 @@
 controller manager into one application definition. Use `app.main()` instead
 of writing argument parsing, signal handling, or client cleanup for each operator.
 
-```python
-from cloudcoil.controller import Controller
-from cloudcoil.application import Application
-from cloudcoil.application import RBACRule, WebhookServer
+A complete controller-only application needs one resource group and one handler:
 
-app = Application(
-    "widgets",
-    Controller(Widget, reconcile).owns(ConfigMap, Deployment, Service),
-    rules=(RBACRule(ConfigMap, ("get",), resource_names=("widget-policy",)),),
-    webhook=WebhookServer(tls_secret="widgets-tls"),
-    leader_election=True,
-)
+```python
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
+
+from cloudcoil.application import Application
+
+app = Application("settings", leader_election=True)
+configs = app.controller(ConfigMap, label_selector="example.com/manage=true")
+
+@configs.reconcile()
+async def reconcile(config: ConfigMap) -> ConfigMap:
+    config.data = {**(config.data or {}), "managed-by": "cloudcoil"}
+    return config
 
 if __name__ == "__main__":
     app.main()
 ```
 
-The [complete Widget example](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py)
-defines the resource, policies, reconciler, and operator in one module. It maintains
-an owned ConfigMap, Deployment and Service using `request.ensure(...)`, and returns
-the Widget with updated status for automatic patching. The
-[local demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets) includes
-a Dockerfile, TLS setup, installation, drift repair and admission policy checks.
-Handwritten resources inherit normal client operations; for explicit access use
-`client = await Widget.async_client(config)` and `await client.get("example")`.
+For reusable modules, create a `Controller(Model)` group and include it with
+`app.include(group)`. Definitions register without I/O; import modules explicitly
+before generating manifests or starting the runtime.
 
-Install `cloudcoil[operator,kubernetes]` for the shared HTTPS runtime. Uvicorn is an
-optional dependency; manifest generation and controller-only operators do not
-start or require an HTTP server. Until supported Kubernetes model packages are
-published, follow the [model generation instructions](getting-started.md#install).
+The [Widget operator](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py)
+adds a CRD, ordered stages, three owned child kinds, status and scoped admission.
+The [local demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets)
+builds an image, creates TLS credentials and tests the generated deployment.
+
+Install `cloudcoil[operator,kubernetes]` to host admission with the optional Uvicorn
+server. Configure `webhook=WebhookServer(tls_secret="widgets-tls")` on the
+Application and register [admission decorators](admission.md). Controller-only
+applications and offline manifest generation do not require an HTTP server.
+Use the [checkout setup](getting-started.md#run-the-checkout) for repository examples.
 
 ## Generate, install, run
 
@@ -100,7 +103,9 @@ remove admission registrations before removing their server.
 
 ## Resources and permissions
 
-Decorated primary resources are automatically included as CRDs. Add other owned
+Primary models annotated with `@custom_resource` are included in generated CRD
+manifests; `install` applies them. Ordinary generated resources do not imply CRD
+installation. Add other owned
 definitions through `resources=(OtherResource, CRD(...))`. Watched dependencies
 are not automatically installed: they may belong to another operator. Repeated
 definitions of the same CRD name fail, including competing single-version models.
@@ -113,6 +118,7 @@ RBAC inference covers the framework's own operations:
 | Enabled primary status | patch on `/status` |
 | Owned children (`owns`) | get, list, watch, create, patch |
 | Referenced dependencies (`watch`) | get, list, watch |
+| Enabled Events | create on events.k8s.io/events |
 | Leader election | create Leases; get/update the named Lease |
 | Arbitrary reconcile/webhook client calls | Declare with `RBACRule` |
 
@@ -137,12 +143,12 @@ the deployed application runs `run` with its generated ServiceAccount. The clien
 does not inspect Python function bodies to infer arbitrary API access.
 [Kubernetes RBAC rules](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
 
-## Lifecycle and embedding
+## Running and embedding
 
 `await app.run(stop=event)` embeds the runtime without replacing signal
 handlers. `app.main()` supplies SIGINT/SIGTERM handling. Owned clients close
 after workers and webhook requests have stopped; a supplied Config stays open.
-Fatal component errors stop sibling components and propagate. Each operator and
+Fatal component errors stop sibling components and propagate. Each Application and
 controller runs once; use a new instance for a restart.
 
 Webhook serving runs on every replica independently of manager leadership.
@@ -153,19 +159,38 @@ operator without webhooks, pass `health=HealthServer(...)` to expose the manager
 health server. `app.manager` becomes available during startup for direct
 manager readiness and metrics access.
 
-Controllers and webhooks both use `await request.client(ResourceType)` for a live
-client of any kind, defaulting to the request namespace and sharing the operator
+Controllers use `await ctx.client(ResourceType)` and admission uses
+`await request.client(ResourceType)` for a live client of any kind, defaulting to the request namespace and sharing the operator
 connection. Callbacks do not manage connections or their lifetime.
 
 All managed controllers share the operator Config. For controllers targeting
 different clusters, use separate operators or the lower-level `Manager` API.
-The lower-level `CRD`, `AdmissionWebhook`, and `Manager` remain usable independently.
+For a standalone client, webhook server or controller manager, the lower-level
+`CRD`, `AdmissionWebhook` and `Manager` remain usable independently.
 
 ## Common patterns
 
 The [pattern examples](patterns.md) cover informer get/list,
 shared dependencies, existing-resource aggregation, child pruning, finalizers,
 multiple controllers, and admission on built-in or externally defined resources.
-Use `request.cached(Kind)` for explicit informer snapshots and
-`await request.client(Kind)` for live API access. Standalone webhook routes can be
-passed as `Application(..., admission=policies)` without registering a CRD or controller.
+Use `ctx.cached(Kind)` for controller snapshots and `await ctx.client(Kind)` for
+live API access. Register standalone policies with `@app.validate(Model)` and
+`@app.mutate(Model)` without adding a CRD or controller.
+
+
+## Lifespans
+
+Register process resources with `@app.lifespan()` and leader-only resources with
+`@app.lifespan(scope="leader")`. Each hook pairs setup and cleanup around `yield`.
+An optional `LifecycleEvent` distinguishes normal shutdown, leadership loss and
+failure. See [lifespans and leadership](lifespan.md) for a complete example,
+event fields and cleanup ordering.
+
+## Definition validation
+
+An initially empty Application is valid while decorators register components.
+Manifest generation validates the completed registry offline; run validates and
+freezes it before network startup. Include reusable groups with app.include(group),
+or create/include them together with app.controller(Model, ...). Duplicate inclusion,
+ambiguous stage/case order, missing fallbacks, conflicting routes and missing webhook
+hosting configuration fail explicitly. Registration does not execute handler code.

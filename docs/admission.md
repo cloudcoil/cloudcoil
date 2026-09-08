@@ -6,26 +6,22 @@ to built-in resources and external CRDs without a controller or ownership.
 ## Standalone policies
 
 ```python
-from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
+from cloudcoil.admission import AdmissionDenied, AdmissionRequest
 from cloudcoil.models.kubernetes.apps.v1 import Deployment
-from cloudcoil.application import Application
-from cloudcoil.application import WebhookServer
+from cloudcoil.application import Application, WebhookServer
 
-policies = AdmissionWebhook()
+app = Application(
+    "deployment-policy",
+    webhook=WebhookServer(tls_secret="deployment-policy-tls"),
+)
 
-@policies.validating(Deployment, path="/replica-limit")
+@app.validate(Deployment, path="/replica-limit")
 async def replica_limit(request: AdmissionRequest[Deployment]) -> None:
     obj = request.resource
     if obj is not None and obj.spec is not None:
         replicas = obj.spec.replicas if obj.spec.replicas is not None else 1
         if replicas > 10:
             raise AdmissionDenied("At most ten replicas are allowed")
-
-app = Application(
-    "deployment-policy",
-    admission=policies,
-    webhook=WebhookServer(tls_secret="deployment-policy-tls"),
-)
 
 if __name__ == "__main__":
     app.main()
@@ -36,45 +32,32 @@ Installing admission does not scan or repair stored objects; subsequent matching
 requests are checked. The [complete Deployment policy](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_existing.py)
 also covers `/scale`, immutable fields, DELETE and live policy reads.
 
-## Policies on your resource
+## Scoped policies
 
-The same callbacks can live on a [custom resource](custom-resources.md). Inside the class:
+A controller group supplies its primary resource type. Using the Widget definition
+from the [custom resource guide](custom-resources.md):
 
 ```python
-from typing import Self
-from cloudcoil.admission import mutating, validating
+from cloudcoil.controller import Context
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
-@classmethod
-@validating()
-async def validate_message(cls, request: AdmissionRequest[Self]) -> None:
+widgets = app.controller(Widget, owns=(ConfigMap,))
+
+@widgets.reconcile()
+async def reconcile(widget: Widget, ctx: Context[Widget]) -> None:
+    await ctx.ensure(ConfigMap(data={"message": widget.spec.message}))
+
+@widgets.validate()
+async def validate_message(request: AdmissionRequest[Widget]) -> None:
     if request.resource is not None and not request.resource.spec.message.strip():
-        raise AdmissionDenied("Message must contain a non-whitespace character")
+        raise AdmissionDenied("Message must contain text")
 ```
 
-An `Application` discovers policies on its CRDs. For standalone ASGI hosting use
-`AdmissionWebhook(config=config).register(Widget)`.
+Decorated handlers take exactly one `AdmissionRequest`. Default paths are stable
+names derived from the handler, target and subresource. Set `path=` for a specific route;
+duplicate paths across groups fail before serving. Registration performs no network I/O.
 
 ## Callback contract
-
-Keep policies on the resource class with `@mutating()` and `@validating()` then register one or more models with `admission.register(Widget, Other)`.
-Use `@classmethod` outermost; `@staticmethod` also works. Class methods receive
-`AdmissionRequest[Self]`, so inherited policies remain typed to the concrete model
-and DELETE does not require a current instance. Normal Python method shadowing
-applies: overriding a method without the admission decorator removes that policy.
-Registration is atomic and rejects duplicate paths.
-
-The plural and scope come from `@custom_resource`. Default paths use the operation,
-DNS group components, version, plural, and method name; for example
-`/mutate/examples/cloudcoil/dev/v1alpha1/widgets/default-labels`. A decorator's
-`path=` can override it. Explicit functions remain supported for existing resource
-models or policies kept in another module:
-
-```python
-@policies.validating(Deployment, path="/additional-check")
-async def additional_check(request: AdmissionRequest[Deployment]) -> None:
-    if request.name.startswith("reserved-"):
-        raise AdmissionDenied("Names beginning with reserved- are reserved")
-```
 
 Handlers are async. `AdmissionRequest[T]` provides the typed current and old
 resources, operation, dry-run flag, user information, and the original object.
@@ -105,9 +88,9 @@ helpers. Do not call `mutate` or return reconciliation `Result` objects here.
 
 Registration defaults to CREATE and UPDATE. DELETE validation can be registered
 explicitly and uses `old_resource` when `resource` is absent. Same-kind subresources
-can be registered explicitly. CONNECT, differing-kind subresources such as scale,
-conversion webhooks, and automatic discovery of equivalent API versions are outside
-this increment; configurations use exact matching.
+can be registered explicitly. CONNECT, conversion webhooks, and automatic discovery of equivalent API versions
+are outside this API; configurations use exact matching. Differing-kind subresources
+such as scale declare their parent with target=.
 
 ## Operations, subresources and namespace selection
 
@@ -127,7 +110,7 @@ Deployment endpoint:
 ```python
 from cloudcoil.models.kubernetes.autoscaling.v1 import Scale
 
-@policies.validating(
+@app.validate(
     Scale, target=Deployment, subresource="scale",
     path="/scale-limit", operations=("UPDATE",),
 )
@@ -148,47 +131,53 @@ selectors are preserved. RBAC for live reads must cover the selected scope.
 
 See [live clients and informer reads](reads.md#admission-caches) for per-replica caches.
 
-## API client and request context
+## Mutation and client reads
 
-Use `await request.client(ResourceType)` for a live typed client of **any** kind,
-just as in a reconciler. It defaults to the admission namespace and shares the
-operator connection without changing the Config or another request's client:
+Mutation returns the changed payload; validation returns `None` or raises
+`AdmissionDenied`. For example, add a label only when it is absent:
 
 ```python
-from cloudcoil.models.kubernetes.core.v1 import ConfigMap
-
-# Inside Widget:
-@classmethod
-@validating()
-async def check_policy(cls, request: AdmissionRequest[Self]) -> None:
-    if request.resource is None:
-        return
-    policies = await request.client(ConfigMap)
-    policy = await policies.get("widget-policy")
-    limit = int((policy.data or {}).get("maxLength", "200"))
-    if len(request.resource.spec.message) > limit:
-        raise AdmissionDenied(f"Namespace policy limits messages to {limit} characters")
+@app.mutate(Deployment)
+async def default_team(request: AdmissionRequest[Deployment]) -> Deployment | None:
+    obj = request.resource
+    if obj is not None and obj.metadata is not None:
+        obj.metadata.labels = {"team": "unassigned", **(obj.metadata.labels or {})}
+    return obj
 ```
 
-`Application` supplies the Config and manages its lifetime. For standalone hosting,
-use `AdmissionWebhook(config=config).register(Widget)` and keep that Config alive
-until requests have drained. Pure handlers need no Config; requesting a client
-without one raises a clear error. `request.config` is available for advanced use.
-The optional second `AsyncAPIClient[Self]` handler argument remains supported, but
-`request.client(...)` works for both primary and unrelated resources without extra
-handler signatures.
+Use `await request.client(ResourceType)` for a live client of any kind. It shares
+the application's Config and defaults to the admission namespace, without changing
+the shared configuration. Declare those reads in Application `rules`, for example:
 
-Client discovery and live reads happen asynchronously within the admission
-timeout. `request` also carries `old_resource`, `dry_run`, `user_info`, `options`,
-and raw current/previous objects. Read-only lookups work during dry runs; keep
-callbacks free of external writes. A lookup and subsequent API-server persistence
-are not an atomic transaction. Declare additional read access with `RBACRule`.
+```python
+from cloudcoil.application import RBACRule
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
-## Standalone ASGI hosting
+policy_rule = RBACRule(ConfigMap, ("get",), resource_names=("deployment-policy",))
+```
 
-`AdmissionWebhook` is a dependency-free ASGI application. Serve it with your existing
+Pass `rules=(policy_rule,)` when constructing the Application. Inside a handler,
+`client = await request.client(ConfigMap)` followed by
+`policy = await client.get("deployment-policy")` performs the live lookup.
+Client discovery and reads are subject to the admission timeout. A lookup and the
+pending write are not an atomic cross-resource transaction.
+
+`request.cached(Kind)` reads a separately configured per-replica cache; see
+[admission caches](reads.md#admission-caches). It does not use a leader's controller
+informers. The [existing Deployment policy](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_existing.py)
+combines defaulting, immutable fields, DELETE, `/scale` and a live namespace policy.
+
+## Resource-local policies and standalone hosting
+
+Existing resource-local class/static methods using @validating()/@mutating() remain
+available. Application discovers them on installed CRD models; use @classmethod
+outermost and AdmissionRequest[Self] for inherited policies. The optional second
+injected client belongs to that low-level interface only. For standalone ASGI hosting,
+AdmissionWebhook(config=config).register(Widget) remains supported.
+
+`AdmissionWebhook` is an ASGI application with no required server dependency. Serve it with your existing
 ASGI server and TLS setup; installing Cloudcoil does not install or start an HTTP
-server. For an application named `admission` in `my_webhooks.py`:
+server. For an ASGI object named `admission` in `my_webhooks.py`:
 
 ```bash
 uv run --extra kubernetes --with uvicorn uvicorn my_webhooks:admission \

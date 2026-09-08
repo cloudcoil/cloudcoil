@@ -2,7 +2,7 @@
 
 from pydantic import Field
 
-from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
+from cloudcoil.admission import AdmissionDenied, AdmissionRequest
 from cloudcoil.application import Application, WebhookServer
 from cloudcoil.crd import custom_resource
 from cloudcoil.pydantic import BaseModel
@@ -21,20 +21,18 @@ class Database(Resource):
 
 
 def build_app() -> Application:
-    policies = AdmissionWebhook()
+    app = Application(
+        "database-policy",
+        webhook=WebhookServer(tls_secret="database-policy-tls"),
+    )
 
-    @policies.validating(Database, path="/database-storage", operations=("UPDATE",))
+    @app.validate(Database, path="/database-storage", operations=("UPDATE",))
     async def prevent_shrink(request: AdmissionRequest[Database]) -> None:
         old, new = request.old_resource, request.resource
         if old and new and new.spec.storage_gib < old.spec.storage_gib:
             raise AdmissionDenied("Database storage cannot shrink")
 
-    # Database is deliberately not in resources= or a Controller: no CRD or CRUD grant.
-    return Application(
-        "database-policy",
-        admission=policies,
-        webhook=WebhookServer(tls_secret="database-policy-tls"),
-    )
+    return app
 
 
 if __name__ == "__main__":

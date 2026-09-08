@@ -3,9 +3,42 @@
 Use ordinary unit tests for reconcilers and admission callbacks, then run integration
 tests against Kubernetes for API behavior, permissions and deployment wiring.
 
+## Test a decorated handler directly
+
+Decorators return the original function, so a handler with no API calls is an
+ordinary async function in a unit test. For the quickstart saved as `app.py`:
+
+```python
+import pytest
+from cloudcoil.apimachinery import ObjectMeta
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap
+from app import reconcile
+
+@pytest.mark.asyncio
+async def test_reconcile_preserves_existing_data():
+    resource = ConfigMap(
+        metadata=ObjectMeta(name="settings"),
+        data={"message": "hello"},
+    )
+    result = await reconcile(resource)
+    assert result is resource
+    assert result.data == {"message": "hello", "managed-by": "cloudcoil"}
+```
+
+A direct call tests the function, not dependency dispatch, retry scheduling or API
+persistence. Test those through a running controller and a mock API or real cluster.
+For context-using handlers, provide a narrow test double for the operations they
+actually use. Keep external provider adapters separate so idempotence and cleanup
+can be tested without Kubernetes.
+
+Offline `app.manifests()` catches invalid registrations, ambiguous dependencies,
+missing case fallbacks and conflicting admission routes. Test generated RBAC and
+admission targets as part of application wiring. Manifest generation does not
+execute reconciliation or lifespan hooks.
+
 ## Kubernetes fixtures
 
-Install `cloudcoil[test,kubernetes]` and provide a working Docker runtime. The pytest
+Install `cloudcoil[test,kubernetes]` and `pytest-asyncio`, and provide a working Docker runtime. The pytest
 plugin supplies `test_cluster` (a kubeconfig path) and `test_config` (a Config using it).
 kind is the default provider; select k3d explicitly when needed.
 

@@ -20,36 +20,19 @@ For example, if using a model from the FluxCD integration:
 - `2.0.1.0` represents FluxCD version 2.0.1 with initial packaging
 - `2.0.1.1` represents FluxCD version 2.0.1 with first packaging update
 
-## Installation Recommendations
+## Pin the runtime and model packages
 
-### Best Practices
+Pin Cloudcoil to a compatible minor and select model versions matching your target
+APIs. Extras are installation conveniences; they do not select the version of a
+running cluster or install an operator's CRDs.
 
-1. Always specify both cloudcoil and its integration constraints:
-```
-cloudcoil[fluxcd]~=0.7.0
-```
-
-2. Avoid constraining only the model integration version, as breaking changes in cloudcoil core may affect functionality.
-
-### Examples
-
-Good:
-```
-cloudcoil[fluxcd]~=0.7.0  # Installs cloudcoil with FluxCD integration
+```sh
+uv add 'cloudcoil~=0.7.1' 'cloudcoil.models.kubernetes~=1.37.0.0'
 ```
 
-Not Recommended:
-```
-cloudcoil.models.fluxcd>=2.0  # Missing cloudcoil core constraint
-```
-
-## Version Compatibility
-
-When using cloudcoil with integrations, ensure that:
-1. The cloudcoil core version is pinned to a minor version
-2. The integration model version is compatible with your upstream tools
-3. Both constraints are specified in your requirements
-
+Keep application lockfiles under version control. Regenerate custom model packages
+when upgrading across a breaking Cloudcoil minor. Documentation in the repository
+tracks its source and may describe APIs ahead of the published release.
 
 ## Kubernetes Support Policy
 
@@ -97,3 +80,24 @@ running cluster.
 
 See [Maintaining model packages](docs/model-releases.md) for automated upstream
 version PRs, packaging revision allocation, validation, and PyPI publication.
+
+## Migrating older clients and generated models
+
+- Upgrade to Python 3.14 and regenerate your models with the current codegen extra.
+- Remove `cloudcoil.mypy` from type-checker configuration. Use direct imports or a
+  generated package's `get_model` for precise static types.
+- Inferred module and nested-class names can change; retain explicit
+  transformations when you need a particular layout.
+- Iterate watches directly: `async for event in Pod.async_watch(): ...` (no `await`
+  before the iterable). Async operations perform initial discovery off the event loop;
+  explicit clients are available with `await config.async_client_for(Pod)`.
+- A bare kind lookup now rejects ambiguous versions instead of selecting one by
+  import order.
+- Direct client deletion now defaults to performing the operation, matching
+  resource methods. Pass `dry_run=True` explicitly to preview a deletion.
+- List pagination follows the server's continuation token and stays with its
+  originating client. Requesting a nonexistent next page raises `ValueError`.
+- `save()` uses the fetched resource version for replacement without mutating the
+  caller's model. A caller-supplied version remains authoritative.
+- Nested and concurrent cached scopes share a cache until the last scope exits.
+  Use separate cached configs for synchronous and asynchronous scopes.

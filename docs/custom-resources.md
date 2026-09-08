@@ -1,14 +1,16 @@
 # Custom resources
 
 Define a typed resource, generate its CRD, then use it in a [controller](controllers.md)
-or attach [admission policies](admission.md). An `Application` installs decorated primary
-resource definitions automatically.
+or attach [admission policies](admission.md). Application includes decorated primary
+models in its manifests; its `install` command applies their CRDs. Importing a model
+or starting `run` does not install a CRD.
 
 ## Define and generate
 
 ```python
 from typing import Annotated, Literal
 from pydantic import Field
+from cloudcoil.controller import ReconcileStatus
 from cloudcoil.crd import CRD, PrinterColumn, custom_resource
 from cloudcoil.pydantic import BaseModel
 from cloudcoil.resources import Resource
@@ -16,9 +18,8 @@ from cloudcoil.resources import Resource
 class WidgetSpec(BaseModel):
     message: str = Field(min_length=1, max_length=200)
 
-class WidgetStatus(BaseModel):
-    phase: Annotated[str, PrinterColumn(name="Phase")] = "Pending"
-    observed_generation: int | None = Field(default=None, alias="observedGeneration")
+class WidgetStatus(ReconcileStatus):
+    ready_replicas: Annotated[int, PrinterColumn(name="Ready replicas")] = 0
 
 @custom_resource(api_version="examples.cloudcoil.dev/v1alpha1", plural="widgets")
 class Widget(Resource):
@@ -44,7 +45,7 @@ not create a controller, install the CRD, or register a global webhook. Each con
 subclass declares its own plural. Existing models can still use
 `CRD(Widget, plural="widgets", ...)`; constructor options override class metadata.
 
-The initial generator emits one served/storage version in
+The generator emits one served/storage version in
 `apiextensions.k8s.io/v1`. It enables the status subresource when the model has a
 status field, with an explicit override available. Keep status optional with a
 `None` default: the API server removes status during normal creates. A required
@@ -54,8 +55,20 @@ are independent of a controller's watch namespace.
 `CRD` generation does not install anything. Review the emitted manifest and apply it
 with your normal deployment workflow. Updating an existing CRD is an API change:
 consider stored objects and compatibility before narrowing its schema. Multiple
-served versions, conversion webhooks, and storage-version migration are later
-milestones.
+served versions, conversion webhooks and storage-version migration are unsupported.
+
+## Status for controllers
+
+`ReconcileStatus` supplies standard conditions and `observedGeneration`. A controller
+using this status model automatically reports Ready; stages add their named conditions.
+Additional fields need defaults so an absent status can be initialized. Keep the
+resource's `status` optional, as in the example above.
+
+Use `ctx.set_status(ready_replicas=2)` inside a handler. The helper validates fields
+and queues a guarded status write. Use an ordinary `BaseModel` status when another
+component owns reporting, or disable automatic reporting with `report_status=False`.
+See [status helpers](staged-controllers.md#status-helpers) for failure behavior and
+condition ownership.
 
 ## Use a handwritten resource as a client
 

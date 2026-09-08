@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock
 import httpx
 import pytest
 from cloudcoil.models.kubernetes.apps.v1 import Deployment
-from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Namespace, Pod
+from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Namespace, Pod, Service
 
 from cloudcoil.admission import AdmissionRequest
 from cloudcoil.caching import AsyncInformer, CachedResources
@@ -93,11 +93,11 @@ async def test_reloader_uses_cached_dependency_and_returns_only_template_change(
     )
     source = informer(ConfigMap, config)
     request = Request(ResourceKey("app", "tenant"), obj, _informers={ConfigMap: source})
-    result = await pattern.reconcile(request)
+    result = await pattern.controller().reconcile(request)
     digest = result.spec.template.metadata.annotations[pattern.DIGEST]
-    assert await pattern.reconcile(request) == result
+    assert await pattern.controller().reconcile(request) == result
     config.data["value"] = "second"
-    changed = await pattern.reconcile(request)
+    changed = await pattern.controller().reconcile(request)
     assert changed.spec.template.metadata.annotations[pattern.DIGEST] != digest
     assert changed.spec.template.spec.containers[0].image == "nginx:stable"
     controller = pattern.controller()
@@ -126,7 +126,8 @@ async def test_workload_aggregates_existing_pods_and_maps_label_changes():
     request = Request(
         ResourceKey("summary", "tenant"), obj, _informers={Pod: informer(Pod, pod, other)}
     )
-    result = await pattern.reconcile(request)
+    await pattern.controller().reconcile(request)
+    result = request.object
     assert result.status.pods == result.status.ready == 1
     assert result.status.observed_generation == 2
     controller = pattern.controller()
@@ -138,7 +139,100 @@ async def test_workload_aggregates_existing_pods_and_maps_label_changes():
     assert mapper(pod) == []
 
 
-async def test_child_set_prunes_only_owned_entries_with_identity_guards():
+@pytest.mark.parametrize(
+    "observed,updated,total,available,complete",
+    [
+        (1, 1, 1, 1, False),
+        (2, 0, 1, 1, False),
+        (2, 1, 2, 1, False),
+        (2, 1, 1, 0, False),
+        (2, 1, 1, 1, True),
+    ],
+)
+async def test_widget_stages_check_current_rollout(
+    observed, updated, total, available, complete, monkeypatch
+):
+    from unittest.mock import AsyncMock
+
+    from cloudcoil.controller import get_condition
+    from examples import widget_operator as example
+
+    obj = example.Widget(
+        metadata={"name": "widget", "namespace": "tenant", "uid": "parent", "generation": 2},
+        spec=example.WidgetSpec(message="hello"),
+    )
+    deployment = Deployment.model_validate(
+        {
+            "metadata": {"name": "widget", "generation": 2},
+            "spec": {
+                "replicas": 1,
+                "selector": {"matchLabels": {"app": "widget"}},
+                "template": {
+                    "metadata": {"labels": {"app": "widget"}},
+                    "spec": {"containers": [{"name": "web", "image": "nginx:stable"}]},
+                },
+            },
+            "status": {
+                "observedGeneration": observed,
+                "updatedReplicas": updated,
+                "replicas": total,
+                "availableReplicas": available,
+                "readyReplicas": 1,
+            },
+        }
+    )
+    ensure = AsyncMock()
+    client = AsyncMock(return_value=SimpleNamespace(get=AsyncMock(return_value=deployment)))
+    monkeypatch.setattr(Request, "ensure", ensure)
+    monkeypatch.setattr(Request, "client", client)
+    req = Request(ResourceKey("widget", "tenant"), obj)
+    result = await example.widgets.reconcile(req)
+    assert [type(call.args[0]) for call in ensure.call_args_list] == [
+        ConfigMap,
+        Deployment,
+        Service,
+    ]
+    client.assert_awaited_once_with(Deployment)
+    assert get_condition(obj, "Ready").status == ("True" if complete else "False")
+    assert obj.status.phase == ("Ready" if complete else "Pending")
+    assert (result.requeue_after if result else None) == (None if complete else 10)
+
+
+async def test_conditional_example_suspension_dependency_and_convergence(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from cloudcoil.controller import get_condition
+    from examples.patterns import conditional_config as example
+
+    obj = example.ApplicationConfig(
+        metadata={"name": "consumer", "namespace": "tenant", "uid": "parent", "generation": 1},
+        spec=example.ConfigSpec(configMap="settings", suspended=True),
+    )
+    app = example.build_app()
+    ensure = AsyncMock()
+    monkeypatch.setattr(Request, "ensure", ensure)
+    # Suspended short-circuits without even accessing an informer.
+    req = Request(ResourceKey("consumer", "tenant"), obj)
+    assert (await app.controllers[0].reconcile(req)).requeue_after == 300
+    obj.spec.suspended = False
+    req = Request(req.key, obj, _informers={ConfigMap: informer(ConfigMap)})
+    assert (await app.controllers[0].reconcile(req)).requeue_after == 30
+    assert get_condition(obj, "Ready").reason == "ConfigMapMissing"
+    ensure.assert_not_awaited()
+    source = ConfigMap(metadata={"name": "settings", "namespace": "tenant"}, data={"key": "value"})
+    req = Request(req.key, obj, _informers={ConfigMap: informer(ConfigMap, source)})
+    monkeypatch.setattr(
+        Request,
+        "client",
+        AsyncMock(return_value=SimpleNamespace(get=AsyncMock(return_value=source))),
+    )
+    await app.controllers[0].reconcile(req)
+    ensure.assert_awaited_once()
+    assert ensure.call_args.args[0].data == source.data
+    assert get_condition(obj, "Ready").status == "True"
+
+
+async def test_child_set_prunes_only_owned_entries_with_identity_guards(monkeypatch):
     from examples.patterns import child_set as pattern
 
     obj = pattern.Bundle(
@@ -168,14 +262,16 @@ async def test_child_set_prunes_only_owned_entries_with_identity_guards():
 
     stale, foreign = child("stale", "parent"), child("foreign", "someone-else")
     client = AsyncMock()
-    request = SimpleNamespace(
-        resource=obj,
-        ensure=AsyncMock(),
-        client=AsyncMock(return_value=client),
-        cached=lambda model: CachedResources(informer(ConfigMap, stale, foreign), "tenant"),
+    ensure = AsyncMock()
+    monkeypatch.setattr(Request, "ensure", ensure)
+    monkeypatch.setattr(Request, "client", AsyncMock(return_value=client))
+    request = Request(
+        ResourceKey("bundle", "tenant"),
+        obj,
+        _informers={ConfigMap: informer(ConfigMap, stale, foreign)},
     )
-    await pattern.reconcile(request)
-    assert request.ensure.await_count == 1
+    await pattern.build_app().controllers[0].reconcile(request)
+    assert ensure.await_count == 1
     client.delete.assert_awaited_once_with("stale", uid="stale", resource_version="4")
 
 
@@ -203,8 +299,11 @@ async def test_finalizer_is_persisted_before_external_work_and_removed_after_cle
     async def delete(key):
         events.append("delete")
 
-    monkeypatch.setattr(pattern, "ensure_finalizer", add)
-    monkeypatch.setattr(pattern, "remove_finalizer", remove)
+    monkeypatch.setattr("cloudcoil.controller._registry.ensure_finalizer", add)
+    monkeypatch.setattr(
+        Request, "client", AsyncMock(return_value=SimpleNamespace(get=AsyncMock(return_value=obj)))
+    )
+    monkeypatch.setattr("cloudcoil.controller._registry.remove_finalizer", remove)
     app = pattern.build_app(SimpleNamespace(put=put, delete=delete))
     request = Request(ResourceKey("record", "tenant"), obj)
     result = await app.controllers[0].reconcile(request)
@@ -288,7 +387,9 @@ async def test_existing_resource_admission_shares_config_and_handles_create_upda
         await review(admission, "/protect-delete", None, old=protected, operation="DELETE")
     )["allowed"]
     api.create.assert_not_called()
-    assert app.admission._config is None  # Runtime binding did not mutate the definition.
+    assert (
+        app._admission_registry.webhook._config is None
+    )  # Runtime binding did not mutate the definition.
 
 
 async def test_external_crd_admission_uses_old_object_without_installing_or_owning_crd():
@@ -333,6 +434,7 @@ async def test_admission_cache_requires_explicit_synced_replica_local_informer()
     "module",
     [
         "dependency_rollout",
+        "conditional_config",
         "workload_summary",
         "child_set",
         "finalizers",
@@ -340,6 +442,7 @@ async def test_admission_cache_requires_explicit_synced_replica_local_informer()
         "admission_external_crd",
         "admission_cached",
         "multiple_controllers",
+        "lifespan",
     ],
 )
 def test_every_example_builds_offline_manifests(module):
@@ -483,9 +586,16 @@ async def test_finalizer_example_does_not_provision_when_live_read_observes_dele
     deleting = obj.model_copy(deep=True)
     deleting.metadata.deletion_timestamp = "2026-09-07T00:00:00Z"
     deleting.metadata.finalizers = [pattern.FINALIZER]
-    monkeypatch.setattr(pattern, "ensure_finalizer", AsyncMock(return_value=deleting))
+    monkeypatch.setattr(
+        "cloudcoil.controller._registry.ensure_finalizer", AsyncMock(return_value=deleting)
+    )
+    monkeypatch.setattr("cloudcoil.controller._registry.remove_finalizer", AsyncMock())
+    monkeypatch.setattr(
+        Request, "client", AsyncMock(return_value=SimpleNamespace(get=AsyncMock(return_value=obj)))
+    )
     provider = SimpleNamespace(put=AsyncMock(), delete=AsyncMock())
     app = pattern.build_app(provider)
     result = await app.controllers[0].reconcile(Request(ResourceKey("record", "tenant"), obj))
     provider.put.assert_not_awaited()
-    assert result.requeue_after == 0
+    assert result is None
+    provider.delete.assert_awaited_once_with("id")

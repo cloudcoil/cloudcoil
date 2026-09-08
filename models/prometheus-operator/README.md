@@ -1,163 +1,49 @@
-> [!WARNING]  
-> This repository is auto-generated from the [cloudcoil repository](https://github.com/cloudcoil/cloudcoil/tree/main/models/prometheus-operator). Please do not submit pull requests here. Instead, submit them to the main repository at https://github.com/cloudcoil/cloudcoil.
+## Prometheus Operator models
 
+Models are generated from pinned upstream schemas. Configuration, schema inputs
+and README sources are maintained in
+[cloudcoil/cloudcoil](https://github.com/cloudcoil/cloudcoil/tree/main/models/prometheus-operator);
+the generated package is in
+[cloudcoil/models-prometheus-operator](https://github.com/cloudcoil/models-prometheus-operator). Edit the
+source integration in Cloudcoil because generated repository edits are replaced
+on template refresh.
 
-## 🔧 Installation
+### Use a typed resource
 
-> [!NOTE]
-> For versioning information and compatibility, see the [Versioning Guide](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md).
-
-Using [uv](https://github.com/astral-sh/uv) (recommended):
-
-```bash
-# Install with Prometheus Operator support
-uv add cloudcoil.models.prometheus_operator
-```
-
-Using pip:
-
-```bash
-pip install cloudcoil.models.prometheus_operator
-```
-
-## 💡 Examples
-
-### Using Prometheus Operator Models
+After installing `cloudcoil.models.prometheus_operator`, use the package's typed lookup to
+select an exact Kubernetes kind and API version:
 
 ```python
-from cloudcoil import apimachinery
-import cloudcoil.models.prometheus_operator.v1 as prometheus_operator
+from cloudcoil.models.prometheus_operator import get_model
 
-# Create a Prometheus instance
-prometheus = prometheus_operator.Prometheus(
-    metadata=apimachinery.ObjectMeta(name="main"),
-    spec=prometheus_operator.PrometheusSpec(
-        external_url="http://monitoring.my.systems/prometheus",
-        resources=prometheus_operator.PrometheusSpecResources(
-            requests={
-                "memory": "400Mi"
-            }
-        )
-    )
-).create()
+Prometheus = get_model("Prometheus", api_version="monitoring.coreos.com/v1")
 
-# Create an Alertmanager instance
-alert_manager = prometheus_operator.Alertmanager(
-    metadata=apimachinery.ObjectMeta(name="main"),
-    spec=prometheus_operator.AlertmanagerSpec(
-        replicas=3,
-        external_url="http://monitoring.my.systems/alertmanager",
-        resources=prometheus_operator.AlertmanagerSpecResources(
-            requests={
-                "memory": "400Mi"
-            }
-        )
-    )
-).create()
-
-# List Prometheus instances
-for prom in prometheus_operator.Prometheus.list():
-    print(f"Found Prometheus: {prom.metadata.name}")
+for resource in Prometheus.list(namespace="default"):
+    print(resource.name)
 ```
 
-### Using the Fluent Builder API
+The lookup is local; `list` reads the configured cluster. Async code uses
+`await Prometheus.async_list(namespace="default")`. Direct class imports are also supported; the
+lookup avoids depending on schema-derived module names.
 
-Cloudcoil provides a powerful fluent builder API for Prometheus Operator resources:
+Install the upstream Prometheus Operator CRDs and operator separately before making API calls.
+The model package supplies Python types and client methods, not the operator.
 
-```python
-from cloudcoil.models.prometheus_operator.v1 import Prometheus, Alertmanager
+Use the shared [resource guide](https://cloudcoil.github.io/cloudcoil/resources/)
+for constructors, builders, writes and watches, and the
+[controller guide](https://cloudcoil.github.io/cloudcoil/controllers/) for
+reconciliation. Pydantic validates constructed models at runtime; generated
+annotations provide field completion and static type checking.
 
-# Create a Prometheus using the builder
-prometheus = (
-    Prometheus.builder()
-    .metadata(lambda m: m
-        .name("main")
-    )
-    .spec(lambda s: s
-        .external_url("http://monitoring.my.systems/prometheus")
-        .resources(lambda r: r
-            .requests({
-                "memory": "400Mi"
-            })
-        )
-    )
-    .build()
-)
+### Maintain this integration
 
-# Create an Alertmanager using the builder
-alert_manager = (
-    Alertmanager.builder()
-    .metadata(lambda m: m
-        .name("main")
-    )
-    .spec(lambda s: s
-        .replicas(3)
-        .external_url("http://monitoring.my.systems/alertmanager")
-        .resources(lambda r: r
-            .requests({
-                "memory": "400Mi"
-            })
-        )
-    )
-    .build()
-)
+From the Cloudcoil repository root:
+
+```sh
+make gen-repo-prometheus-operator
+make -C output/models-prometheus-operator lint test check-artifacts
 ```
 
-### Using the Context Manager Builder API
-
-For complex monitoring configurations, you can use the context manager-based builder:
-
-```python
-from cloudcoil.models.prometheus_operator.v1 import Prometheus
-
-# Create a Prometheus instance using context managers
-with Prometheus.new() as prometheus:
-    with prometheus.metadata() as metadata:
-        metadata.name("main")
-    
-    with prometheus.spec() as spec:
-        spec.external_url("http://monitoring.my.systems/prometheus")
-        with spec.resources() as resources:
-            resources.requests({
-                "memory": "400Mi"
-            })
-
-final_prometheus = prometheus.build()
-```
-
-### Mixing Builder Styles
-
-You can mix different builder styles based on your needs:
-
-```python
-from cloudcoil.models.prometheus_operator.v1 import Alertmanager
-from cloudcoil import apimachinery
-
-# Create an Alertmanager using mixed styles
-with Alertmanager.new() as alert_manager:
-    # Direct object initialization
-    alert_manager.metadata(apimachinery.ObjectMeta(
-        name="main"
-    ))
-    
-    # Fluent style for spec
-    alert_manager.spec(lambda s: s
-        .replicas(3)
-        .external_url("http://monitoring.my.systems/alertmanager")
-        .resources(lambda r: r
-            .requests({
-                "memory": "400Mi"
-            })
-        )
-    )
-
-final_alert_manager = alert_manager.build()
-```
-
-## 📚 Documentation
-
-For complete documentation, visit [cloudcoil.github.io/cloudcoil](https://cloudcoil.github.io/cloudcoil)
-
-## 📜 License
-
-Apache License, Version 2.0 - see [LICENSE](LICENSE)
+Rendering generates the models before validation. The
+[model release guide](https://cloudcoil.github.io/cloudcoil/model-releases/)
+covers source updates, artifact checks and publishing.

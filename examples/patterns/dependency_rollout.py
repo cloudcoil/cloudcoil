@@ -7,7 +7,7 @@ from cloudcoil.models.kubernetes.apps.v1 import Deployment
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
 from cloudcoil.application import Application
-from cloudcoil.controller import Controller, Request, ResourceKey
+from cloudcoil.controller import Context, Controller, ResourceKey
 
 LABEL = "patterns.cloudcoil.dev/reloader"
 DIGEST = "patterns.cloudcoil.dev/config-digest"
@@ -46,30 +46,32 @@ def references(deployment: Deployment) -> set[str]:
     return names
 
 
-async def reconcile(request: Request[Deployment]) -> Deployment | None:
-    obj = request.resource
-    if not obj or not obj.spec or not obj.metadata or obj.metadata.deletion_timestamp:
-        return None
-    configs = request.cached(ConfigMap)
-    inputs = {}
-    for name in sorted(references(obj)):
-        config = configs.get(name)
-        inputs[name] = {"data": config.data, "binaryData": config.binary_data} if config else None
-    digest = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
-    from cloudcoil.apimachinery import ObjectMeta
-
-    if obj.spec.template.metadata is None:
-        obj.spec.template.metadata = ObjectMeta()
-    obj.spec.template.metadata.annotations = {
-        **(obj.spec.template.metadata.annotations or {}),
-        DIGEST: digest,
-    }
-    return obj  # Only the pod-template annotation is patched. Identical inputs are a no-op.
-
-
 def controller() -> Controller[Deployment]:
-    workload = Controller(Deployment, reconcile, label_selector=f"{LABEL}=true")
+    workload = Controller(Deployment, label_selector=f"{LABEL}=true")
 
+    @workload.reconcile()
+    async def reconcile(obj: Deployment, ctx: Context[Deployment]) -> Deployment | None:
+        if not obj.spec:
+            return None
+        configs = ctx.cached(ConfigMap)
+        inputs = {}
+        for name in sorted(references(obj)):
+            config = configs.get(name)
+            inputs[name] = (
+                {"data": config.data, "binaryData": config.binary_data} if config else None
+            )
+        digest = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
+        from cloudcoil.apimachinery import ObjectMeta
+
+        if obj.spec.template.metadata is None:
+            obj.spec.template.metadata = ObjectMeta()
+        obj.spec.template.metadata.annotations = {
+            **(obj.spec.template.metadata.annotations or {}),
+            DIGEST: digest,
+        }
+        return obj  # Only the pod-template annotation is patched. Identical inputs are a no-op.
+
+    @workload.watch(ConfigMap)
     def dependents(config: ConfigMap) -> list[ResourceKey]:
         # Primary sync precedes secondary handlers. Updates map both old and new objects.
         return [
@@ -78,7 +80,7 @@ def controller() -> Controller[Deployment]:
             if config.name in references(obj)
         ]
 
-    return workload.watch(ConfigMap, mapper=dependents)
+    return workload
 
 
 def build_app() -> Application:

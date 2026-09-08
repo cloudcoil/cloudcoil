@@ -13,5 +13,7 @@ or a CRD namespace hint.
 | `kpack.json.gz` | Complete kpack OpenAPI schema | https://raw.githubusercontent.com/buildpacks-community/kpack/refs/tags/v0.16.1/api/openapi-spec/swagger.json |
 
 Upstream projects distribute these schemas under Apache-2.0. The Kubernetes
-OpenAPI fixture in the parent directory is Kubernetes v1.30.2; Cloudcoil's bundled
-`apimachinery.py` is generated from the v1.31.4 source configured in pyproject.toml.
+OpenAPI fixture in the parent directory is Kubernetes v1.30.2. These older schemas
+are retained as fixed regression inputs; they do not define the supported cluster
+versions. The source for the bundled `apimachinery.py` is configured separately
+in the repository's `pyproject.toml`.

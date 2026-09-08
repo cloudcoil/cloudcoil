@@ -127,7 +127,6 @@ async def test_live_widget_example_manages_three_children_and_reads_admission_po
     from cloudcoil.models.kubernetes.apps.v1 import Deployment
     from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Service
 
-    from cloudcoil.admission import AdmissionWebhook
     from cloudcoil.application import WebhookServer
     from cloudcoil.errors import ResourceNotFound
 
@@ -140,9 +139,8 @@ async def test_live_widget_example_manages_three_children_and_reads_admission_po
         Namespace(metadata={"generateName": "widgets-e2e-"})
     )
     config = test_config.clone(namespace=namespace.name)
-    controller = Controller(example.Widget, example.reconcile, config=config).owns(
-        ConfigMap, Deployment, Service
-    )
+    controller = example.widgets
+    controller.config = config
     app = Application("widgets", controller, config=config, webhook=WebhookServer())
     stop = asyncio.Event()
     task = None
@@ -200,8 +198,12 @@ async def test_live_widget_example_manages_three_children_and_reads_admission_po
         policy = await maps.create(
             ConfigMap(metadata={"name": "widget-policy"}, data={"maxLength": "3"})
         )
-        admission = AdmissionWebhook(config=config).register(example.Widget)
-        endpoint = next(path for path in admission._routes if path.endswith("/validate-message"))
+        admission = app._admission(config)
+        endpoint = next(
+            path
+            for path, route in admission._routes.items()
+            if route.handler is example.validate_message
+        )
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=admission), base_url="https://webhook"
         ) as web:

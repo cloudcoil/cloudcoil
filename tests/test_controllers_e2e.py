@@ -21,7 +21,7 @@ def example_reconciler():
     spec = importlib.util.spec_from_file_location("configmap_controller", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.reconcile
+    return module.build_app().controllers[0].reconcile
 
 
 @pytest.mark.configure_test_cluster(

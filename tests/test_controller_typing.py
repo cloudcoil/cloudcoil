@@ -10,7 +10,7 @@ import pytest
 def test_controller_api_typing(tmp_path, checker):
     script = tmp_path / "controller_usage.py"
     script.write_text("""from typing import assert_type
-from cloudcoil.controller import Controller, ControllerStatus, HealthServer, LeaderElection, Manager, Request, ResourceKey, Result, mutate, ensure_finalizer
+from cloudcoil.controller import Cases, Controller, ControllerStatus, HealthServer, LeaderElection, Manager, Request, ResourceKey, Result, Stage, Stages, Wait, mutate, ensure_finalizer
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap, Secret
 from cloudcoil import patches
 from cloudcoil.client import AsyncAPIClient
@@ -47,6 +47,64 @@ assert_type(controller.status, ControllerStatus)
 assert_type(manager.metrics(), str)
 assert_type(manager.healthy, bool)
 assert_type(manager.informer_count, int)
+
+async def stage(request: Request[ConfigMap]) -> Wait | None:
+    assert_type(request.object, ConfigMap)
+    assert_type(await request.event("Observed", "Example"), bool)
+    return None
+
+stages = Stages(Stage("Configured", stage), report_status=False)
+assert_type(stages, Stages[ConfigMap])
+assert_type(Controller(ConfigMap, stages), Controller[ConfigMap])
+cases = Cases[ConfigMap](report_status=False)
+cases.case("Configured", when=lambda request: bool(request.object.data), priority=10)(stage)
+cases.otherwise("Empty")(stage)
+assert_type(Controller(ConfigMap, cases), Controller[ConfigMap])
+
+from cloudcoil.controller import Context, StageScope
+registry = Controller(ConfigMap, owns=(Secret,))
+
+@registry.reconcile()
+async def decorated(obj: ConfigMap, ctx: Context[ConfigMap]) -> None:
+    assert_type(ctx.resource, ConfigMap)
+    assert_type(await ctx.ensure(Secret()), Secret)
+    assert_type(await ctx.get(Secret, "settings"), Secret)
+    ctx.event("Observed", "Read configuration")
+
+staged = Controller(ConfigMap)
+configuration = staged.stage("configuration", condition="Configured")
+assert_type(configuration, StageScope[ConfigMap])
+
+@configuration.case(when=lambda obj: bool(obj.data))
+async def configured(obj: ConfigMap) -> None:
+    pass
+
+@configuration.otherwise()
+async def empty(obj: ConfigMap, ctx: Context[ConfigMap]) -> None:
+    raise Wait("Pending", after=10)
+
+@staged.stage(depends=configuration, condition="Applied")
+async def applied(obj: ConfigMap) -> None:
+    pass
+
+@registry.watch(Secret)
+def changed(secret: Secret) -> list[ResourceKey]:
+    return [ResourceKey("settings", secret.namespace)]
+
+from collections.abc import AsyncIterator
+from cloudcoil.application import LifecycleEvent, LifecycleType
+from cloudcoil.admission import AdmissionRequest
+app = Application("decorators")
+assert_type(app.controller(ConfigMap), Controller[ConfigMap])
+
+@app.validate(ConfigMap)
+async def policy(request: AdmissionRequest[ConfigMap]) -> None:
+    assert_type(request.resource, ConfigMap | None)
+
+@app.lifespan(scope="leader")
+async def lifecycle(event: LifecycleEvent) -> AsyncIterator[None]:
+    assert_type(event.type, LifecycleType)
+    yield
 """)
     args = (
         ["--cache-dir", str(tmp_path / "mypy-cache")]

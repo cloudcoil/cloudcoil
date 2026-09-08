@@ -6,24 +6,30 @@ import math
 import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, Self, cast
+from typing import Any, Self, cast, overload
 
 from cloudcoil._context import context
+from cloudcoil.admission import AdmissionWebhook
+from cloudcoil.admission._registration import AdmissionRegistry
+from cloudcoil.admission._webhook import Mutator, Validator
 from cloudcoil.caching._informer import AsyncInformer
 from cloudcoil.caching._reader import CachedResources
 from cloudcoil.caching._types import InformerOptions
 from cloudcoil.client import Config
 from cloudcoil.resources import Resource
 
+from ._events import EventRecorder
 from ._informers import _InformerPool
 from ._metrics import ControllerStatus, _ReconcileMetrics
 from ._mutations import _persist
 from ._queue import QueueClosed, WorkQueue
-from ._types import Request, ResourceKey, Result, TerminalError
+from ._registry import Registry, StageScope
+from ._stages import Cases, Stages
+from ._types import Request, ResourceKey, Result, TerminalError, Wait
 
 logger = logging.getLogger(__name__)
 
-type Reconciler[T: Resource] = Callable[[Request[T]], Awaitable[T | Result | None]]
+type Reconciler[T: Resource] = Callable[[Request[T]], Awaitable[T | Result | Wait | None]]
 type Mapper[T: Resource] = Callable[[T], Iterable[ResourceKey]]
 
 
@@ -45,9 +51,11 @@ class Controller[T: Resource]:
     def __init__(
         self,
         resource: type[T],
-        reconcile: Reconciler[T],
+        reconcile: Reconciler[T] | None = None,
         *,
         name: str | None = None,
+        owns: tuple[type[Resource], ...] = (),
+        report_status: bool | None = None,
         config: Config | None = None,
         namespace: str | None = None,
         all_namespaces: bool = False,
@@ -57,6 +65,9 @@ class Controller[T: Resource]:
         sync_timeout: float = 30,
         shutdown_timeout: float = 10,
         reconcile_timeout: float | None = None,
+        events: bool | EventRecorder = True,
+        status_updates: bool | None = None,
+        event_flush_timeout: float = 2,
     ) -> None:
         if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
             raise ValueError("workers must be a positive integer")
@@ -64,15 +75,39 @@ class Controller[T: Resource]:
             ("sync_timeout", sync_timeout),
             ("shutdown_timeout", shutdown_timeout),
             ("reconcile_timeout", reconcile_timeout),
+            ("event_flush_timeout", event_flush_timeout),
         ):
             if value is not None and (not math.isfinite(value) or value <= 0):
                 raise ValueError(f"{setting} must be finite and positive")
         if name is not None and not name.strip():
             raise ValueError("Controller name must not be empty")
+        if name is not None and len(name) > 118:
+            raise ValueError("Controller name must have at most 118 characters")
         self.name = name
+        if not isinstance(events, (bool, EventRecorder)):
+            raise TypeError("events must be a bool or EventRecorder")
+        if status_updates is not None and not isinstance(status_updates, bool):
+            raise TypeError("status_updates must be a bool")
+        self._registry = Registry(resource, report_status)
+        self._admission_registry = AdmissionRegistry(AdmissionWebhook(), self._registry.check)
+        self._status_updates = (
+            status_updates
+            if status_updates is not None
+            else not (
+                isinstance(reconcile, (Stages, Cases))
+                or (reconcile is None and self._registry.report_status)
+            )
+        )
+        self._events = (
+            events
+            if isinstance(events, EventRecorder)
+            else EventRecorder(f"cloudcoil/{name or resource.gvk().kind.lower()}")
+            if events
+            else None
+        )
         self._metrics = _ReconcileMetrics()
         self.resource = resource
-        self.reconcile = reconcile
+        self._reconcile = reconcile
         self.config = config
         self._options = InformerOptions(
             namespace=namespace,
@@ -85,6 +120,7 @@ class Controller[T: Resource]:
         self._sync_timeout = sync_timeout
         self._shutdown_timeout = shutdown_timeout
         self._reconcile_timeout = reconcile_timeout
+        self._event_flush_timeout = event_flush_timeout
         self._queue = WorkQueue[ResourceKey]()
         self._watches: list[_Watch] = []
         self._informers: list[AsyncInformer[Any]] = []
@@ -97,6 +133,79 @@ class Controller[T: Resource]:
         self._ready = asyncio.Event()
         self._finished = asyncio.Event()
         self._failure: BaseException | None = None
+        self.owns(*owns)
+
+    @overload
+    def reconcile(self, request: Request[T]) -> Awaitable[T | Result | Wait | None]: ...
+
+    @overload
+    def reconcile[F: Callable[..., Any]](
+        self, *, every: float | None = None
+    ) -> Callable[[F], F]: ...
+
+    def reconcile(self, request: Request[T] | None = None, *, every: float | None = None) -> Any:
+        """Register an async (resource, optional ctx) handler.
+
+        Passing Request explicitly executes a reconciliation for low-level embedding.
+        """
+        if request is not None:
+            return self._invoke(request)
+        if self._reconcile is not None:
+            raise ValueError("A constructor reconciler is already registered")
+        return self._registry.reconcile(every=every)
+
+    def stage(
+        self,
+        name: str | None = None,
+        *,
+        condition: str,
+        depends: object | tuple[object, ...] | None = None,
+    ) -> StageScope[T]:
+        return self._registry.stage(name, condition=condition, depends=depends)
+
+    def case[F: Callable[..., Any]](
+        self,
+        *,
+        when: Callable[..., bool],
+        after: object | tuple[object, ...] | None = None,
+    ) -> Callable[[F], F]:
+        return self._registry.branches.case(when=when, after=after)
+
+    def otherwise[F: Callable[..., Any]](self) -> Callable[[F], F]:
+        return self._registry.branches.otherwise()
+
+    def finalize[F: Callable[..., Any]](self, key: str) -> Callable[[F], F]:
+        return self._registry.finalize(key)
+
+    def validate(self, **options: Any) -> Callable[[Validator[T]], Validator[T]]:
+        """Register admission validation for this controller's resource."""
+        return self._admission_registry.validate(self.resource, **options)
+
+    def mutate(self, **options: Any) -> Callable[[Mutator[T]], Mutator[T]]:
+        """Register admission mutation returning the edited resource."""
+        return self._admission_registry.mutate(self.resource, **options)
+
+    def _validate(self, *, freeze: bool = False) -> None:
+        if self._reconcile is None:
+            self._registry.validate(freeze=freeze)
+        elif (
+            self._registry.handler
+            or self._registry.stages
+            or self._registry.branches.populated
+            or self._registry.finalizer
+        ):
+            raise ValueError(
+                "Constructor reconciliation cannot be combined with decorated handlers"
+            )
+        elif isinstance(self._reconcile, (Stages, Cases)):
+            self._reconcile._freeze(self.resource)
+        if freeze:
+            self._registry.frozen = True
+
+    async def _invoke(self, request: Request[T]) -> T | Result | Wait | None:
+        if self._reconcile is not None:
+            return await self._reconcile(request)
+        return await self._registry(request)
 
     def owns(self, *resources: type[Resource]) -> Self:
         """Enqueue primary owners when a child changes (direct controller references).
@@ -110,16 +219,34 @@ class Controller[T: Resource]:
             self._add_watch(_Watch(resource))
         return self
 
-    def watch[U: Resource](self, resource: type[U], *, mapper: Mapper[U]) -> Self:
-        """Map secondary resources to primary keys; updates map both old and new state.
+    @overload
+    def watch[U: Resource](self, resource: type[U], *, mapper: Mapper[U]) -> Self: ...
 
-        Mappers run on the event loop and should be fast and free of I/O. A mapper
-        failure stops the controller instead of silently losing a dependency event.
-        """
-        return self._add_watch(_Watch(resource, mapper))
+    @overload
+    def watch[U: Resource](self, resource: type[U]) -> Callable[[Mapper[U]], Mapper[U]]: ...
+
+    def watch[U: Resource](
+        self,
+        resource: type[U],
+        *,
+        mapper: Mapper[U] | None = None,
+    ) -> Self | Callable[[Mapper[U]], Mapper[U]]:
+        """Register a synchronous dependency mapper; updates map old and new state."""
+        if mapper is not None:
+            return self._add_watch(_Watch(resource, mapper))
+
+        def register(handler: Mapper[U]) -> Mapper[U]:
+            import inspect
+
+            if inspect.iscoroutinefunction(handler):
+                raise TypeError("Watch mappers must be synchronous")
+            self._add_watch(_Watch(resource, handler))
+            return handler
+
+        return register
 
     def _add_watch(self, watch: _Watch) -> Self:
-        if self._used:
+        if self._used or self._registry.frozen:
             raise RuntimeError("Configure watches before running the controller")
         self._watches.append(watch)
         return self
@@ -185,6 +312,22 @@ class Controller[T: Resource]:
         self.enqueue(ResourceKey.from_resource(obj))
 
     async def _update_primary(self, old: T | None, new: T) -> None:
+        if (
+            not self._status_updates
+            and old is not None
+            and old.resource_version != new.resource_version
+        ):
+            before = old.model_dump(mode="json", by_alias=True, exclude_none=True)
+            after = new.model_dump(mode="json", by_alias=True, exclude_none=True)
+            for value in (before, after):
+                value.pop("status", None)
+                metadata = value.get("metadata", {})
+                metadata.pop("resourceVersion", None)
+                metadata.pop("managedFields", None)
+            if before == after:
+                return
+        # Same-version resyncs still run; metadata/deletion/spec and child events
+        # remain inputs even when the controller ignores primary status changes.
         await self._enqueue_primary(new)
 
     def _owner_keys(self, obj: Resource) -> Iterable[ResourceKey]:
@@ -202,6 +345,7 @@ class Controller[T: Resource]:
                 yield ResourceKey(ref.name, namespace)
 
     async def _install(self, config: Config) -> None:
+        self._validate(freeze=True)
         primary_client = await config.async_client_for(self.resource, cached=False)
         self._primary_namespaced = primary_client.namespaced
         self._primary = (
@@ -276,6 +420,45 @@ class Controller[T: Resource]:
                     waiter.cancel()
                     await asyncio.gather(waiter, return_exceptions=True)
 
+    async def _flush_events(self, request: Request[T]) -> None:
+        if self._events is None or request.resource is None:
+            return
+        try:
+            # Event I/O never consumes the reconcile deadline or changes its outcome.
+            async with asyncio.timeout(self._event_flush_timeout):
+                for reason, message, event_type, action in request._report.events:
+                    await self._events.emit(
+                        request.object,
+                        reason,
+                        message,
+                        type=event_type,
+                        action=action,
+                        config=request.config,
+                    )
+        except Exception:
+            logger.warning("Could not flush reconciliation Events", exc_info=True)
+
+    async def _report_failure(
+        self, original: T | None, request: Request[T], error: Exception
+    ) -> bool:
+        try:
+            async with asyncio.timeout(5):
+                if request._report.baseline is not None:
+                    original = cast(T, request._report.baseline)
+                if request._report.managed and request._report.dirty:
+                    request.object.status = request._report.status.model_copy(deep=True)  # type: ignore[attr-defined]
+                request._failed(error)
+                if original is not None and request._report.dirty:
+                    desired = original.model_copy(deep=True)
+                    desired.status = request._report.status  # type: ignore[attr-defined]
+                    await _persist(original, desired)
+            await self._flush_events(request)
+            return True
+        except Exception:
+            # Report conflicts/errors must retry even if the business error was terminal.
+            logger.exception("Could not persist failure status for %s", request.key)
+            return False
+
     async def _worker(self) -> None:
         assert self._primary is not None
         while True:
@@ -285,6 +468,9 @@ class Controller[T: Resource]:
                 return
             started = time.monotonic()
             outcome = "success"
+            request: Request[T] | None = None
+            original: T | None = None
+            callback_complete = False
             try:
                 resource = self._primary.get(key.name, key.namespace)
                 # Keep an independent dispatch baseline even if the informer changes
@@ -295,14 +481,30 @@ class Controller[T: Resource]:
                     original.model_copy(deep=True) if original is not None else None,
                     config=context.active_config,
                     _informers=self._readers,
+                    _events=self._events,
                 )
                 async with asyncio.timeout(self._reconcile_timeout):
-                    returned = await self.reconcile(request)
+                    try:
+                        returned = await self._invoke(request)
+                    except Wait as wait:
+                        returned = wait
+                    if request._report.baseline is not None:
+                        original = cast(T, request._report.baseline)
+                    callback_complete = True
                     result = (
                         Result(resource=returned) if isinstance(returned, Resource) else returned
                     )
+                    if isinstance(result, Wait):
+                        result = Result(requeue_after=result.requeue_after)
                     if result is not None and not isinstance(result, Result):
-                        raise TypeError("Reconcile must return its resource, Result, or None")
+                        raise TypeError("Reconcile must return its resource, Result, Wait, or None")
+                    if request._report.dirty and (result is None or result.resource is None):
+                        assert original is not None
+                        desired = original.model_copy(deep=True)
+                        desired.status = request._report.status  # type: ignore[attr-defined]
+                        result = Result(
+                            resource=desired, requeue_after=result.requeue_after if result else None
+                        )
                     if result is not None and result.resource is not None:
                         if original is None:
                             raise ValueError(
@@ -314,17 +516,29 @@ class Controller[T: Resource]:
                 self._queue.forget(key)
                 if result is not None and result.requeue_after is not None:
                     self._queue.add_after(key, result.requeue_after)
+                await self._flush_events(request)
             except asyncio.CancelledError:
                 outcome = "cancelled"
                 raise
-            except TerminalError:
+            except TerminalError as error:
                 outcome = "terminal"
-                self._queue.forget(key)
+                reported = (
+                    await self._report_failure(original, request, error)
+                    if request is not None and not callback_complete
+                    else True
+                )
+                if reported:
+                    self._queue.forget(key)
+                else:
+                    outcome = "error"
+                    self._queue.retry(key)
                 logger.exception(
                     "Terminal reconcile error for %s %s", self.resource.gvk().kind, key
                 )
-            except Exception:
+            except Exception as error:
                 outcome = "error"
+                if request is not None and not callback_complete:
+                    await self._report_failure(original, request, error)
                 delay = self._queue.retry(key)
                 logger.exception(
                     "Reconcile failed for %s %s; retry in %.2fs",

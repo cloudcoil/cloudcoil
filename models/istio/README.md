@@ -1,214 +1,49 @@
-> [!WARNING]  
-> This repository is auto-generated from the [cloudcoil repository](https://github.com/cloudcoil/cloudcoil/tree/main/models/istio). Please do not submit pull requests here. Instead, submit them to the main repository at https://github.com/cloudcoil/cloudcoil.
+## Istio models
 
-## 🔧 Installation
+Models are generated from pinned upstream schemas. Configuration, schema inputs
+and README sources are maintained in
+[cloudcoil/cloudcoil](https://github.com/cloudcoil/cloudcoil/tree/main/models/istio);
+the generated package is in
+[cloudcoil/models-istio](https://github.com/cloudcoil/models-istio). Edit the
+source integration in Cloudcoil because generated repository edits are replaced
+on template refresh.
 
-> [!NOTE]
-> For versioning information and compatibility, see the [Versioning Guide](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md).
+### Use a typed resource
 
-Using [uv](https://github.com/astral-sh/uv) (recommended):
-
-```bash
-# Install with Istio support
-uv add cloudcoil.models.istio
-```
-
-Using pip:
-
-```bash
-pip install cloudcoil.models.istio
-```
-
-## 💡 Examples
-
-### Using Istio Models
+After installing `cloudcoil.models.istio`, use the package's typed lookup to
+select an exact Kubernetes kind and API version:
 
 ```python
+from cloudcoil.models.istio import get_model
 
-from cloudcoil import apimachinery
-from cloudcoil.models.istio import networking
+VirtualService = get_model("VirtualService", api_version="networking.istio.io/v1")
 
-# Create a Gateway
-gateway = networking.v1.Gateway(
-    metadata=apimachinery.ObjectMeta(name="main-gateway"),
-    spec=networking.v1.GatewaySpec(
-        selector={"istio": "ingressgateway"},
-        servers=[networking.v1.GatewaySpecServersItem(
-            port=networking.v1.GatewaySpecServersItemPort(
-                number=80,
-                name="http",
-                protocol="HTTP"
-            ),
-            hosts=["*.example.com"]
-        )]
-    )
-).create()
-
-# Create a VirtualService
-virtual_service = networking.v1.VirtualService(
-    metadata=apimachinery.ObjectMeta(name="website"),
-    spec=networking.v1.VirtualServiceSpec(
-        hosts=["website.example.com"],
-        gateways=["main-gateway"],
-        http=[networking.v1.VirtualServiceSpecHttpItem(
-            route=[networking.v1.VirtualServiceSpecHttpItemRouteItem(
-                destination=networking.v1.VirtualServiceSpecHttpItemRouteItemDestination(
-                    host="website-svc",
-                    port=networking.v1.VirtualServiceSpecHttpItemRouteItemDestinationPort(number=8080)
-                )
-            )]
-        )]
-    )
-).create()
-
-# List Virtual Services
-for vs in networking.v1.VirtualService.list():
-    print(f"Found VirtualService: {vs.metadata.name}")
+for resource in VirtualService.list(namespace="default"):
+    print(resource.name)
 ```
 
-### Using the Fluent Builder API
+The lookup is local; `list` reads the configured cluster. Async code uses
+`await VirtualService.async_list(namespace="default")`. Direct class imports are also supported; the
+lookup avoids depending on schema-derived module names.
 
-```python
-from cloudcoil.models.istio import networking
+Install the upstream Istio CRDs and operator separately before making API calls.
+The model package supplies Python types and client methods, not the operator.
 
-# Create a Gateway using the fluent builder
-gateway = (
-    networking.v1.Gateway.builder()
-    .metadata(lambda metadata: metadata
-        .name("main-gateway")
-        .namespace("default")
-    )
-    .spec(lambda gateway_spec: gateway_spec
-        .selector({"istio": "ingressgateway"})
-        .servers(lambda servers: servers.add(
-            lambda server: server
-            .port(lambda port: port
-                .number(80)
-                .name("http")
-                .protocol("HTTP")
-            )
-            .hosts(["*.example.com"])
-        ))
-    )
-    .build()
-)
+Use the shared [resource guide](https://cloudcoil.github.io/cloudcoil/resources/)
+for constructors, builders, writes and watches, and the
+[controller guide](https://cloudcoil.github.io/cloudcoil/controllers/) for
+reconciliation. Pydantic validates constructed models at runtime; generated
+annotations provide field completion and static type checking.
+
+### Maintain this integration
+
+From the Cloudcoil repository root:
+
+```sh
+make gen-repo-istio
+make -C output/models-istio lint test check-artifacts
 ```
 
-### Using the Context Manager Builder API
-
-```python
-from cloudcoil.models.istio import networking
-
-# Create a Gateway using context managers
-with networking.v1.Gateway.new() as gateway:
-    with gateway.metadata() as metadata:
-        metadata.name("main-gateway")
-        metadata.namespace("default")
-    
-    with gateway.spec() as spec:
-        spec.selector({"istio": "ingressgateway"})
-        
-        with spec.servers() as server_list:
-            with server_list.add() as server:
-                with server.port() as port:
-                    port.number(80)
-                    port.name("http")
-                    port.protocol("HTTP")
-                server.hosts(["*.example.com"])
-
-# Create a VirtualService using context managers
-with networking.v1.VirtualService.new() as vs:
-    with vs.metadata() as metadata:
-        metadata.name("website")
-        metadata.namespace("default")
-    
-    with vs.spec() as vs_spec:
-        vs_spec.hosts(["website.example.com"])
-        vs_spec.gateways(["main-gateway"])
-        
-        with vs_spec.http() as http_list:
-            with http_list.add() as route:
-                with route.route() as route_list:
-                    with route_list.add() as weight:
-                        with weight.destination() as dest:
-                            dest.host("website-svc")
-                            with dest.port() as dest_port:
-                                dest_port.number(8080)
-
-final_vs = vs.build()
-```
-
-### Mixing Builder Styles
-
-```python
-from cloudcoil.models.istio import networking
-from cloudcoil import apimachinery
-
-# Create a Gateway mixing different builder styles
-with networking.v1.Gateway.new() as gateway:
-    # Direct object initialization
-    gateway.metadata(apimachinery.ObjectMeta(
-        name="main-gateway",
-        namespace="default"
-    ))
-    
-    with gateway.spec() as spec:
-        # Simple field assignment
-        spec.selector({"istio": "ingressgateway"})
-        
-        # Fluent style for complex structures
-        spec.servers([
-            networking.v1.GatewaySpecServersItem(
-                port=networking.v1.GatewaySpecServersItemPort(
-                    number=80,
-                    name="http",
-                    protocol="HTTP"
-                ),
-                hosts=["*.example.com"]
-            )
-        ])
-
-final_gateway = gateway.build()
-
-# Create a VirtualService mixing styles
-with networking.v1.VirtualService.new() as vs:
-    vs.metadata(lambda m: m
-        .name("website")
-        .namespace("default")
-    )
-    
-    with vs.spec() as spec:
-        # Simple assignments
-        spec.hosts(["website.example.com"])
-        spec.gateways(["main-gateway"])
-        
-        # Context managers for deep nesting
-        with spec.http() as http_list:
-            with http_list.add() as route:
-                # Fluent style for route configuration
-                route.route(lambda routes: routes
-                    .add(lambda w: w
-                        .destination(lambda d: d
-                            .host("website-svc")
-                            .port(lambda p: p.number(8080))
-                        )
-                    )
-                )
-
-final_vs = vs.build()
-```
-
-The builder system provides:
-- ✨ Full IDE support with detailed type information
-- 🔍 Rich autocomplete for all fields and nested objects
-- ⚡ Compile-time validation of your configuration
-- 🎯 Clear and chainable API that guides you through resource creation
-- 🔀 Flexibility to mix different builder styles
-
-## 📚 Documentation
-
-For complete documentation, visit [cloudcoil.github.io/cloudcoil](https://cloudcoil.github.io/cloudcoil)
-
-## 📜 License
-
-Apache License, Version 2.0 - see [LICENSE](LICENSE)
+Rendering generates the models before validation. The
+[model release guide](https://cloudcoil.github.io/cloudcoil/model-releases/)
+covers source updates, artifact checks and publishing.

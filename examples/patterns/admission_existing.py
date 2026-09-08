@@ -4,21 +4,25 @@ from cloudcoil.models.kubernetes.apps.v1 import Deployment
 from cloudcoil.models.kubernetes.autoscaling.v1 import Scale
 from cloudcoil.models.kubernetes.core.v1 import ConfigMap
 
-from cloudcoil.admission import AdmissionDenied, AdmissionRequest, AdmissionWebhook
+from cloudcoil.admission import AdmissionDenied, AdmissionRequest
 from cloudcoil.application import Application, RBACRule, WebhookServer
 
 
 def build_app() -> Application:
-    policies = AdmissionWebhook()
+    app = Application(
+        "deployment-policy",
+        rules=(RBACRule(ConfigMap, ("get",), resource_names=("deployment-policy",)),),
+        webhook=WebhookServer(tls_secret="deployment-policy-tls"),
+    )
 
-    @policies.mutating(Deployment, path="/default-deployment")
+    @app.mutate(Deployment, path="/default-deployment")
     async def default_team(request: AdmissionRequest[Deployment]) -> Deployment | None:
         obj = request.resource
         if obj is not None and obj.metadata is not None:
             obj.metadata.labels = {"team": "unassigned", **(obj.metadata.labels or {})}
         return obj
 
-    @policies.validating(Deployment, path="/validate-deployment")
+    @app.validate(Deployment, path="/validate-deployment")
     async def cap_replicas(request: AdmissionRequest[Deployment]) -> None:
         obj = request.resource
         if obj is None or obj.spec is None:
@@ -35,7 +39,7 @@ def build_app() -> Application:
         if previous_team is not None and previous_team != new_team:
             raise AdmissionDenied("An existing Deployment's team label cannot change")
 
-    @policies.validating(
+    @app.validate(
         Scale,
         target=Deployment,
         subresource="scale",
@@ -52,7 +56,7 @@ def build_app() -> Application:
         if (obj.spec.replicas if obj.spec.replicas is not None else 0) > limit:
             raise AdmissionDenied(f"Namespace policy allows at most {limit} replicas")
 
-    @policies.validating(Deployment, path="/protect-delete", operations=("DELETE",))
+    @app.validate(Deployment, path="/protect-delete", operations=("DELETE",))
     async def protect_delete(request: AdmissionRequest[Deployment]) -> None:
         old = request.old_resource  # DELETE has no request.resource.
         if (
@@ -62,12 +66,7 @@ def build_app() -> Application:
         ):
             raise AdmissionDenied("Remove the protection annotation before deleting")
 
-    return Application(
-        "deployment-policy",
-        admission=policies,
-        rules=(RBACRule(ConfigMap, ("get",), resource_names=("deployment-policy",)),),
-        webhook=WebhookServer(tls_secret="deployment-policy-tls"),
-    )
+    return app
 
 
 if __name__ == "__main__":

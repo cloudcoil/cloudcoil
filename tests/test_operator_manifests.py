@@ -78,8 +78,9 @@ def test_primary_and_secondary_permissions_follow_distinct_namespaces():
         ("widgets",): {"get", "list", "watch", "patch"},
         ("widgets/status",): {"patch"},
         ("configmaps",): {"get", "list", "watch", "create", "patch"},
+        ("events",): {"create"},
     }
-    assert {rule["apiGroups"][0] for rule in rules} == {"", "example.com"}
+    assert {rule["apiGroups"][0] for rule in rules} == {"", "example.com", "events.k8s.io"}
     binding = next(doc for doc in documents if doc["kind"] == "RoleBinding")
     assert binding["metadata"]["namespace"] == "tenant"
     assert binding["subjects"] == [
@@ -103,7 +104,9 @@ def test_cluster_owner_watches_namespaced_children_across_namespaces():
         ("fleets",): {"get", "list", "watch", "patch"},
         ("widgets",): {"get", "list", "watch", "create", "patch"},
     }
-    assert not policy(documents, "Role", "operators")
+    assert policy(documents, "Role", "operators") == [
+        {"apiGroups": ["events.k8s.io"], "resources": ["events"], "verbs": ["create"]}
+    ]
 
 
 def test_all_namespaces_watch_does_not_expand_explicit_write_permission():

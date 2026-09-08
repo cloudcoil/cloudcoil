@@ -1,17 +1,41 @@
-# Controller and admission patterns
+# Controller and admission examples
 
-Start with the [pattern guide](../../docs/patterns.md) for runnable commands, sample
-resources, and the choice of ownership, dependencies, live reads and informer caches.
-The [published guide](https://cloudcoil.github.io/cloudcoil/patterns/) has the same content.
+Each module is an executable Application using the decorator API. Start with the
+[pattern catalog](../../docs/patterns.md) for the full comparison and sample resources.
 
-| Pattern | Example | Reads and writes |
-| --- | --- | --- |
-| One CR manages several child kinds | [Widget](../widget_operator.py) | `ensure` ConfigMap, Deployment and Service; return parent status |
-| Watch dependencies without owning them | [Dependency rollout](dependency_rollout.py) | Cache-get referenced ConfigMaps; reverse-map changes to opted-in Deployments |
-| Aggregate existing resources | [Workload summary](workload_summary.py) | Cache-list Pods by labels; return CR status; no Pod writes |
-| Variable number of children and pruning | [Child set](child_set.py) | Ensure desired ConfigMaps; cache-list old children; delete with UID/version guards |
-| External resources and periodic repair | [Finalizers](finalizers.py) | Persist finalizer before side effects; retry idempotent cleanup; timed requeue |
-| Several controllers in one process | [Multiple controllers](multiple_controllers.py) | Shared runtime and clients, leader election, separate reconcilers |
-| Admission on existing built-in resources | [Deployment policy](admission_existing.py) | Live-read namespace policy; defaults, immutable label, delete protection, `/scale` |
-| Admission on someone else's CRD | [Database policy](admission_external_crd.py) | Compare UPDATE snapshots; no CRD installation or ownership |
-| Admission with informer reads | [Pod policy](admission_cached.py) | Per-replica Namespace cache; live fallback on a miss |
+## Run an example
+
+From the repository root, complete the [checkout setup](../../docs/getting-started.md#run-the-checkout), then:
+
+```sh
+export CLOUDCOIL_NAMESPACE=default
+uv run --no-sync python -m examples.patterns.workload_summary manifests
+uv run --no-sync python -m examples.patterns.workload_summary install
+uv run --no-sync python -m examples.patterns.workload_summary run
+```
+
+`manifests` is offline. `install` applies the CRD and RBAC; `run` uses your configured
+cluster credentials. For Pod deployment, add an image and command as described in
+the [deployment guide](../../docs/operators.md).
+
+## Choose a starting point
+
+- [Conditional configuration](conditional_config.py): cases inside a stage, then a dependent checksum stage.
+- [Dependency rollout](dependency_rollout.py): watch referenced ConfigMaps and update existing Deployments.
+- [Workload summary](workload_summary.py): list cached Pods and report status without owning them.
+- [Child set](child_set.py): maintain and prune a variable set of owned resources.
+- [Finalizers](finalizers.py): provision external state, repair periodically and clean up on deletion.
+- [Multiple controllers](multiple_controllers.py): include reusable groups in one application.
+- [Lifespan](lifespan.py): process and leader hooks with typed exit events.
+- [Deployment policy](admission_existing.py): defaulting, validation, DELETE and `/scale`.
+- [External CRD policy](admission_external_crd.py): validate another operator's resource without installing its CRD.
+- [Cached policy](admission_cached.py): admission with a per-replica cache and explicit live fallback.
+
+Admission examples need a TLS Secret and CA bundle; the
+[Widget demo](../widgets/README.md) shows a complete deployment. The finalizer
+example uses a demo-only in-memory provider; replace it with an idempotent durable
+API adapter for real external resources.
+
+For the shared execution and reporting rules, read
+[controllers](../../docs/controllers.md), [stages and cases](../../docs/staged-controllers.md)
+and [read contracts](../../docs/reads.md).

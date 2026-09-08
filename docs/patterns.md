@@ -2,16 +2,18 @@
 
 These are executable applications, with tested callbacks, informer reads and generated
 manifests. Run commands from the repository root with the development dependencies and
-current generated Kubernetes models installed (see [the Widget demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets)).
+matching Kubernetes models installed (see [checkout setup](getting-started.md#run-the-checkout)).
 
 | Pattern | Example | Reads and writes |
 | --- | --- | --- |
 | Mirror objects of the same kind | [ConfigMap mirror](https://github.com/cloudcoil/cloudcoil/blob/main/examples/configmap_controller.py) | Ensure missing children; guarded replacement of the complete data map |
-| One CR manages several child kinds | [Widget](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py) | `ensure` ConfigMap, Deployment and Service; return parent status |
+| One CR manages several child kinds | [Widget](https://github.com/cloudcoil/cloudcoil/blob/main/examples/widget_operator.py) | `ensure` ConfigMap, Deployment and Service; decorated stages and automatic status |
+| Cases within a stage | [Conditional configuration](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/conditional_config.py) | First-match branches with a dependent checksum stage |
 | Watch dependencies without owning them | [Dependency rollout](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/dependency_rollout.py) | Cache-get referenced ConfigMaps; reverse-map changes to opted-in Deployments |
-| Aggregate existing resources | [Workload summary](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/workload_summary.py) | Cache-list Pods by labels; return CR status; no Pod writes |
+| Aggregate existing resources | [Workload summary](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/workload_summary.py) | Cache-list Pods by labels; report CR status; no Pod writes |
 | Variable number of children and pruning | [Child set](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/child_set.py) | Ensure desired ConfigMaps; cache-list old children; delete with UID/version guards |
 | External resources and periodic repair | [Finalizers](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/finalizers.py) | Persist finalizer before side effects; retry idempotent cleanup; timed requeue |
+| Process and leadership lifetime | [Lifespan](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/lifespan.py) | Typed acquisition/loss/shutdown events; cleanup after workers stop |
 | Several controllers in one process | [Multiple controllers](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/multiple_controllers.py) | Shared runtime and clients, leader election, separate reconcilers |
 | Admission on existing built-in resources | [Deployment policy](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_existing.py) | Live-read namespace policy; defaults, immutable label, delete protection, `/scale` |
 | Admission on someone else's CRD | [Database policy](https://github.com/cloudcoil/cloudcoil/blob/main/examples/patterns/admission_external_crd.py) | Compare UPDATE snapshots; no CRD installation or ownership |

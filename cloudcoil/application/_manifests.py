@@ -227,6 +227,14 @@ def build_manifests(
         if watched_namespace is not None:
             _label(watched_namespace, "Controller namespace")
         grant(primary, (*_READ, "patch"), watched_namespace)
+        if controller._events is not None:
+            grant(
+                _Identity("events.k8s.io", "events", "Namespaced"),
+                ("create",),
+                (controller._events.namespace or namespace)
+                if primary.scope == "Cluster"
+                else watched_namespace,
+            )
         if primary.status:
             grant(primary, ("patch",), watched_namespace, ("status",))
         for watch in controller._watches:

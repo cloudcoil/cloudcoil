@@ -2,14 +2,32 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from cloudcoil.caching._reader import CachedResources
 from cloudcoil.resources import Resource
 
+from ._status import get_condition, set_condition, update_status
+
 if TYPE_CHECKING:
     from cloudcoil.caching._informer import AsyncInformer
     from cloudcoil.client import AsyncAPIClient, Config
+
+    from ._events import EventRecorder
+
+
+@dataclass
+class _Report:
+    status: Any = None
+    baseline: Resource | None = None
+    current: Resource | None = None
+    action: str = ""
+    reserved: set[str] = field(default_factory=set)
+    dirty: bool = False
+    managed: bool = False
+    stage_conditions: bool = True
+    pending: list[str] = field(default_factory=list)
+    events: list[tuple[str, str, Literal["Normal", "Warning"], str]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -45,6 +63,90 @@ class Request[T: Resource]:
     _informers: "dict[type[Resource], AsyncInformer[Any]]" = field(
         default_factory=dict, repr=False, compare=False
     )
+    _events: "EventRecorder | None" = field(default=None, repr=False, compare=False)
+    _report: _Report = field(default_factory=_Report, repr=False, compare=False)
+
+    @property
+    def object(self) -> T:
+        """The present primary object; stages are only invoked for present objects."""
+        current = self._report.current if self._report.current is not None else self.resource
+        if current is None:
+            raise ValueError("The primary resource is absent from the watched scope")
+        return cast(T, current)
+
+    def set_status(self, **changes: Any) -> None:
+        """Stage validated status fields for persistence, even if the handler fails.
+
+        Only explicit helper updates are saved on failure, never spec or metadata.
+        Ordinary resource edits still require returning the resource on success.
+        """
+        update_status(self.object, **changes)
+        self._report.status = self.object.status.model_copy(deep=True)  # type: ignore[attr-defined]
+        self._report.dirty = True
+
+    def condition(
+        self,
+        condition: str,
+        status: bool | Literal["True", "False", "Unknown"],
+        *,
+        reason: str,
+        message: str = "",
+        event: bool = False,
+        warning: bool = False,
+        action: str | None = None,
+    ) -> None:
+        """Stage a standard condition; optionally emit an Event on a transition.
+
+        A changed truth value or reason counts as an Event transition. Message and
+        generation-only changes do not. Events flush only after status persistence.
+        """
+        previous = get_condition(self.object, condition)
+        set_condition(self.object, condition, status, reason=reason, message=message)
+        self.set_status()
+        current = get_condition(self.object, condition)
+        assert current is not None
+        if event and (
+            previous is None
+            or (previous.status, previous.reason) != (current.status, current.reason)
+        ):
+            self._report.events.append(
+                (reason, message, "Warning" if warning else "Normal", action or condition)
+            )
+
+    def _failed(self, error: Exception) -> None:
+        """Report stable, non-sensitive failure details for the active stage."""
+        report = self._report
+        name = report.pending[0] if report.pending else "Reconcile"
+        reason = "TerminalError" if isinstance(error, TerminalError) else "ReconcileFailed"
+        message = f"{name} failed ({type(error).__name__}); see controller logs"
+        if report.managed:
+            if report.pending and report.stage_conditions:
+                self.condition(
+                    name, False, reason=reason, message=message, event=True, warning=True
+                )
+            for pending in report.pending[1:] if report.stage_conditions else []:
+                self.condition(pending, "Unknown", reason="DependencyNotReady")
+            self.condition(
+                "Ready",
+                False,
+                reason=reason,
+                message=message,
+                event=not report.stage_conditions,
+                warning=True,
+                action=name,
+            )
+        elif report.pending:
+            report.events.append((reason, message, "Warning", name))
+
+    async def event(
+        self, reason: str, message: str, *, type: Literal["Normal", "Warning"] = "Normal"
+    ) -> bool:
+        """Record a bounded, best-effort Kubernetes Event regarding this resource."""
+        if self.resource is None or self._events is None:
+            return False
+        return await self._events.emit(
+            self.resource, reason, message, type=type, config=self.config
+        )
 
     def cached[U: Resource](self, resource: type[U]) -> CachedResources[U]:
         """Read the primary or a declared .owns/.watch informer, without I/O."""
@@ -72,7 +174,7 @@ class Request[T: Resource]:
 
         if self.resource is None:
             raise ValueError("Cannot ensure a child for an absent parent")
-        return await ensure(self.resource, desired, config=self.config)
+        return await ensure(self.object, desired, config=self.config)
 
     @property
     def name(self) -> str:
@@ -99,6 +201,33 @@ class Result:
             not math.isfinite(self.requeue_after) or self.requeue_after < 0
         ):
             raise ValueError("requeue_after must be finite and nonnegative")
+
+
+class Wait(Exception):
+    """Expected pending work; raise to stop a pass without increasing backoff.
+
+    The low-level returned-Wait interface and requeue_after spelling remain usable.
+    """
+
+    def __init__(
+        self,
+        reason: str,
+        message: str = "",
+        *,
+        after: float | None = None,
+        requeue_after: float | None = None,
+    ) -> None:
+        if after is not None and requeue_after is not None:
+            raise ValueError("Use after or requeue_after, not both")
+        delay = after if after is not None else requeue_after if requeue_after is not None else 30
+        if not reason:
+            raise ValueError("Wait needs a reason")
+        if isinstance(delay, bool) or not math.isfinite(delay) or delay <= 0:
+            raise ValueError("Wait delay must be finite and positive")
+        self.reason = reason
+        self.message = message
+        self.requeue_after = delay
+        super().__init__(message or reason)
 
 
 class TerminalError(Exception):

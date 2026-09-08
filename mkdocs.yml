@@ -26,9 +26,11 @@ nav:
       - Maintaining model packages: model-releases.md
       - Custom resources: custom-resources.md
       - Controllers: controllers.md
+      - Stages, cases and reporting: staged-controllers.md
       - Live clients and informer reads: reads.md
       - Admission: admission.md
       - Application deployment: operators.md
+      - Lifespans and leadership: lifespan.md
       - Patterns: patterns.md
   - Advanced:
       - Client caching and informers: caching.md

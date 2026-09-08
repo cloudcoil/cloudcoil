@@ -1,109 +1,49 @@
-> [!WARNING]  
-> This repository is auto-generated from the [cloudcoil repository](https://github.com/cloudcoil/cloudcoil/tree/main/models/sealed-secrets). Please do not submit pull requests here. Instead, submit them to the main repository at https://github.com/cloudcoil/cloudcoil.
+## Sealed Secrets models
 
-## 🔧 Installation
+Models are generated from pinned upstream schemas. Configuration, schema inputs
+and README sources are maintained in
+[cloudcoil/cloudcoil](https://github.com/cloudcoil/cloudcoil/tree/main/models/sealed-secrets);
+the generated package is in
+[cloudcoil/models-sealed-secrets](https://github.com/cloudcoil/models-sealed-secrets). Edit the
+source integration in Cloudcoil because generated repository edits are replaced
+on template refresh.
 
-> [!NOTE]
-> For versioning information and compatibility, see the [Versioning Guide](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md).
+### Use a typed resource
 
-Using [uv](https://github.com/astral-sh/uv) (recommended):
-
-```bash
-# Install with Sealed Secrets support
-uv add cloudcoil.models.sealed-secrets
-```
-
-Using pip:
-
-```bash
-pip install cloudcoil.models.sealed-secrets
-```
-
-## 💡 Examples
-
-### Using Sealed Secrets Models
+After installing `cloudcoil.models.sealed_secrets`, use the package's typed lookup to
+select an exact Kubernetes kind and API version:
 
 ```python
-from cloudcoil import apimachinery
-import cloudcoil.models.sealed_secrets.v1alpha1 as sealed_secrets
+from cloudcoil.models.sealed_secrets import get_model
 
-# Create a SealedSecret
-sealed_secret = sealed_secrets.SealedSecret(
-    metadata=apimachinery.ObjectMeta(name="mysecret"),
-    spec=sealed_secrets.SealedSecretSpec(
-        encrypted_data={
-            "username": "AgBy8hCi8...",  # Your encrypted data here
-            "password": "AgBy8hCi8..."   # Your encrypted data here
-        }
-    )
-).create()
+SealedSecret = get_model("SealedSecret", api_version="bitnami.com/v1alpha1")
 
-# List SealedSecrets
-for secret in sealed_secrets.SealedSecret.list():
-    print(f"Found SealedSecret: {secret.metadata.name}")
+for resource in SealedSecret.list(namespace="default"):
+    print(resource.name)
 ```
 
-### Using the Fluent Builder API
+The lookup is local; `list` reads the configured cluster. Async code uses
+`await SealedSecret.async_list(namespace="default")`. Direct class imports are also supported; the
+lookup avoids depending on schema-derived module names.
 
-Cloudcoil provides a powerful fluent builder API for Sealed Secrets resources:
+Install the upstream Sealed Secrets CRDs and operator separately before making API calls.
+The model package supplies Python types and client methods, not the operator.
 
-```python
-from cloudcoil.models.sealed_secrets.v1alpha1 import SealedSecret
+Use the shared [resource guide](https://cloudcoil.github.io/cloudcoil/resources/)
+for constructors, builders, writes and watches, and the
+[controller guide](https://cloudcoil.github.io/cloudcoil/controllers/) for
+reconciliation. Pydantic validates constructed models at runtime; generated
+annotations provide field completion and static type checking.
 
-# Create a SealedSecret using the fluent builder
-sealed_secret = (
-    SealedSecret.builder()
-    .metadata(lambda metadata: metadata
-        .name("mysecret")
-        .namespace("default")
-        .labels({"app": "myapp"})
-    )
-    .spec(lambda spec: spec
-        .encrypted_data({
-            "username": "AgBy8hCi8...",  # Your encrypted data here
-            "password": "AgBy8hCi8..."   # Your encrypted data here
-        })
-        .template(lambda template: template
-            .metadata(lambda t_metadata: t_metadata
-                .labels({"app": "myapp"})
-            )
-            .type("Opaque")
-        )
-    )
-    .build()
-)
+### Maintain this integration
+
+From the Cloudcoil repository root:
+
+```sh
+make gen-repo-sealed-secrets
+make -C output/models-sealed-secrets lint test check-artifacts
 ```
 
-### Using the Context Manager Builder API
-
-For complex sealed secret configurations, you can use the context manager-based builder:
-
-```python
-from cloudcoil.models.sealed_secrets.v1alpha1 import SealedSecret
-
-# Create a SealedSecret using context managers
-with SealedSecret.new() as secret:
-    with secret.metadata() as metadata:
-        metadata.name("mysecret")
-        metadata.namespace("default")
-    
-    with secret.spec() as spec:
-        spec.encrypted_data({
-            "username": "AgBy8hCi8...",  # Your encrypted data here
-            "password": "AgBy8hCi8..."   # Your encrypted data here
-        })
-        with spec.template() as template:
-            template.type("Opaque")
-            with template.metadata() as t_metadata:
-                t_metadata.labels({"app": "myapp"})
-
-final_secret = secret.build()
-```
-
-## 📚 Documentation
-
-For complete documentation, visit [cloudcoil.github.io/cloudcoil](https://cloudcoil.github.io/cloudcoil)
-
-## 📜 License
-
-Apache License, Version 2.0 - see [LICENSE](LICENSE)
+Rendering generates the models before validation. The
+[model release guide](https://cloudcoil.github.io/cloudcoil/model-releases/)
+covers source updates, artifact checks and publishing.
