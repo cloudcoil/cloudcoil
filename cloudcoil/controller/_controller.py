@@ -79,8 +79,10 @@ class Controller[T: Resource]:
         ):
             if value is not None and (not math.isfinite(value) or value <= 0):
                 raise ValueError(f"{setting} must be finite and positive")
-        if name is not None and (not name.strip() or len(name) > 118):
-            raise ValueError("Controller name must contain 1-118 characters")
+        if name is not None and not name.strip():
+            raise ValueError("Controller name must not be empty")
+        if name is not None and len(name) > 118:
+            raise ValueError("Controller name must have at most 118 characters")
         self.name = name
         if not isinstance(events, (bool, EventRecorder)):
             raise TypeError("events must be a bool or EventRecorder")
