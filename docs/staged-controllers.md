@@ -92,8 +92,9 @@ includes its CRD and reverse dependency watch.
   order handlers, not arbitrary Python import side effects.
 - The optional `otherwise` is always last. No match without a fallback raises
   TerminalError rather than silently reporting success.
-- Duplicate names and registrations after startup fail explicitly. Other case
-  conditions become Unknown/NotSelected when one is selected.
+- Duplicate names and registrations after startup fail explicitly. Cases report
+  their outcome through Ready; branch labels do not become condition types.
+  Success uses the case name as Ready's reason; Events retain it as their action.
 - Normal Python `match` works in ordinary reconcilers too. The request status helpers
   and `return Wait(...)` do not require using Cases.
 

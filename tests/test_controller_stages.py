@@ -9,6 +9,7 @@ from cloudcoil.client import Config
 from cloudcoil.controller import (
     Cases,
     Controller,
+    EventRecorder,
     Request,
     ResourceKey,
     Stage,
@@ -87,7 +88,10 @@ async def test_cases_lazy_first_match_priority_and_fallback():
     result = await cases(req)
     assert calls == ["high"]
     assert result.requeue_after == 30
-    assert get_condition(req.object, "Low").reason == "NotSelected"
+    assert get_condition(req.object, "Low") is None
+    assert [condition.type for condition in req.object.status.conditions] == ["Ready"]
+    assert get_condition(req.object, "Ready").reason == "WaitingForInput"
+    assert req._report.events[0][3] == "High"
     with pytest.raises(RuntimeError, match="before running"):
         cases.case("Late", when=lambda req: True)(low)
 
@@ -180,8 +184,11 @@ async def test_primary_status_filter_preserves_spec_metadata_deletion_and_resync
     assert controller._queue.depth == 1
 
 
-@pytest.mark.parametrize("failure", ["transient", "terminal", "timeout", "conflict"])
-async def test_worker_persists_failure_status_only_and_respects_backoff(failure):
+@pytest.mark.parametrize("composition", ["stages", "cases"])
+@pytest.mark.parametrize(
+    "failure", ["transient", "terminal", "timeout", "conflict", "wait", "event_timeout"]
+)
+async def test_worker_persists_failure_status_only_and_respects_backoff(failure, composition):
     obj = widget()
     obj.metadata.resource_version = "1"
     config = Config(server="https://cluster", namespace="ns")
@@ -197,25 +204,36 @@ async def test_worker_persists_failure_status_only_and_respects_backoff(failure)
     async def step(req):
         nonlocal calls
         calls += 1
-        req.object.metadata.annotations = {"must-not-save": "partial"}
+        if failure not in ("wait", "event_timeout"):
+            req.object.metadata.annotations = {"must-not-save": "partial"}
         req.set_status(endpoint="intentional status")
+        if failure == "wait":
+            return Wait("WaitingForProvider", requeue_after=30)
+        if failure == "event_timeout":
+            return None
         if failure == "timeout":
             await asyncio.Future()
         if failure in ("terminal", "conflict"):
             raise TerminalError("invalid spec")
         raise RuntimeError("secret must stay out of Kubernetes status")
 
+    flow = Stages(Stage("Provisioned", step))
+    if composition == "cases":
+        flow = Cases[Widget]()
+        flow.otherwise("Provisioned")(step)
     controller = Controller(
         Widget,
-        Stages(Stage("Provisioned", step)),
+        flow,
         config=config,
-        events=False,
-        reconcile_timeout=0.01 if failure == "timeout" else None,
+        events=EventRecorder(timeout=0.02) if failure == "event_timeout" else False,
+        reconcile_timeout=0.01 if failure in ("timeout", "event_timeout") else None,
     )
     controller._primary = SimpleNamespace(get=lambda *args: obj.model_copy(deep=True))
 
     async def handle(req):
         nonlocal obj
+        if req.method == "POST" and failure == "event_timeout":
+            await asyncio.Future()
         assert req.method == "PATCH"
         assert req.url.path.endswith("/status")
         operations = json.loads(req.content)
@@ -253,13 +271,21 @@ async def test_worker_persists_failure_status_only_and_respects_backoff(failure)
                 assert calls == 1
                 assert len(patches) == 1
                 assert controller._queue.depth == 0
-                assert controller._queue.delayed == (0 if failure == "terminal" else 1)
+                assert controller._queue.delayed == (
+                    0 if failure in ("terminal", "event_timeout") else 1
+                )
                 if failure != "conflict":
                     assert obj.status.endpoint == "intentional status"
                     ready = get_condition(obj, "Ready")
-                    assert ready.status == "False"
+                    assert ready.status == ("True" if failure == "event_timeout" else "False")
                     assert "secret" not in ready.message
-                    assert get_condition(obj, "Provisioned").status == "False"
+                    if composition == "stages":
+                        assert get_condition(obj, "Provisioned").status == ready.status
+                    else:
+                        assert get_condition(obj, "Provisioned") is None
+                if failure == "event_timeout":
+                    assert controller.status.errors == 0
+                    assert controller.status.successes == 1
                 assert not obj.metadata.annotations
             finally:
                 controller._queue.shutdown(immediate=True)

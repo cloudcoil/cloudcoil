@@ -41,11 +41,14 @@ def _validate(resource: type[Resource], report_status: bool) -> None:
         model()  # New objects need a status whose fields have defaults.
 
 
-def _start[T: Resource](request: Request[T], names: list[str], report_status: bool) -> bool:
+def _start[T: Resource](
+    request: Request[T], names: list[str], report_status: bool, *, stage_conditions: bool = True
+) -> bool:
     obj = request.resource
     if obj is None or (obj.metadata and obj.metadata.deletion_timestamp):
         return False
     request._report.managed = report_status
+    request._report.stage_conditions = stage_conditions
     request._report.pending = names.copy()
     if report_status:
         request.set_status(observed_generation=obj.metadata.generation if obj.metadata else None)
@@ -58,13 +61,16 @@ async def _run[T: Resource](request: Request[T], stage: Stage[T]) -> Wait | None
         raise TypeError("A stage must return None (continue) or Wait (stop this pass)")
     if request._report.managed:
         request.condition(
-            stage.name,
+            stage.name if request._report.stage_conditions else "Ready",
             result is None,
-            reason=result.reason if result else "Reconciled",
+            reason=result.reason
+            if result
+            else ("Reconciled" if request._report.stage_conditions else stage.name),
             message=result.message if result else f"{stage.name} is up to date",
             event=True,
+            action=stage.name,
         )
-        if result is not None:
+        if result is not None and request._report.stage_conditions:
             for pending in request._report.pending[1:]:
                 request.condition(pending, "Unknown", reason="DependencyNotReady")
             request.condition("Ready", False, reason=result.reason, message=result.message)
@@ -74,7 +80,7 @@ async def _run[T: Resource](request: Request[T], stage: Stage[T]) -> Wait | None
 
 
 def _done[T: Resource](request: Request[T], wait: Wait | None = None) -> Result:
-    if wait is None and request._report.managed:
+    if wait is None and request._report.managed and request._report.stage_conditions:
         request.condition(
             "Ready", True, reason="Reconciled", message="All required work is current", event=True
         )
@@ -187,7 +193,7 @@ class Cases[T: Resource]:
         names = [case.stage.name for case in self._cases]
         if self._otherwise is not None:
             names.append(self._otherwise.name)
-        if not _start(request, names, self.report_status):
+        if not _start(request, names, self.report_status, stage_conditions=False):
             return None
         selected = self._otherwise
         for case in self._cases:
@@ -207,10 +213,7 @@ class Cases[T: Resource]:
             raise TerminalError(
                 "No case matched; register an otherwise handler if this is expected"
             )
-        # Other cases do not claim a completed invariant on this pass.
-        if self.report_status:
-            for name in names:
-                if name != selected.name:
-                    request.condition(name, "Unknown", reason="NotSelected")
+        # A branch name describes an action, not a Kubernetes condition type.
+        # Report its outcome through Ready and retain the name as the Event action.
         request._report.pending = [selected.name]
         return _done(request, await _run(request, selected))

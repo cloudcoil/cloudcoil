@@ -21,6 +21,7 @@ class _Report:
     status: Any = None
     dirty: bool = False
     managed: bool = False
+    stage_conditions: bool = True
     pending: list[str] = field(default_factory=list)
     events: list[tuple[str, str, Literal["Normal", "Warning"], str]] = field(default_factory=list)
 
@@ -87,6 +88,7 @@ class Request[T: Resource]:
         message: str = "",
         event: bool = False,
         warning: bool = False,
+        action: str | None = None,
     ) -> None:
         """Stage a standard condition; optionally emit an Event on a transition.
 
@@ -103,7 +105,7 @@ class Request[T: Resource]:
             or (previous.status, previous.reason) != (current.status, current.reason)
         ):
             self._report.events.append(
-                (reason, message, "Warning" if warning else "Normal", condition)
+                (reason, message, "Warning" if warning else "Normal", action or condition)
             )
 
     def _failed(self, error: Exception) -> None:
@@ -113,13 +115,21 @@ class Request[T: Resource]:
         reason = "TerminalError" if isinstance(error, TerminalError) else "ReconcileFailed"
         message = f"{name} failed ({type(error).__name__}); see controller logs"
         if report.managed:
-            if report.pending:
+            if report.pending and report.stage_conditions:
                 self.condition(
                     name, False, reason=reason, message=message, event=True, warning=True
                 )
-            for pending in report.pending[1:]:
+            for pending in report.pending[1:] if report.stage_conditions else []:
                 self.condition(pending, "Unknown", reason="DependencyNotReady")
-            self.condition("Ready", False, reason=reason, message=message)
+            self.condition(
+                "Ready",
+                False,
+                reason=reason,
+                message=message,
+                event=not report.stage_conditions,
+                warning=True,
+                action=name,
+            )
         elif report.pending:
             report.events.append((reason, message, "Warning", name))
 
