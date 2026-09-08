@@ -184,7 +184,7 @@ async def test_primary_status_filter_preserves_spec_metadata_deletion_and_resync
     assert controller._queue.depth == 1
 
 
-@pytest.mark.parametrize("composition", ["stages", "cases"])
+@pytest.mark.parametrize("composition", ["stages", "cases", "decorator", "nested"])
 @pytest.mark.parametrize(
     "failure", ["transient", "terminal", "timeout", "conflict", "wait", "event_timeout"]
 )
@@ -228,6 +228,21 @@ async def test_worker_persists_failure_status_only_and_respects_backoff(failure,
         events=EventRecorder(timeout=0.02) if failure == "event_timeout" else False,
         reconcile_timeout=0.01 if failure in ("timeout", "event_timeout") else None,
     )
+    if composition in ("decorator", "nested"):
+        controller._reconcile = None
+        controller._status_updates = False
+        if composition == "decorator":
+
+            @controller.stage(condition="Provisioned")
+            async def decorated(obj, ctx):
+                return await step(ctx._request)
+        else:
+            scope = controller.stage("provision", condition="Provisioned")
+
+            @scope.otherwise()
+            async def nested(obj, ctx):
+                return await step(ctx._request)
+
     controller._primary = SimpleNamespace(get=lambda *args: obj.model_copy(deep=True))
 
     async def handle(req):
@@ -279,7 +294,7 @@ async def test_worker_persists_failure_status_only_and_respects_backoff(failure,
                     ready = get_condition(obj, "Ready")
                     assert ready.status == ("True" if failure == "event_timeout" else "False")
                     assert "secret" not in ready.message
-                    if composition == "stages":
+                    if composition != "cases":
                         assert get_condition(obj, "Provisioned").status == ready.status
                     else:
                         assert get_condition(obj, "Provisioned") is None

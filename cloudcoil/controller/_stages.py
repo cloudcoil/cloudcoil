@@ -56,7 +56,10 @@ def _start[T: Resource](
 
 
 async def _run[T: Resource](request: Request[T], stage: Stage[T]) -> Wait | None:
-    result = await stage.run(request)
+    try:
+        result = await stage.run(request)
+    except Wait as wait:
+        result = wait
     if result is not None and not isinstance(result, Wait):
         raise TypeError("A stage must return None (continue) or Wait (stop this pass)")
     if request._report.managed:

@@ -19,6 +19,10 @@ if TYPE_CHECKING:
 @dataclass
 class _Report:
     status: Any = None
+    baseline: Resource | None = None
+    current: Resource | None = None
+    action: str = ""
+    reserved: set[str] = field(default_factory=set)
     dirty: bool = False
     managed: bool = False
     stage_conditions: bool = True
@@ -65,9 +69,10 @@ class Request[T: Resource]:
     @property
     def object(self) -> T:
         """The present primary object; stages are only invoked for present objects."""
-        if self.resource is None:
+        current = self._report.current if self._report.current is not None else self.resource
+        if current is None:
             raise ValueError("The primary resource is absent from the watched scope")
-        return self.resource
+        return cast(T, current)
 
     def set_status(self, **changes: Any) -> None:
         """Stage validated status fields for persistence, even if the handler fails.
@@ -169,7 +174,7 @@ class Request[T: Resource]:
 
         if self.resource is None:
             raise ValueError("Cannot ensure a child for an absent parent")
-        return await ensure(self.resource, desired, config=self.config)
+        return await ensure(self.object, desired, config=self.config)
 
     @property
     def name(self) -> str:
@@ -198,23 +203,31 @@ class Result:
             raise ValueError("requeue_after must be finite and nonnegative")
 
 
-@dataclass(frozen=True)
-class Wait:
-    """Normal progress: stop this pass and retry after a bounded delay or a watch.
+class Wait(Exception):
+    """Expected pending work; raise to stop a pass without increasing backoff.
 
-    Unlike an exception, waiting does not count as a failure or increase backoff.
-    A positive default avoids silently stalling on dependencies without watches.
+    The low-level returned-Wait interface and requeue_after spelling remain usable.
     """
 
-    reason: str
-    message: str = ""
-    requeue_after: float = 30
-
-    def __post_init__(self) -> None:
-        if not self.reason:
+    def __init__(
+        self,
+        reason: str,
+        message: str = "",
+        *,
+        after: float | None = None,
+        requeue_after: float | None = None,
+    ) -> None:
+        if after is not None and requeue_after is not None:
+            raise ValueError("Use after or requeue_after, not both")
+        delay = after if after is not None else requeue_after if requeue_after is not None else 30
+        if not reason:
             raise ValueError("Wait needs a reason")
-        if not math.isfinite(self.requeue_after) or self.requeue_after <= 0:
-            raise ValueError("Wait requeue_after must be finite and positive")
+        if isinstance(delay, bool) or not math.isfinite(delay) or delay <= 0:
+            raise ValueError("Wait delay must be finite and positive")
+        self.reason = reason
+        self.message = message
+        self.requeue_after = delay
+        super().__init__(message or reason)
 
 
 class TerminalError(Exception):

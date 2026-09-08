@@ -6,7 +6,7 @@ import math
 import time
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, Self, cast
+from typing import Any, Self, cast, overload
 
 from cloudcoil._context import context
 from cloudcoil.caching._informer import AsyncInformer
@@ -20,6 +20,7 @@ from ._informers import _InformerPool
 from ._metrics import ControllerStatus, _ReconcileMetrics
 from ._mutations import _persist
 from ._queue import QueueClosed, WorkQueue
+from ._registry import Registry, StageScope
 from ._stages import Cases, Stages
 from ._types import Request, ResourceKey, Result, TerminalError, Wait
 
@@ -47,9 +48,11 @@ class Controller[T: Resource]:
     def __init__(
         self,
         resource: type[T],
-        reconcile: Reconciler[T],
+        reconcile: Reconciler[T] | None = None,
         *,
         name: str | None = None,
+        owns: tuple[type[Resource], ...] = (),
+        report_status: bool | None = None,
         config: Config | None = None,
         namespace: str | None = None,
         all_namespaces: bool = False,
@@ -78,10 +81,11 @@ class Controller[T: Resource]:
             raise TypeError("events must be a bool or EventRecorder")
         if status_updates is not None and not isinstance(status_updates, bool):
             raise TypeError("status_updates must be a bool")
+        self._registry = Registry(resource, report_status)
         self._status_updates = (
             status_updates
             if status_updates is not None
-            else not isinstance(reconcile, (Stages, Cases))
+            else reconcile is not None and not isinstance(reconcile, (Stages, Cases))
         )
         self._events = (
             events
@@ -92,7 +96,7 @@ class Controller[T: Resource]:
         )
         self._metrics = _ReconcileMetrics()
         self.resource = resource
-        self.reconcile = reconcile
+        self._reconcile = reconcile
         self.config = config
         self._options = InformerOptions(
             namespace=namespace,
@@ -117,6 +121,71 @@ class Controller[T: Resource]:
         self._ready = asyncio.Event()
         self._finished = asyncio.Event()
         self._failure: BaseException | None = None
+        self.owns(*owns)
+
+    @overload
+    def reconcile(self, request: Request[T]) -> Awaitable[T | Result | Wait | None]: ...
+
+    @overload
+    def reconcile[F: Callable[..., Any]](
+        self, *, every: float | None = None
+    ) -> Callable[[F], F]: ...
+
+    def reconcile(self, request: Request[T] | None = None, *, every: float | None = None) -> Any:
+        """Register an async (resource, optional ctx) handler.
+
+        Passing Request explicitly executes a reconciliation for low-level embedding.
+        """
+        if request is not None:
+            return self._invoke(request)
+        if self._reconcile is not None:
+            raise ValueError("A constructor reconciler is already registered")
+        return self._registry.reconcile(every=every)
+
+    def stage(
+        self,
+        name: str | None = None,
+        *,
+        condition: str,
+        depends: object | tuple[object, ...] | None = None,
+    ) -> StageScope[T]:
+        return self._registry.stage(name, condition=condition, depends=depends)
+
+    def case[F: Callable[..., Any]](
+        self,
+        *,
+        when: Callable[..., bool],
+        after: object | tuple[object, ...] | None = None,
+    ) -> Callable[[F], F]:
+        return self._registry.branches.case(when=when, after=after)
+
+    def otherwise[F: Callable[..., Any]](self) -> Callable[[F], F]:
+        return self._registry.branches.otherwise()
+
+    def finalize[F: Callable[..., Any]](self, key: str) -> Callable[[F], F]:
+        return self._registry.finalize(key)
+
+    def _validate(self, *, freeze: bool = False) -> None:
+        if self._reconcile is None:
+            self._registry.validate(freeze=freeze)
+        elif (
+            self._registry.handler
+            or self._registry.stages
+            or self._registry.branches.populated
+            or self._registry.finalizer
+        ):
+            raise ValueError(
+                "Constructor reconciliation cannot be combined with decorated handlers"
+            )
+        elif isinstance(self._reconcile, (Stages, Cases)):
+            self._reconcile._freeze(self.resource)
+        if freeze:
+            self._registry.frozen = True
+
+    async def _invoke(self, request: Request[T]) -> T | Result | Wait | None:
+        if self._reconcile is not None:
+            return await self._reconcile(request)
+        return await self._registry(request)
 
     def owns(self, *resources: type[Resource]) -> Self:
         """Enqueue primary owners when a child changes (direct controller references).
@@ -130,16 +199,34 @@ class Controller[T: Resource]:
             self._add_watch(_Watch(resource))
         return self
 
-    def watch[U: Resource](self, resource: type[U], *, mapper: Mapper[U]) -> Self:
-        """Map secondary resources to primary keys; updates map both old and new state.
+    @overload
+    def watch[U: Resource](self, resource: type[U], *, mapper: Mapper[U]) -> Self: ...
 
-        Mappers run on the event loop and should be fast and free of I/O. A mapper
-        failure stops the controller instead of silently losing a dependency event.
-        """
-        return self._add_watch(_Watch(resource, mapper))
+    @overload
+    def watch[U: Resource](self, resource: type[U]) -> Callable[[Mapper[U]], Mapper[U]]: ...
+
+    def watch[U: Resource](
+        self,
+        resource: type[U],
+        *,
+        mapper: Mapper[U] | None = None,
+    ) -> Self | Callable[[Mapper[U]], Mapper[U]]:
+        """Register a synchronous dependency mapper; updates map old and new state."""
+        if mapper is not None:
+            return self._add_watch(_Watch(resource, mapper))
+
+        def register(handler: Mapper[U]) -> Mapper[U]:
+            import inspect
+
+            if inspect.iscoroutinefunction(handler):
+                raise TypeError("Watch mappers must be synchronous")
+            self._add_watch(_Watch(resource, handler))
+            return handler
+
+        return register
 
     def _add_watch(self, watch: _Watch) -> Self:
-        if self._used:
+        if self._used or self._registry.frozen:
             raise RuntimeError("Configure watches before running the controller")
         self._watches.append(watch)
         return self
@@ -238,8 +325,7 @@ class Controller[T: Resource]:
                 yield ResourceKey(ref.name, namespace)
 
     async def _install(self, config: Config) -> None:
-        if isinstance(self.reconcile, (Stages, Cases)):
-            self.reconcile._freeze(self.resource)
+        self._validate(freeze=True)
         primary_client = await config.async_client_for(self.resource, cached=False)
         self._primary_namespaced = primary_client.namespaced
         self._primary = (
@@ -322,7 +408,7 @@ class Controller[T: Resource]:
             async with asyncio.timeout(2):
                 for reason, message, event_type, action in request._report.events:
                     await self._events.emit(
-                        request.resource,
+                        request.object,
                         reason,
                         message,
                         type=event_type,
@@ -337,6 +423,8 @@ class Controller[T: Resource]:
     ) -> bool:
         try:
             async with asyncio.timeout(5):
+                if request._report.baseline is not None:
+                    original = cast(T, request._report.baseline)
                 request._failed(error)
                 if original is not None and request._report.dirty:
                     desired = original.model_copy(deep=True)
@@ -374,7 +462,9 @@ class Controller[T: Resource]:
                     _events=self._events,
                 )
                 async with asyncio.timeout(self._reconcile_timeout):
-                    returned = await self.reconcile(request)
+                    returned = await self._invoke(request)
+                    if request._report.baseline is not None:
+                        original = cast(T, request._report.baseline)
                     callback_complete = True
                     result = (
                         Result(resource=returned) if isinstance(returned, Resource) else returned

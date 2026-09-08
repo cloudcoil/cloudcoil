@@ -60,6 +60,36 @@ cases = Cases[ConfigMap](report_status=False)
 cases.case("Configured", when=lambda request: bool(request.object.data), priority=10)(stage)
 cases.otherwise("Empty")(stage)
 assert_type(Controller(ConfigMap, cases), Controller[ConfigMap])
+
+from cloudcoil.controller import Context, StageScope
+registry = Controller(ConfigMap, owns=(Secret,))
+
+@registry.reconcile()
+async def decorated(obj: ConfigMap, ctx: Context[ConfigMap]) -> None:
+    assert_type(ctx.resource, ConfigMap)
+    assert_type(await ctx.ensure(Secret()), Secret)
+    assert_type(await ctx.get(Secret, "settings"), Secret)
+    ctx.event("Observed", "Read configuration")
+
+staged = Controller(ConfigMap)
+configuration = staged.stage("configuration", condition="Configured")
+assert_type(configuration, StageScope[ConfigMap])
+
+@configuration.case(when=lambda obj: bool(obj.data))
+async def configured(obj: ConfigMap) -> None:
+    pass
+
+@configuration.otherwise()
+async def empty(obj: ConfigMap, ctx: Context[ConfigMap]) -> None:
+    raise Wait("Pending", after=10)
+
+@staged.stage(depends=configuration, condition="Applied")
+async def applied(obj: ConfigMap) -> None:
+    pass
+
+@registry.watch(Secret)
+def changed(secret: Secret) -> list[ResourceKey]:
+    return [ResourceKey("settings", secret.namespace)]
 """)
     args = (
         ["--cache-dir", str(tmp_path / "mypy-cache")]
