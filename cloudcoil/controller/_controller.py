@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from typing import Any, Self, cast, overload
 
 from cloudcoil._context import context
+from cloudcoil.admission import AdmissionWebhook
+from cloudcoil.admission._registration import AdmissionRegistry
+from cloudcoil.admission._webhook import Mutator, Validator
 from cloudcoil.caching._informer import AsyncInformer
 from cloudcoil.caching._reader import CachedResources
 from cloudcoil.caching._types import InformerOptions
@@ -82,6 +85,7 @@ class Controller[T: Resource]:
         if status_updates is not None and not isinstance(status_updates, bool):
             raise TypeError("status_updates must be a bool")
         self._registry = Registry(resource, report_status)
+        self._admission_registry = AdmissionRegistry(AdmissionWebhook(), self._registry.check)
         self._status_updates = (
             status_updates
             if status_updates is not None
@@ -164,6 +168,14 @@ class Controller[T: Resource]:
 
     def finalize[F: Callable[..., Any]](self, key: str) -> Callable[[F], F]:
         return self._registry.finalize(key)
+
+    def validate(self, **options: Any) -> Callable[[Validator[T]], Validator[T]]:
+        """Register admission validation for this controller's resource."""
+        return self._admission_registry.validate(self.resource, **options)
+
+    def mutate(self, **options: Any) -> Callable[[Mutator[T]], Mutator[T]]:
+        """Register admission mutation returning the edited resource."""
+        return self._admission_registry.mutate(self.resource, **options)
 
     def _validate(self, *, freeze: bool = False) -> None:
         if self._reconcile is None:

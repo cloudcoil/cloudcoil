@@ -6,16 +6,18 @@ import math
 import os
 import shlex
 import signal
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, Self
 
 import yaml
 
 from cloudcoil.admission import AdmissionWebhook
 from cloudcoil.admission._decorators import _methods
+from cloudcoil.admission._registration import AdmissionRegistry
+from cloudcoil.admission._webhook import Mutator, Validator
 from cloudcoil.caching import Cache
 from cloudcoil.client import Config
 from cloudcoil.controller import Controller, HealthServer, LeaderElection, Manager
@@ -23,6 +25,7 @@ from cloudcoil.crd import CRD, _resource_options
 from cloudcoil.resources import Resource
 
 from ._install import install
+from ._lifecycle import Lifespans
 from ._manifests import RBACRule, build_manifests
 from ._server import _HTTPS, WebhookServer
 
@@ -55,7 +58,10 @@ class Application:
         )
         self.name = name
         self.namespace = namespace
-        self.controllers = tuple(controllers)
+        self.controllers: tuple[Controller[Any], ...] = ()
+        self._frozen = False
+        self._resources = tuple(resources)
+        self._lifespans = Lifespans(self._check_registration)
         self.rules = tuple(rules)
         self.webhook = webhook
         leader_election = (
@@ -68,35 +74,20 @@ class Application:
         if config is not None and cache is not None:
             raise ValueError("Configure caching on Config or Application, not both")
         self.admission = admission
+        self._admission_registry = AdmissionRegistry(
+            admission if admission is not None else AdmissionWebhook(), self._check_registration
+        )
         if admission is not None and admission._config not in (None, config):
             raise ValueError("AdmissionWebhook must share the operator Config")
         if config is not None and config.namespace != namespace:
             raise ValueError("Config.namespace must match Application.namespace")
-        self.crds: tuple[CRD, ...]
-        definitions: dict[type[Resource], CRD] = {}
-        for item in resources:
-            definition = item if isinstance(item, CRD) else CRD(item)
-            if definition.resource in definitions:
-                raise ValueError("A resource cannot be registered twice")
-            definitions[definition.resource] = definition
-        for controller in controllers:
-            if controller.resource not in definitions and _resource_options(controller.resource):
-                definitions[controller.resource] = CRD(controller.resource)
-            if controller.config is not None and controller.config is not config:
-                raise ValueError("Application controllers must share the operator Config")
+        self.crds: tuple[CRD, ...] = ()
+        self._models: tuple[type[Resource], ...] = ()
+        self._has_admission = False
         if leader_election and leader_election.config not in (None, config):
             raise ValueError("Application leader election must share the operator Config")
-        self.crds = tuple(definitions.values())
-        self._models = tuple(crd.resource for crd in self.crds if _methods(crd.resource))
-        self._has_admission = bool(self._models or admission and admission._routes)
-        if self._has_admission and webhook is None:
-            raise ValueError("Admission routes require webhook=WebhookServer(...)")
-        if webhook is not None and not self._has_admission:
-            raise ValueError(
-                "A webhook server needs resource-local admission methods or admission routes"
-            )
-        if not controllers and webhook is None:
-            raise ValueError("An operator needs controllers or webhooks")
+        for controller in controllers:
+            self.include(controller)
         self.manager: Manager | None = None
         self._used = False
         self._running = False
@@ -104,16 +95,83 @@ class Application:
         self._failure: BaseException | None = None
         self._ready = asyncio.Event()
         self._finished = asyncio.Event()
-        # Fail early on ambiguous resource scope/plural and invalid RBAC settings.
-        self.manifests(include_webhooks=False)
+
+    def _check_registration(self) -> None:
+        if self._frozen:
+            raise RuntimeError("Register application components before running")
+
+    def include(self, controller: Controller[Any]) -> Self:
+        """Explicitly include a reusable controller group."""
+        self._check_registration()
+        if any(item is controller for item in self.controllers):
+            raise ValueError("A controller cannot be registered twice")
+        if controller.config is not None and controller.config is not self.config:
+            raise ValueError("Application controllers must share the operator Config")
+        self.controllers = (*self.controllers, controller)
+        return self
+
+    def controller[T: Resource](self, resource: type[T], **options: Any) -> Controller[T]:
+        """Create and include a controller registry."""
+        controller = Controller(resource, **options)
+        self.include(controller)
+        return controller
+
+    def validate[T: Resource](
+        self, model: type[T], **options: Any
+    ) -> Callable[[Validator[T]], Validator[T]]:
+        return self._admission_registry.validate(model, **options)
+
+    def mutate[T: Resource](
+        self, model: type[T], **options: Any
+    ) -> Callable[[Mutator[T]], Mutator[T]]:
+        return self._admission_registry.mutate(model, **options)
+
+    def lifespan[F: Callable[..., AsyncIterator[None]]](
+        self, *, scope: Literal["process", "leader"] = "process"
+    ) -> Callable[[F], F]:
+        """Pair process or elected-leader startup and shutdown around handlers."""
+        return self._lifespans.register(scope=scope)
+
+    def _validate(self, *, freeze: bool = False) -> None:
+        definitions: dict[type[Resource], CRD] = {}
+        for item in self._resources:
+            definition = item if isinstance(item, CRD) else CRD(item)
+            if definition.resource in definitions:
+                raise ValueError("A resource cannot be registered twice")
+            definitions[definition.resource] = definition
+        for controller in self.controllers:
+            controller._validate()
+            if controller.resource not in definitions and _resource_options(controller.resource):
+                definitions[controller.resource] = CRD(controller.resource)
+        self.crds = tuple(definitions.values())
+        self._models = tuple(crd.resource for crd in self.crds if _methods(crd.resource))
+        admission = self._admission()
+        self._has_admission = bool(admission._routes)
+        if self._has_admission and self.webhook is None:
+            raise ValueError("Admission routes require webhook=WebhookServer(...)")
+        if self.webhook is not None and not self._has_admission:
+            raise ValueError("A webhook server needs admission routes")
+        if not self.controllers and self.webhook is None:
+            raise ValueError("An application needs controllers or webhooks")
+        if "leader" in self._lifespans.handlers and (
+            self.leader_election is None or not self.controllers
+        ):
+            raise ValueError("Leader lifespan requires leader election and controllers")
+        if freeze:
+            for controller in self.controllers:
+                controller._validate(freeze=True)
+            self._frozen = True
 
     def _admission(self, config: Config | None = None) -> AdmissionWebhook:
         admission = AdmissionWebhook(
             config=config,
             **({"max_body_bytes": self.admission._max_body_bytes} if self.admission else {}),
         )
-        if self.admission is not None:
-            admission._routes = dict(self.admission._routes)
+        registries = [self._admission_registry, *(c._admission_registry for c in self.controllers)]
+        for registry in registries:
+            if set(admission._routes) & set(registry.webhook._routes):
+                raise ValueError("Admission paths must be unique across included groups")
+            admission._routes.update(registry.webhook._routes)
         admission._register_models(self._models, require_config=config is not None)
         if set(admission._routes) & {"/readyz", "/controllers/readyz", "/metrics"}:
             raise ValueError("Admission paths conflict with operator health/metrics endpoints")
@@ -133,6 +191,7 @@ class Application:
         TLS Secrets and namespaces must already exist. include_webhooks=False
         exports the CRD/RBAC foundation without admission registration or hosting.
         """
+        self._validate()
         if image and self.webhook and not include_webhooks:
             raise ValueError(
                 "A Deployment for this operator requires its webhook TLS configuration"
@@ -275,6 +334,7 @@ class Application:
         """
         if self._used:
             raise RuntimeError("Application instances can only run once")
+        self._validate(freeze=True)
         self._used = True
         stop = stop if stop is not None else asyncio.Event()
         component_stop = asyncio.Event()
@@ -317,6 +377,9 @@ class Application:
             nonlocal server
             async with AsyncExitStack() as stack:
                 await stack.enter_async_context(config)
+                await stack.enter_async_context(
+                    self._lifespans.enter("process", self.leader_election)
+                )
                 stack.push_async_exit(shutdown)
                 self._running = True
                 admission = self._admission(config)
@@ -326,6 +389,9 @@ class Application:
                         config=config,
                         leader_election=self.leader_election,
                         health=self.health,
+                        leader_lifespan=lambda: self._lifespans.enter(
+                            "leader", self.leader_election
+                        ),
                     )
                 if self.webhook:
                     server = _HTTPS(self._application(admission), self.webhook)

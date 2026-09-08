@@ -85,6 +85,7 @@ class LeaderElection:
         self.config = config
         self._clock = time.monotonic
         self._active = False
+        self._failure: BaseException | None = None
         self._used = False
         self._last_renewed = 0.0
         self._observed_at = 0.0
@@ -286,6 +287,9 @@ class LeaderElection:
                 await renew
                 raise LeadershipLost("Lease renewal stopped unexpectedly")
             await work
+        except BaseException as error:
+            self._failure = error
+            raise
         finally:
             self._active = False
             # Cancelling/joining the callback also joins its controller workers. Release

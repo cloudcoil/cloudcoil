@@ -35,7 +35,12 @@ before execution.
   Application-level variants accept a payload model and optional subresource target.
   Admission registration does not imply resource ownership or CRD installation.
 - `@app.lifespan()` pairs per-process startup and shutdown around handler execution,
-  including non-leader replicas. Offline manifest generation does not enter lifespan.
+  including non-leader replicas. `scope="leader"` enters only after acquisition and
+  exits after workers stop, before lease release. Optional `LifecycleEvent` reports
+  startup/acquisition and is updated to shutdown/loss/failure before cleanup. Use
+  try/finally around yield for cleanup on cancellation. Leadership loss remains
+  fatal; the existing manager does not silently reacquire in-process. Offline
+  manifest generation does not enter either lifespan.
 
 Implementation will retain the existing low-level runtime while migrating examples
 and documentation to the decorator interface, with meaningful runtime and typing

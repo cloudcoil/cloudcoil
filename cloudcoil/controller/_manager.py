@@ -1,6 +1,8 @@
 """Structured lifecycle and shared watches for a group of controllers."""
 
 import asyncio
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager, AsyncExitStack
 from typing import Any
 
 from cloudcoil._context import context
@@ -27,6 +29,7 @@ class Manager:
         config: Config | None = None,
         leader_election: LeaderElection | None = None,
         health: HealthServer | None = None,
+        leader_lifespan: Callable[[], AbstractAsyncContextManager[None]] | None = None,
     ) -> None:
         if not controllers:
             raise ValueError("A manager needs at least one controller")
@@ -39,6 +42,7 @@ class Manager:
         if len(set(self._names)) != len(self._names):
             raise ValueError("Managed controllers must have distinct metric names")
         self.health = health
+        self._leader_lifespan = leader_lifespan
         self._running = False
         self._controllers = controllers
         self._config = config
@@ -108,10 +112,13 @@ class Manager:
             controller._prepared_config = config
 
     async def _run_controllers(self, stop: asyncio.Event | None) -> None:
-        await self._prepare()
-        async with asyncio.TaskGroup() as group:
-            for controller in self._controllers:
-                group.create_task(controller.run(stop=stop))
+        async with AsyncExitStack() as stack:
+            if self._leader_lifespan is not None:
+                await stack.enter_async_context(self._leader_lifespan())
+            await self._prepare()
+            async with asyncio.TaskGroup() as group:
+                for controller in self._controllers:
+                    group.create_task(controller.run(stop=stop))
 
     async def run(self, *, stop: asyncio.Event | None = None) -> None:
         """Run until explicit stop, cancellation, or a fatal controller failure."""

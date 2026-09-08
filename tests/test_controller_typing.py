@@ -90,6 +90,21 @@ async def applied(obj: ConfigMap) -> None:
 @registry.watch(Secret)
 def changed(secret: Secret) -> list[ResourceKey]:
     return [ResourceKey("settings", secret.namespace)]
+
+from collections.abc import AsyncIterator
+from cloudcoil.application import LifecycleEvent, LifecycleType
+from cloudcoil.admission import AdmissionRequest
+app = Application("decorators")
+assert_type(app.controller(ConfigMap), Controller[ConfigMap])
+
+@app.validate(ConfigMap)
+async def policy(request: AdmissionRequest[ConfigMap]) -> None:
+    assert_type(request.resource, ConfigMap | None)
+
+@app.lifespan(scope="leader")
+async def lifecycle(event: LifecycleEvent) -> AsyncIterator[None]:
+    assert_type(event.type, LifecycleType)
+    yield
 """)
     args = (
         ["--cache-dir", str(tmp_path / "mypy-cache")]
