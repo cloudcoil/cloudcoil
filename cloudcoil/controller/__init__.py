@@ -7,6 +7,7 @@ from ._manager import Manager
 from ._metrics import ControllerStatus
 from ._mutations import ensure_finalizer, mutate, remove_finalizer
 from ._queue import QueueClosed, WorkQueue
+from ._status import ReconcileStatus, get_condition, set_condition, update_status
 from ._types import Request, ResourceKey, Result, TerminalError
 
 __all__ = [
@@ -17,12 +18,16 @@ __all__ = [
     "LeaderElection",
     "LeadershipLost",
     "QueueClosed",
+    "ReconcileStatus",
     "Request",
     "ResourceKey",
     "Result",
     "TerminalError",
     "WorkQueue",
     "ensure_finalizer",
+    "get_condition",
     "mutate",
     "remove_finalizer",
+    "set_condition",
+    "update_status",
 ]
