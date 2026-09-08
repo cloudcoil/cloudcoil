@@ -12,9 +12,14 @@ uv add 'cloudcoil[kubernetes]'
 uv add 'cloudcoil[operator,kubernetes]'
 ```
 
-The unversioned Kubernetes extra currently installs published 1.32 models. This
-branch's controller and manifest examples use newer generated API metadata. Until
-matching model releases are available, run from a checkout:
+Select a Kubernetes model version for your cluster, following the
+[support and versioning policy](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md).
+Installing models supplies Python types; it does not install a cluster or CRDs.
+
+## Run the checkout
+
+This guide follows repository source, including APIs that may not yet be published.
+From the repository root, install the development environment and matching models:
 
 ```sh
 uv sync --group dev --extra codegen --extra kubernetes
@@ -23,10 +28,13 @@ uv run --no-sync python tools/generate_kubernetes.py \
 uv pip install --no-deps .build/kubernetes-models
 ```
 
-Use `uv run --no-sync` after installing these models so uv does not restore the
-lockfile's older version. See the [support and versioning policy](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md)
-for supported Kubernetes minors. Use your existing kubeconfig locally; in-cluster
-applications use their ServiceAccount.
+The checked-in development lockfile has a bootstrap model dependency. Use
+`uv run --no-sync` after installing generated models so uv does not restore it.
+For an application using published releases, install a compatible model package
+normally; local generation is only needed when developing against this checkout.
+
+Use your existing kubeconfig locally; applications in Kubernetes use their
+ServiceAccount. The commands below target the `default` namespace.
 
 ## Read a resource
 
@@ -88,13 +96,13 @@ ServiceAccount, RBAC and Deployment for your application image.
 Follow these guides in order:
 
 1. [Custom resources](custom-resources.md): define a CRD with Pydantic fields.
-2. [Controllers](controllers.md): return status, manage children and handle deletion.
-3. [Live clients and informer reads](reads.md): read related resources explicitly.
-4. [Admission](admission.md): default or validate writes, with or without a controller.
-5. [Deployment](operators.md): generate manifests, install and run.
+2. [Controllers](controllers.md): reconcile, manage children and finalize objects.
+3. [Stages and reporting](staged-controllers.md): structure work, status and Events.
+4. [Live clients and informer reads](reads.md): read related resources explicitly.
+5. [Admission](admission.md): default or validate writes, with or without a controller.
+6. [Deployment](operators.md): generate manifests, install and run.
 
 The [Widget demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets)
 is a complete CRD and operator with three child kinds, readiness, TLS and admission.
 The [pattern guide](patterns.md) covers shared dependencies, existing resources,
 pruning, finalizers and multiple controllers.
-

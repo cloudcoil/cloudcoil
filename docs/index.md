@@ -1,31 +1,41 @@
 # cloudcoil
 
-Typed Kubernetes clients, controllers and admission policies for Python.
-Use ordinary Pydantic resource classes for API calls, then use the same types to
-define CRDs and build operators.
+Cloudcoil combines typed Kubernetes API clients with a controller and admission
+runtime for Python 3.14+. The same Pydantic resource types work in API calls,
+controller handlers, CRD definitions and admission requests.
 
-[Get started](getting-started.md) with installation, a resource read and a running
-controller. Or choose the guide for your task:
+Start with [Getting started](getting-started.md) to run a controller. The guides
+follow this repository's source; use a matching checkout when trying unreleased APIs.
 
-| Task | Guide |
+## Build an application
+
+| You need to… | Guide |
 | --- | --- |
-| Read, write, build or watch Kubernetes objects | [Resources](resources.md) |
-| Collect and filter workload logs | [Logs](logs.md) |
-| Generate Python models from CRDs or OpenAPI | [Model generation](models.md) |
-| Define your own Kubernetes resource | [Custom resources](custom-resources.md) |
-| Reconcile resources and manage children | [Controllers](controllers.md) |
-| Read dependencies from clients or informers | [Live and cached reads](reads.md) |
-| Default or validate incoming writes | [Admission](admission.md) |
-| Generate manifests and deploy an operator | [Deployment](operators.md) |
-| Find an executable controller/operator pattern | [Patterns](patterns.md) |
+| Read and write Kubernetes objects | [Resources](resources.md) |
+| Define a custom resource and its status | [Custom resources](custom-resources.md) |
+| Repair desired state and manage child objects | [Controllers](controllers.md) |
+| Split work into stages or choose a case | [Stages, cases and reporting](staged-controllers.md) |
+| Read dependencies through API clients or informers | [Live and cached reads](reads.md) |
+| Default or validate writes | [Admission](admission.md) |
+| Generate permissions, install CRDs and deploy | [Application deployment](operators.md) |
+| Manage startup, shutdown and leadership changes | [Lifespans](lifespan.md) |
+| Check behavior locally and against Kubernetes | [Testing](testing.md) |
 
-`Application.main()` handles configuration, signals, queues, informers and cleanup.
-Start from the [complete Widget example](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets)
-for a CRD with three child kinds, readiness and admission.
+The [Widget demo](https://github.com/cloudcoil/cloudcoil/tree/main/examples/widgets)
+combines a CRD, ordered stages, three child kinds, status and admission. The
+[pattern catalog](patterns.md) covers dependency watches, nested cases, variable
+children, finalizers, reusable controller groups and standalone policies.
 
-For advanced integrations, see [runtime and observability](runtime.md),
-[client caching](caching.md), [testing](testing.md), and the [API reference](api.md).
+## Use the client and models
+
+[Resource operations](resources.md) and [logs](logs.md) work independently of the
+controller runtime. Use a [published model package](integrations.md), or
+[generate models](models.md) from a CRD or OpenAPI document.
+
+For embedding and tuning, see [client caching](caching.md),
+[runtime and observability](runtime.md) and the [API reference](api.md).
+Maintainers can follow the [model release guide](model-releases.md).
 
 [Source and issues](https://github.com/cloudcoil/cloudcoil) ·
-[Versioning and Kubernetes support](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md) ·
+[Versioning and support](https://github.com/cloudcoil/cloudcoil/blob/main/VERSIONING.md) ·
 [Apache-2.0 license](https://github.com/cloudcoil/cloudcoil/blob/main/LICENSE)

@@ -17,13 +17,13 @@ public import paths used by applications.
 
 ::: cloudcoil.controller
     options:
-      members: [Controller, Request, ResourceKey, Result, TerminalError, mutate, ensure_finalizer, remove_finalizer]
+      members: [Controller, Context, StageScope, ResourceKey, Result, Wait, TerminalError, ReconcileStatus, EventRecorder, get_condition, set_condition, update_status]
 
 ## Applications
 
 ::: cloudcoil.application
     options:
-      members: [Application, RBACRule, WebhookServer]
+      members: [Application, LifecycleEvent, LifecycleType, RBACRule, WebhookServer]
 
 ## Custom resources
 
@@ -52,3 +52,16 @@ public import paths used by applications.
 ::: cloudcoil.controller.ControllerStatus
 
 ::: cloudcoil.controller.WorkQueue
+
+## Explicit reconciliation and writes
+
+These APIs support embedding and existing Request callbacks. Start with the
+[decorator guide](controllers.md) for new applications.
+
+::: cloudcoil.controller
+    options:
+      members: [Request, Stage, Stages, Cases, mutate, ensure_finalizer, remove_finalizer]
+
+::: cloudcoil.patches
+    options:
+      members: [diff, json_patch]
