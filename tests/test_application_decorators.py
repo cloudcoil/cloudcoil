@@ -130,7 +130,10 @@ async def test_lifespan_event_type_updated_before_cleanup(scope, failure):
     ]
 
 
-async def test_leadership_loss_stops_workers_then_cleans_up_before_release(monkeypatch):
+@pytest.mark.parametrize("cleanup_failure", [False, True])
+async def test_leadership_loss_stops_workers_then_cleans_up_before_release(
+    monkeypatch, cleanup_failure
+):
     events = []
     started = asyncio.Event()
     lost = LeadershipLost("ownership changed")
@@ -151,6 +154,8 @@ async def test_leadership_loss_stops_workers_then_cleans_up_before_release(monke
         finally:
             assert event.error is lost
             events.append(event.type)
+            if cleanup_failure:
+                raise RuntimeError("cleanup failed")
 
     async def attempt(config):
         return True
@@ -183,8 +188,14 @@ async def test_leadership_loss_stops_workers_then_cleans_up_before_release(monke
         leader_lifespan=lambda: app._lifespans.enter("leader", leader),
     )
     monkeypatch.setattr(manager, "_prepare", prepare)
-    with pytest.raises(LeadershipLost):
-        await manager.run()
+    if cleanup_failure:
+        with pytest.raises(BaseExceptionGroup) as raised:
+            await manager.run()
+        assert any(isinstance(error, LeadershipLost) for error in raised.value.exceptions)
+        assert any(isinstance(error, RuntimeError) for error in raised.value.exceptions)
+    else:
+        with pytest.raises(LeadershipLost):
+            await manager.run()
     assert events == [
         LifecycleType.LEADERSHIP_ACQUIRED,
         "workers started",

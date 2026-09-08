@@ -67,6 +67,7 @@ class Controller[T: Resource]:
         reconcile_timeout: float | None = None,
         events: bool | EventRecorder = True,
         status_updates: bool | None = None,
+        event_flush_timeout: float = 2,
     ) -> None:
         if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
             raise ValueError("workers must be a positive integer")
@@ -74,11 +75,12 @@ class Controller[T: Resource]:
             ("sync_timeout", sync_timeout),
             ("shutdown_timeout", shutdown_timeout),
             ("reconcile_timeout", reconcile_timeout),
+            ("event_flush_timeout", event_flush_timeout),
         ):
             if value is not None and (not math.isfinite(value) or value <= 0):
                 raise ValueError(f"{setting} must be finite and positive")
-        if name is not None and not name.strip():
-            raise ValueError("Controller name must not be empty")
+        if name is not None and (not name.strip() or len(name) > 118):
+            raise ValueError("Controller name must contain 1-118 characters")
         self.name = name
         if not isinstance(events, (bool, EventRecorder)):
             raise TypeError("events must be a bool or EventRecorder")
@@ -89,7 +91,10 @@ class Controller[T: Resource]:
         self._status_updates = (
             status_updates
             if status_updates is not None
-            else reconcile is not None and not isinstance(reconcile, (Stages, Cases))
+            else not (
+                isinstance(reconcile, (Stages, Cases))
+                or (reconcile is None and self._registry.report_status)
+            )
         )
         self._events = (
             events
@@ -113,6 +118,7 @@ class Controller[T: Resource]:
         self._sync_timeout = sync_timeout
         self._shutdown_timeout = shutdown_timeout
         self._reconcile_timeout = reconcile_timeout
+        self._event_flush_timeout = event_flush_timeout
         self._queue = WorkQueue[ResourceKey]()
         self._watches: list[_Watch] = []
         self._informers: list[AsyncInformer[Any]] = []
@@ -417,7 +423,7 @@ class Controller[T: Resource]:
             return
         try:
             # Event I/O never consumes the reconcile deadline or changes its outcome.
-            async with asyncio.timeout(2):
+            async with asyncio.timeout(self._event_flush_timeout):
                 for reason, message, event_type, action in request._report.events:
                     await self._events.emit(
                         request.object,
@@ -437,6 +443,8 @@ class Controller[T: Resource]:
             async with asyncio.timeout(5):
                 if request._report.baseline is not None:
                     original = cast(T, request._report.baseline)
+                if request._report.managed and request._report.dirty:
+                    request.object.status = request._report.status.model_copy(deep=True)  # type: ignore[attr-defined]
                 request._failed(error)
                 if original is not None and request._report.dirty:
                     desired = original.model_copy(deep=True)
@@ -474,7 +482,10 @@ class Controller[T: Resource]:
                     _events=self._events,
                 )
                 async with asyncio.timeout(self._reconcile_timeout):
-                    returned = await self._invoke(request)
+                    try:
+                        returned = await self._invoke(request)
+                    except Wait as wait:
+                        returned = wait
                     if request._report.baseline is not None:
                         original = cast(T, request._report.baseline)
                     callback_complete = True

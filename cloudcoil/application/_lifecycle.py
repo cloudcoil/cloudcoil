@@ -83,7 +83,13 @@ class Lifespans:
             try:
                 yield
             except BaseException as error:
-                cause = getattr(leader, "_failure", None) or error
+                failure = getattr(leader, "_failure", None)
+                cause = (
+                    failure
+                    if isinstance(failure, LeadershipLost)
+                    and isinstance(error, asyncio.CancelledError)
+                    else error
+                )
                 event.error = cause
                 if isinstance(cause, LeadershipLost):
                     event.type = LifecycleType.LEADERSHIP_LOST

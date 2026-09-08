@@ -227,3 +227,75 @@ async def test_finalizer_live_ordering_and_fresh_baseline(monkeypatch, failure):
         assert req._report.baseline.resource_version == "3"
         assert req._report.baseline.status is None
         assert req.object.status.endpoint == "new"
+
+
+async def test_returned_copy_keeps_custom_status_and_automatic_ready():
+    from cloudcoil.controller import update_status
+
+    controller = Controller(Widget)
+
+    @controller.reconcile()
+    async def reconcile(obj):
+        desired = obj.model_copy(deep=True)
+        update_status(desired, endpoint="returned", ready_replicas=2)
+        return desired
+
+    req = request()
+    result = await controller.reconcile(req)
+    assert result.status.endpoint == "returned"
+    assert result.status.ready_replicas == 2
+    assert get_condition(result, "Ready").status == "True"
+    assert req._report.status == result.status
+
+
+def test_builtin_status_updates_remain_inputs_by_default():
+    from cloudcoil.models.kubernetes.core.v1 import Pod
+
+    controller = Controller(Pod)
+    assert controller._status_updates is True
+    assert Controller(Widget)._status_updates is False
+
+
+@pytest.mark.parametrize("outcome", ["success", "wait", "failure"])
+async def test_incidental_primary_edits_do_not_become_status_reports(outcome):
+    from cloudcoil.controller import update_status
+
+    controller = Controller(Widget)
+
+    @controller.reconcile()
+    async def reconcile(obj, ctx):
+        ctx.set_status(endpoint="explicit")
+        update_status(obj, endpoint="incidental")
+        obj.metadata.annotations = {"incidental": "change"}
+        if outcome == "wait":
+            raise Wait("Pending")
+        if outcome == "failure":
+            raise RuntimeError("failed")
+
+    req = request()
+    if outcome == "failure":
+        with pytest.raises(RuntimeError):
+            await controller.reconcile(req)
+        # The worker restores the explicit report before generating failure conditions.
+        assert req._report.status.endpoint == "explicit"
+    else:
+        result = await controller.reconcile(req)
+        assert result is None or result.resource is None
+        assert req._report.status.endpoint == "explicit"
+
+
+async def test_named_stage_scope_with_single_handler_is_a_dependency_reference():
+    controller = Controller(Widget)
+    first = controller.stage("first", condition="First")
+    calls = []
+
+    @first
+    async def configure(obj):
+        calls.append("configure")
+
+    @controller.stage(depends=first, condition="Second")
+    async def second(obj):
+        calls.append("second")
+
+    await controller.reconcile(request())
+    assert calls == ["configure", "second"]

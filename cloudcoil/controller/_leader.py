@@ -297,6 +297,19 @@ class LeaderElection:
             tasks = [task for task in (work, renew) if task is not None]
             for task in tasks:
                 task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            outcomes = await asyncio.gather(*tasks, return_exceptions=True)
             if acquired:
                 await self._release(config)
+            cleanup_errors = [
+                outcome
+                for outcome in outcomes
+                if isinstance(outcome, BaseException)
+                and not isinstance(outcome, asyncio.CancelledError)
+                and outcome is not self._failure
+            ]
+            if cleanup_errors:
+                if self._failure is not None and not isinstance(
+                    self._failure, asyncio.CancelledError
+                ):
+                    cleanup_errors.insert(0, self._failure)
+                raise BaseExceptionGroup("Leader work failed during cleanup", cleanup_errors)

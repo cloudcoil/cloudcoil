@@ -39,6 +39,7 @@ def _ordered(nodes: list[Any], *, label: str) -> list[Any]:
     identities = {id(node.identity): node for node in nodes}
     if len(identities) != len(nodes):
         raise ValueError(f"Duplicate {label} handler")
+    identities.update({id(node): node for node in nodes})
     remaining = list(nodes)
     completed: set[int] = set()
     ordered = []
@@ -55,7 +56,7 @@ def _ordered(nodes: list[Any], *, label: str) -> list[Any]:
             raise ValueError(f"Ambiguous {label} order: {names}; declare dependencies")
         node = ready[0]
         ordered.append(node)
-        completed.add(id(node.identity))
+        completed.update((id(node.identity), id(node)))
         remaining.remove(node)
     return ordered
 
@@ -95,6 +96,7 @@ class _Branches:
         self._check = check
         self.branches: list[_Branch] = []
         self.fallback: _Handler | None = None
+        self._order: list[_Branch] | None = None
 
     def case[F: Callable[..., Any]](
         self, *, when: Callable[..., bool], after: object | tuple[object, ...] | None = None
@@ -128,7 +130,9 @@ class _Branches:
         return _ordered(self.branches, label="case")
 
     def select(self, request: Request[Any]) -> _Handler:
-        for branch in self.validate():
+        if self._order is None:
+            self._order = self.validate()
+        for branch in self._order:
             request._report.action = branch.name
             matches = branch.predicate.call(request)
             if type(matches) is not bool:
@@ -200,6 +204,7 @@ class Registry[T: Resource]:
         self.finalizer: tuple[str, _Handler] | None = None
         self.every: float | None = None
         self.frozen = False
+        self._order: list[StageScope[T]] = []
         if report_status is None:
             try:
                 report_status = issubclass(
@@ -255,6 +260,8 @@ class Registry[T: Resource]:
         return register
 
     def validate(self, *, freeze: bool = False) -> list[StageScope[T]]:
+        if self.frozen:
+            return self._order
         modes = bool(self.handler) + bool(self.stages) + self.branches.populated
         if modes != 1:
             raise ValueError("Register exactly one entrypoint: reconcile, stages, or cases")
@@ -274,6 +281,7 @@ class Registry[T: Resource]:
         if self.branches.populated:
             self.branches.validate()
         if freeze:
+            self._order = ordered
             self.frozen = True
         return ordered
 
@@ -324,6 +332,8 @@ class Registry[T: Resource]:
         message = wait.message if wait else f"{report.action} is up to date"
         reason = wait.reason if wait else reason
         if report.managed:
+            # Only explicit reports (or a successfully returned primary) are persisted.
+            request.object.status = report.status.model_copy(deep=True)  # type: ignore[attr-defined]
             request.condition(
                 condition,
                 wait is None,
@@ -395,6 +405,13 @@ class Registry[T: Resource]:
         except Wait as wait:
             self._outcome(request, "Ready", wait=wait)
             return Result(requeue_after=wait.requeue_after)
+        desired = returned.resource if isinstance(returned, Result) else returned
+        if isinstance(desired, self.resource):
+            report.current = desired
+            if self.report_status:
+                request.set_status(
+                    observed_generation=desired.metadata.generation if desired.metadata else None
+                )
         self._outcome(
             request, "Ready", reason=report.action if self.handler is None else "Reconciled"
         )
